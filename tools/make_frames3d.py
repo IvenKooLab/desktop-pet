@@ -17,7 +17,7 @@ import sys
 from pathlib import Path
 
 import numpy as np
-from PIL import Image, ImageDraw, ImageEnhance
+from PIL import Image, ImageDraw
 from scipy import ndimage
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -51,19 +51,25 @@ def flood_bg(rgb: np.ndarray, tol: int = 13) -> np.ndarray:
     bg = ndimage.binary_propagation(seed & passable, mask=passable)
     return ~bg
 
-def defringe(rgba: np.ndarray) -> np.ndarray:
-    """边缘带像素颜色替换为内部颜色均值，去掉蓝底色晕；再 1px 内缩成硬边。"""
+def defringe(rgba: np.ndarray, glow_cut: int = 8, band: int = 5) -> np.ndarray:
+    """切掉渲染图自带的辉光软边 + 边缘带重着色。
+
+    豆包渲染在角色轮廓外有一圈 3~10px 灰紫辉光，颜色闸门只能吃掉一半，
+    剩下的会变成紫描边——这里把 alpha 整体内缩 glow_cut 像素彻底切掉，
+    再把新边缘带（band 像素宽）颜色替换为更深的内部色，消除残余色晕。
+    """
     fg = rgba[..., 3] > 0
-    inner = ndimage.binary_erosion(fg, iterations=3)
-    band = fg & ~inner
+    inner = ndimage.binary_erosion(fg, iterations=glow_cut + band)
+    band_px = fg & ~inner
     rgbf = rgba[..., :3].astype(float) * inner[..., None]
-    norm = ndimage.uniform_filter(inner.astype(float), 9)
-    blur = np.stack([ndimage.uniform_filter(rgbf[..., c], 9) for c in range(3)], -1)
+    win = band * 2 + 9
+    norm = ndimage.uniform_filter(inner.astype(float), win)
+    blur = np.stack([ndimage.uniform_filter(rgbf[..., c], win) for c in range(3)], -1)
     with np.errstate(invalid="ignore", divide="ignore"):
-        edge_rgb = np.where(norm[..., None] > 0, blur / np.maximum(norm[..., None], 1e-6), rgba[..., :3])
+        edge_rgb = np.where(norm[..., None] > 1e-3, blur / np.maximum(norm[..., None], 1e-6), rgba[..., :3])
     out = rgba.copy()
-    out[..., :3][band] = np.clip(edge_rgb[band], 0, 255).astype(np.uint8)
-    out[..., 3] = ndimage.binary_erosion(fg, iterations=1) * 255
+    out[..., :3][band_px] = np.clip(edge_rgb[band_px], 0, 255).astype(np.uint8)
+    out[..., 3] = ndimage.binary_erosion(fg, iterations=glow_cut) * 255
     return out
 
 def cut_sheet(path: Path, tol: int = 13, gap: int = 60, min_h: int = 120):
@@ -123,32 +129,51 @@ def cut_sheet(path: Path, tol: int = 13, gap: int = 60, min_h: int = 120):
     return cuts
 
 # --- 2) 姿势工具 -----------------------------------------------------------
-def fit(im: Image.Image, box=(FIT_W, FIT_H)) -> Image.Image:
-    im = im.copy()
-    im.thumbnail(box, Image.LANCZOS)
-    return im
+def _pm(im: Image.Image) -> Image.Image:
+    """预乘 alpha：透明像素 RGB 归零，重采样时底色才不会混入边缘（防紫描边）。"""
+    arr = np.asarray(im.convert("RGBA")).copy()
+    a = arr[..., 3:].astype(np.float32) / 255.0
+    arr[..., :3] = np.clip(arr[..., :3].astype(np.float32) * a, 0, 255)
+    return Image.fromarray(arr, "RGBA")
 
-def on_canvas(im: Image.Image, dy=0, scale=(1, 1), tilt=0, dim=1.0) -> Image.Image:
-    """fit 后贴到 200x200 品红画布，底对齐 FOOT_Y；scale=(w,h) 压拉伸，tilt 角度，dim 压暗。"""
-    im = fit(im)
+def _unpm(im: Image.Image) -> Image.Image:
+    """预乘还原为直色 + alpha 二值化（运行时品红色键需要硬边）。"""
+    arr = np.asarray(im.convert("RGBA")).astype(np.float32)
+    a = arr[..., 3:] / 255.0
+    rgb = np.clip(arr[..., :3] / np.maximum(a, 1e-4), 0, 255)
+    rgb = np.where(a > 0.01, rgb, 0.0)
+    out = np.dstack([rgb, np.where(arr[..., 3] >= 160, 255, 0)]).astype(np.uint8)
+    return Image.fromarray(out, "RGBA")
+
+def fit(im: Image.Image, box=(FIT_W, FIT_H)) -> Image.Image:
+    """预乘空间缩放（仅预览/外部用；管线内由 on_canvas 统一处理）。"""
+    im = _pm(im).copy()
+    im.thumbnail(box, Image.LANCZOS)
+    return _unpm(im)
+
+def on_canvas(im: Image.Image, dy=0, scale=(1, 1), tilt=0, dim=1.0, flip=False) -> Image.Image:
+    """fit 后贴到 200x200 品红画布，底对齐 FOOT_Y。
+
+    全部重采样（缩放/旋转）在预乘空间进行，杜绝蓝底/黑填充混入边缘。
+    scale=(w,h) 压拉伸，tilt 角度，dim 压暗，flip 水平镜像。
+    """
+    im = _pm(im)
+    im.thumbnail((FIT_W, FIT_H), Image.LANCZOS)
+    if flip:
+        im = im.transpose(Image.FLIP_LEFT_RIGHT)
     if scale != (1, 1):
-        im = im.resize((max(1, int(im.width * scale[0])), max(1, int(im.height * scale[1]))), Image.LANCZOS)
+        im = im.resize((max(1, int(im.width * scale[0])), max(1, int(im.height * scale[1]))),
+                       Image.LANCZOS)
     if tilt:
         im = im.rotate(tilt, resample=Image.BICUBIC, expand=True)
+    im = _unpm(im)
     if dim != 1.0:
-        a = im.getchannel("A")
-        im = ImageEnhance.Brightness(im).enhance(dim)
-        im.putalpha(a)
-    # 运行时按纯品红色键透明：半透明像素会与品红混成粉边，先二值化成硬边
-    a = im.getchannel("A").point(lambda v: 255 if v >= 160 else 0)
-    im = im.copy()
-    im.putalpha(a)
+        arr = np.asarray(im).copy()
+        arr[..., :3] = np.clip(arr[..., :3].astype(np.float32) * dim, 0, 255).astype(np.uint8)
+        im = Image.fromarray(arr, "RGBA")
     cv = Image.new("RGB", (CANVAS, CANVAS), (255, 0, 255))
     cv.paste(im, ((CANVAS - im.width) // 2, FOOT_Y - im.height + dy), im)
     return cv
-
-def mirror(im: Image.Image) -> Image.Image:
-    return im.transpose(Image.FLIP_LEFT_RIGHT)
 
 # --- 3) 主流程 -------------------------------------------------------------
 def load_cuts():
@@ -189,15 +214,11 @@ def build_frames(cuts):
     put("idle_0", cuts["hug"])
     put("idle_1", cuts["hug"], scale=(1.03, 0.97), dy=3)
     # walk：侧视摇摆（原侧视朝左）
-    side = fit(cuts["side"])
-    put("walk_0", side)
-    put("walk_1", side, dy=-4, tilt=5)
-    put("walk_2", side, dy=1)
-    put("walk_3", side, tilt=-5)
-    for i in range(4):
-        (FRAMES / f"walk_l_{i}.gif").unlink(missing_ok=True)
-        on_canvas(side, dy=[0, -4, 1, 0][i], tilt=[0, 5, 0, -5][i]).save(FRAMES / f"walk_l_{i}.gif")
-        on_canvas(mirror(side), dy=[0, -4, 1, 0][i], tilt=[0, -5, 0, 5][i]).save(FRAMES / f"walk_r_{i}.gif")
+    dyn = [(0, 0), (-4, 5), (1, 0), (0, -5)]       # (dy, tilt)
+    for i, (d, t) in enumerate(dyn):
+        on_canvas(cuts["side"], dy=d, tilt=t).save(FRAMES / f"walk_l_{i}.gif")
+        on_canvas(cuts["side"], dy=d, tilt=-t, flip=True).save(FRAMES / f"walk_r_{i}.gif")
+        g[f"walk_{i}"] = on_canvas(cuts["side"], dy=d, tilt=t)
     # grab：张手开心左右挣扎
     put("grab_0", cuts["happy"], tilt=-8)
     put("grab_1", cuts["happy"], tilt=8)
@@ -215,9 +236,9 @@ def build_frames(cuts):
     put("cheer_1", cuts["cheer"], dy=-6)
     # spin：正→右侧→背→左侧
     put("spin_0", cuts["front"])
-    put("spin_1", mirror(fit(cuts["side"])))
+    put("spin_1", cuts["side"], flip=True)
     put("spin_2", cuts["back"])
-    put("spin_3", fit(cuts["side"]))
+    put("spin_3", cuts["side"])
 
     for name, im in g.items():
         im.save(FRAMES / f"{name}.gif")
