@@ -72,7 +72,34 @@ def defringe(rgba: np.ndarray, glow_cut: int = 8, band: int = 5) -> np.ndarray:
     out[..., 3] = ndimage.binary_erosion(fg, iterations=glow_cut) * 255
     return out
 
-def cut_sheet(path: Path, tol: int = 13, gap: int = 60, min_h: int = 120):
+def remove_thin(fg: np.ndarray, t: int = 7) -> np.ndarray:
+    """去掉 mask 中的细笔画（地面椭圆圈/虚线/水印等）。
+
+    横、竖两个方向各做「腐蚀+按原 mask 回灌」：任一方向厚度 < t 的结构
+    都保不住核（椭圆上下弧死于竖腐蚀、侧弧与虚线死于横腐蚀），
+    腿/场记板/头发等实体两个方向都厚，完好保留。
+    """
+    v = ndimage.binary_propagation(
+        ndimage.binary_erosion(fg, structure=np.ones((t, 1), bool)), mask=fg)
+    hz = ndimage.binary_propagation(
+        ndimage.binary_erosion(fg, structure=np.ones((1, t), bool)), mask=fg)
+    return v & hz
+
+def checker_fg(rgb: np.ndarray) -> np.ndarray:
+    """假透明棋盘格底（白/浅灰中性色块画进像素）：中性浅色规则从四边洪泛。
+
+    白色贴纸描边同属中性浅色，会被一并吃掉，故无需大深度内缩。
+    """
+    mx = rgb.max(2).astype(int)
+    mn = rgb.min(2).astype(int)
+    cand = ((mx - mn) <= 14) & (mn >= 200)
+    seed = np.zeros(cand.shape, bool)
+    seed[0, :] = seed[-1, :] = seed[:, 0] = seed[:, -1] = True
+    bg = ndimage.binary_propagation(seed & cand, mask=cand)
+    return ~bg
+
+def cut_sheet(path: Path, tol: int = 13, gap: int = 60, min_h: int = 120,
+              bg: str = "blue", glow_cut: int = 8):
     """整张 Sheet → [裁好的 RGBA 姿势图]（按连通域合并框）。
 
     gap: 框间合并距离——actions 里板与手有缝要合并，views 三视图间距小要拆开。
@@ -80,8 +107,13 @@ def cut_sheet(path: Path, tol: int = 13, gap: int = 60, min_h: int = 120):
     """
     img = Image.open(path).convert("RGB")
     rgb = np.asarray(img).astype(np.uint8)
-    fg = flood_bg(rgb, tol)
-    fg = ndimage.binary_closing(fg, iterations=2)
+    if bg == "checker":
+        fg = checker_fg(rgb)
+        glow_cut = min(glow_cut, 3)          # 描边已被颜色规则吃掉，只做浅内缩
+    else:
+        fg = flood_bg(rgb, tol)
+        fg = ndimage.binary_closing(fg, iterations=2)
+        fg = remove_thin(fg)                 # 地面椭圆圈/虚线/水印
     # 小噪点清理
     lbl, n = ndimage.label(fg)
     sizes = ndimage.sum(fg, lbl, range(1, n + 1))
@@ -122,7 +154,7 @@ def cut_sheet(path: Path, tol: int = 13, gap: int = 60, min_h: int = 120):
         tile = rgb[y0:y1, x0:x1]
         mask = fg[y0:y1, x0:x1]
         rgba = np.dstack([tile, mask * 255]).astype(np.uint8)
-        rgba = defringe(rgba)
+        rgba = defringe(rgba, glow_cut=glow_cut)
         im = Image.fromarray(rgba)
         bbox = im.getbbox()
         cuts.append(im.crop(bbox))
@@ -207,14 +239,19 @@ def load_cuts():
     CUT.mkdir(exist_ok=True)
     views = cut_sheet(SRC / "views_clean.png", gap=14)
     acts = cut_sheet(SRC / "actions.png", gap=60)
+    walks = cut_sheet(SRC / "walk_cycle.png", gap=40, bg="checker", glow_cut=3)
     assert len(views) == 3, f"views 应切出 3 视图，实际 {len(views)}"
     assert len(acts) == 6, f"actions 应切出 6 姿势，实际 {len(acts)}"
+    assert len(walks) == 4, f"walk_cycle 应切出 4 步态，实际 {len(walks)}"
     names_v = ["front", "side", "back"]
     names_a = ["happy", "jump", "shy", "wave", "cheer", "hug"]  # 阅读序：上排2+下排4
+    names_w = ["wl_contact", "wl_pass", "wr_pass", "wr_contact"]  # 左：接触/过渡，右：过渡/接触
     out = {}
     for im, n in zip(views, names_v):
         im.save(CUT / f"{n}.png"); out[n] = im
     for im, n in zip(acts, names_a):
+        im.save(CUT / f"{n}.png"); out[n] = im
+    for im, n in zip(walks, names_w):
         im.save(CUT / f"{n}.png"); out[n] = im
     return out
 
@@ -240,14 +277,13 @@ def build_frames(cuts):
     # idle：抱板微笑 + 呼吸压扁
     put("idle_0", cuts["hug"])
     put("idle_1", cuts["hug"], scale=(1.03, 0.97), dy=3)
-    # walk：侧视伪步态循环——剪腿错位 × 上下颠 × 倾角 × 重心前后（接触-过渡-接触-过渡）
-    side = cuts["side"]
-    poses = [(36, -3, 3, -4), (0, 0, -6, 0), (-36, 3, 3, 4), (0, 0, -5, 0)]  # (剪腿dx, tilt, dy, 身体dx)
-    for i, (dx, tl, dyv, bdx) in enumerate(poses):
-        base = stride(side, dx)
-        on_canvas(base, tilt=tl, dy=dyv, dx=bdx).save(FRAMES / f"walk_l_{i}.gif")
-        on_canvas(base, tilt=-tl, dy=dyv, dx=-bdx, flip=True).save(FRAMES / f"walk_r_{i}.gif")
-        g[f"walk_{i}"] = on_canvas(base, tilt=tl, dy=dyv, dx=bdx)
+    # walk：真迈步循环（豆包走路Sheet）——左向=接触/过渡交替，右向=右向两帧
+    dys = [0, -4, 0, -3]                                 # 过渡帧轻微抬高，加弹跳感
+    for i in range(4):
+        on_canvas(cuts["wl_contact" if i % 2 == 0 else "wl_pass"],
+                  dy=dys[i]).save(FRAMES / f"walk_l_{i}.gif")
+        on_canvas(cuts["wr_contact" if i % 2 == 0 else "wr_pass"],
+                  dy=dys[i]).save(FRAMES / f"walk_r_{i}.gif")
     # grab：张手开心左右挣扎
     put("grab_0", cuts["happy"], tilt=-8)
     put("grab_1", cuts["happy"], tilt=8)
