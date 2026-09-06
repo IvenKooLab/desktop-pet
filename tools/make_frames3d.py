@@ -113,6 +113,21 @@ def checker_fg(rgb: np.ndarray, tol: int = 13, hole_min: int = 1500) -> np.ndarr
             fg |= lbl == i
     return fg
 
+_REMBG_SESSION = None
+
+def rembg_session():
+    global _REMBG_SESSION
+    if _REMBG_SESSION is None:
+        from rembg import new_session
+        _REMBG_SESSION = new_session("u2net")
+    return _REMBG_SESSION
+
+def rembg_fg(img: Image.Image, thresh: int = 127) -> np.ndarray:
+    """AI 抠图（u2net）：浅色角色×浅色背景的颜色规则终结者。返回二值前景 mask。"""
+    from rembg import remove
+    out = remove(img, session=rembg_session())
+    return np.asarray(out)[..., 3] >= thresh
+
 def cut_sheet(path: Path, tol: int = 13, gap: int = 60, min_h: int = 120,
               bg: str = "blue", glow_cut: int = 8):
     """整张 Sheet → [裁好的 RGBA 姿势图]（按连通域合并框）。
@@ -122,7 +137,10 @@ def cut_sheet(path: Path, tol: int = 13, gap: int = 60, min_h: int = 120,
     """
     img = Image.open(path).convert("RGB")
     rgb = np.asarray(img).astype(np.uint8)
-    if bg == "checker":
+    if bg == "rembg":
+        fg = rembg_fg(img)
+        glow_cut = 2                          # AI 边缘干净，仅去除残余混合边
+    elif bg == "checker":
         fg = checker_fg(rgb)
         glow_cut = min(glow_cut, 3)          # 描边已被颜色规则吃掉，只做浅内缩
     else:
@@ -253,25 +271,20 @@ def on_canvas(im: Image.Image, dy=0, dx=0, scale=(1, 1), tilt=0, dim=1.0, flip=F
 def load_cuts():
     CUT.mkdir(exist_ok=True)
     views = cut_sheet(SRC / "views_clean.png", gap=14)
-    acts = cut_sheet(SRC / "actions.png", gap=60)
-    walks = cut_sheet(SRC / "walk_cycle.png", gap=14, bg="checker", glow_cut=3)
-    fasts = cut_sheet(SRC / "fastwalk.png", gap=40, bg="checker", glow_cut=3)
-    idles = cut_sheet(SRC / "idle_breathe.png", gap=40, bg="checker", glow_cut=3)
-    cards = cut_sheet(SRC / "actions_lib.png", gap=30, bg="checker", glow_cut=3)
+    walks = cut_sheet(SRC / "walk_cycle.png", gap=14, bg="rembg")
+    fasts = cut_sheet(SRC / "fastwalk.png", gap=40, bg="rembg")
+    idles = cut_sheet(SRC / "idle_breathe.png", gap=40, bg="rembg")
+    cards = cut_sheet(SRC / "actions_lib.png", gap=30, bg="rembg")
     assert len(views) == 3, f"views 应切出 3 视图，实际 {len(views)}"
-    assert len(acts) == 6, f"actions 应切出 6 姿势，实际 {len(acts)}"
     assert len(walks) == 4, f"walk_cycle 应切出 4 步态，实际 {len(walks)}"
     assert len(fasts) == 4, f"fastwalk 应切出 4 步态，实际 {len(fasts)}"
     assert len(idles) == 3, f"idle_breathe 应切出 3 帧，实际 {len(idles)}"
     assert len(cards) == 8, f"actions_lib 应切出 8 卡，实际 {len(cards)}"
     names_v = ["front", "side", "back"]
-    names_a = ["happy", "jump", "shy", "wave", "cheer", "hug"]  # 阅读序：上排2+下排4
     names_w = ["wl_contact", "wl_pass", "wr_pass", "wr_contact"]  # 左：接触/过渡，右：过渡/接触
     names_f = ["fl_a", "fl_b", "fr_a", "fr_b"]
     out = {}
     for im, n in zip(views, names_v):
-        im.save(CUT / f"{n}.png"); out[n] = im
-    for im, n in zip(acts, names_a):
         im.save(CUT / f"{n}.png"); out[n] = im
     for im, n in zip(walks, names_w):
         im.save(CUT / f"{n}.png"); out[n] = im
@@ -342,10 +355,10 @@ def build_frames(cuts):
     put("cheer_0", cuts["card_7"])
     put("cheer_1", cuts["card_6"], dy=-6)
     # spin：正→右侧→背→左侧（views_clean 人物偏大 ~20%，缩放对齐新Sheet）
-    put("spin_0", cuts["front"], scale=(0.83, 0.83))
-    put("spin_1", cuts["side"], scale=(0.83, 0.83), flip=True)
-    put("spin_2", cuts["back"], scale=(0.83, 0.83))
-    put("spin_3", cuts["side"], scale=(0.83, 0.83))
+    put("spin_0", cuts["front"], scale=(0.88, 0.88))
+    put("spin_1", cuts["side"], scale=(0.88, 0.88), flip=True)
+    put("spin_2", cuts["back"], scale=(0.88, 0.88))
+    put("spin_3", cuts["side"], scale=(0.88, 0.88))
 
     for name, im in g.items():
         im.save(FRAMES / f"{name}.gif")
