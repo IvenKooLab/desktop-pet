@@ -151,11 +151,38 @@ def fit(im: Image.Image, box=(FIT_W, FIT_H)) -> Image.Image:
     im.thumbnail(box, Image.LANCZOS)
     return _unpm(im)
 
-def on_canvas(im: Image.Image, dy=0, scale=(1, 1), tilt=0, dim=1.0, flip=False) -> Image.Image:
+def stride(im: Image.Image, dx: int, hip: float = 0.70, feather: float = 0.08) -> Image.Image:
+    """伪步态：下半身按行横向渐变错位（剪腿），越靠脚位移越大。
+
+    接缝藏在帽衫下摆处并垂直羽化，配合 bob/tilt 组成走路循环。
+    dx>0 脚向右错位（用于朝左行走的后蹬相位），dx<0 反向。
+    """
+    arr = np.asarray(im.convert("RGBA")).astype(np.float32)
+    h = arr.shape[0]
+    y0 = int(h * hip)
+    fz = max(4, int(h * feather))
+    shifted = arr.copy()
+    for y in range(y0 + fz, h):
+        t = (y - y0) / max(1, h - y0)
+        d = int(round(dx * t))
+        if d:
+            row = arr[y]
+            r = np.zeros_like(row)
+            if d > 0:
+                r[:, d:] = row[:, :-d]
+            else:
+                r[:, :d] = row[:, -d:]
+            shifted[y] = r
+    a = np.zeros((h, 1, 1), np.float32)
+    a[y0:y0 + fz, :, :] = np.linspace(0.0, 1.0, fz).reshape(fz, 1, 1)
+    out = np.clip(arr * (1 - a) + shifted * a, 0, 255).astype(np.uint8)
+    return Image.fromarray(out, "RGBA")
+
+def on_canvas(im: Image.Image, dy=0, dx=0, scale=(1, 1), tilt=0, dim=1.0, flip=False) -> Image.Image:
     """fit 后贴到 200x200 品红画布，底对齐 FOOT_Y。
 
     全部重采样（缩放/旋转）在预乘空间进行，杜绝蓝底/黑填充混入边缘。
-    scale=(w,h) 压拉伸，tilt 角度，dim 压暗，flip 水平镜像。
+    scale=(w,h) 压拉伸，tilt 角度，dy/dx 上下/左右偏移，dim 压暗，flip 水平镜像。
     """
     im = _pm(im)
     im.thumbnail((FIT_W, FIT_H), Image.LANCZOS)
@@ -172,7 +199,7 @@ def on_canvas(im: Image.Image, dy=0, scale=(1, 1), tilt=0, dim=1.0, flip=False) 
         arr[..., :3] = np.clip(arr[..., :3].astype(np.float32) * dim, 0, 255).astype(np.uint8)
         im = Image.fromarray(arr, "RGBA")
     cv = Image.new("RGB", (CANVAS, CANVAS), (255, 0, 255))
-    cv.paste(im, ((CANVAS - im.width) // 2, FOOT_Y - im.height + dy), im)
+    cv.paste(im, ((CANVAS - im.width) // 2 + dx, FOOT_Y - im.height + dy), im)
     return cv
 
 # --- 3) 主流程 -------------------------------------------------------------
@@ -213,12 +240,14 @@ def build_frames(cuts):
     # idle：抱板微笑 + 呼吸压扁
     put("idle_0", cuts["hug"])
     put("idle_1", cuts["hug"], scale=(1.03, 0.97), dy=3)
-    # walk：侧视摇摆（原侧视朝左）
-    dyn = [(0, 0), (-4, 5), (1, 0), (0, -5)]       # (dy, tilt)
-    for i, (d, t) in enumerate(dyn):
-        on_canvas(cuts["side"], dy=d, tilt=t).save(FRAMES / f"walk_l_{i}.gif")
-        on_canvas(cuts["side"], dy=d, tilt=-t, flip=True).save(FRAMES / f"walk_r_{i}.gif")
-        g[f"walk_{i}"] = on_canvas(cuts["side"], dy=d, tilt=t)
+    # walk：侧视伪步态循环——剪腿错位 × 上下颠 × 倾角 × 重心前后（接触-过渡-接触-过渡）
+    side = cuts["side"]
+    poses = [(36, -3, 3, -4), (0, 0, -6, 0), (-36, 3, 3, 4), (0, 0, -5, 0)]  # (剪腿dx, tilt, dy, 身体dx)
+    for i, (dx, tl, dyv, bdx) in enumerate(poses):
+        base = stride(side, dx)
+        on_canvas(base, tilt=tl, dy=dyv, dx=bdx).save(FRAMES / f"walk_l_{i}.gif")
+        on_canvas(base, tilt=-tl, dy=dyv, dx=-bdx, flip=True).save(FRAMES / f"walk_r_{i}.gif")
+        g[f"walk_{i}"] = on_canvas(base, tilt=tl, dy=dyv, dx=bdx)
     # grab：张手开心左右挣扎
     put("grab_0", cuts["happy"], tilt=-8)
     put("grab_1", cuts["happy"], tilt=8)
