@@ -105,6 +105,27 @@ def enum_window_platforms(exclude=()):
     return out
 
 
+def taskbar_top():
+    """主任务栏顶边的屏幕 y 坐标（她该站的地方），找不到/位置异常返回 None。"""
+    if ctypes is None:
+        return None
+    try:
+        u32 = ctypes.windll.user32
+        hwnd = u32.FindWindowW("Shell_TrayWnd", None)
+        if not hwnd:
+            return None
+        rect = wintypes.RECT()
+        if not u32.GetWindowRect(hwnd, ctypes.byref(rect)):
+            return None
+        top = rect.top
+    except Exception:
+        return None
+    sh = u32.GetSystemMetrics(1)
+    if not (200 <= top <= sh - 40):
+        return None                                    # 贴顶/自动隐藏等异常位置
+    return top
+
+
 class Pet:
     def __init__(self):
         self.root = tk.Tk()
@@ -117,7 +138,9 @@ class Pet:
 
         self.sw = self.root.winfo_screenwidth()
         self.sh = self.root.winfo_screenheight()
-        self.ground = self.sh - GROUND_MARGIN - SIZE
+        # 基础地面 = 任务栏顶边（站在任务栏上），取不到再用屏幕底边
+        self.base = taskbar_top() or (self.sh - GROUND_MARGIN)
+        self.ground = self.base - SIZE
 
         self.canvas = tk.Canvas(self.root, width=SIZE, height=SIZE,
                                 bg=MAGENTA, highlightthickness=0)
@@ -154,7 +177,7 @@ class Pet:
 
     # ---------- 平台 ----------
     def _all_platforms(self):
-        return self.plats + [(0, self.ground + SIZE, self.sw)]
+        return self.plats + [(0, self.base, self.sw)]
 
     def _support(self):
         """脚底下踩着的平台，没有则 None。"""
