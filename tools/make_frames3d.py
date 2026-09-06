@@ -123,10 +123,18 @@ def rembg_session():
     return _REMBG_SESSION
 
 def rembg_fg(img: Image.Image, thresh: int = 127) -> np.ndarray:
-    """AI 抠图（u2net）：浅色角色×浅色背景的颜色规则终结者。返回二值前景 mask。"""
+    """AI 抠图（u2net）：浅色角色×浅色背景的颜色规则终结者。
+
+    白发×白底时 u2net 给白发区输出低 alpha（20~100），单阈值二值化会把
+    头发成片砍掉——改用滞后阈值：alpha≥140 为确定前景，≥25 为候选，
+    从确定前景传播生长；白发连着身体被拉回，远离角色的背景噪声被弃。
+    """
     from rembg import remove
     out = remove(img, session=rembg_session())
-    return np.asarray(out)[..., 3] >= thresh
+    alpha = np.asarray(out)[..., 3]
+    strong = alpha >= 140
+    weak = alpha >= 25
+    return ndimage.binary_propagation(strong, mask=weak)
 
 def rough_boxes_checker(rgb: np.ndarray, gap: int, min_h: int):
     """checker 底的粗定位：中性浅色规则取反 → 连通域 → 合并框。
