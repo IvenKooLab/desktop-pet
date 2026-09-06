@@ -85,12 +85,14 @@ def remove_thin(fg: np.ndarray, t: int = 7) -> np.ndarray:
         ndimage.binary_erosion(fg, structure=np.ones((1, t), bool)), mask=fg)
     return v & hz
 
-def checker_fg(rgb: np.ndarray, tol: int = 13) -> np.ndarray:
+def checker_fg(rgb: np.ndarray, tol: int = 13, hole_min: int = 1500) -> np.ndarray:
     """假透明棋盘格/纯白底：中性浅色规则从四边洪泛 + 掏空修复。
 
     发丝高光本身接近中性浅白，纯颜色规则必然把头发掏空（洞经轮廓抗锯齿
     细颈与外界连通）。修复：闭运算剪断细颈 → 掏空处变成封闭洞 →
     只回填面积 > hole_min 的洞（手臂与身体间的窄缝是小洞，保持透明）。
+    注意：本模式不做 remove_thin——小尺寸 Sheet 上耳机梁等斜向细结构
+    会被 7px 腐蚀啃碎；棋盘格/卡片边框靠颜色规则即可吃掉。
     """
     mx = rgb.max(2).astype(int)
     mn = rgb.min(2).astype(int)
@@ -99,7 +101,7 @@ def checker_fg(rgb: np.ndarray, tol: int = 13) -> np.ndarray:
     seed[0, :] = seed[-1, :] = seed[:, 0] = seed[:, -1] = True
     bg = ndimage.binary_propagation(seed & cand, mask=cand)
     fg = ~bg
-    fg = ndimage.binary_closing(fg, iterations=3)
+    fg = ndimage.binary_closing(fg, iterations=6)
     outside = np.zeros(cand.shape, bool)
     outside[0, :] = outside[-1, :] = outside[:, 0] = outside[:, -1] = True
     bg2 = ~fg
@@ -107,7 +109,7 @@ def checker_fg(rgb: np.ndarray, tol: int = 13) -> np.ndarray:
     border = set(np.unique(np.concatenate([lbl[0, :], lbl[-1, :], lbl[:, 0], lbl[:, -1]])))
     sizes = ndimage.sum(bg2, lbl, range(1, n + 1))
     for i in range(1, n + 1):
-        if i not in border and sizes[i - 1] > 2500:
+        if i not in border and sizes[i - 1] > hole_min:
             fg |= lbl == i
     return fg
 
@@ -122,7 +124,6 @@ def cut_sheet(path: Path, tol: int = 13, gap: int = 60, min_h: int = 120,
     rgb = np.asarray(img).astype(np.uint8)
     if bg == "checker":
         fg = checker_fg(rgb)
-        fg = remove_thin(fg)                 # 卡片边框/杂线
         glow_cut = min(glow_cut, 3)          # 描边已被颜色规则吃掉，只做浅内缩
     else:
         fg = flood_bg(rgb, tol)
