@@ -128,19 +128,81 @@ def rembg_fg(img: Image.Image, thresh: int = 127) -> np.ndarray:
     out = remove(img, session=rembg_session())
     return np.asarray(out)[..., 3] >= thresh
 
+def rough_boxes_checker(rgb: np.ndarray, gap: int, min_h: int):
+    """checker 底的粗定位：中性浅色规则取反 → 连通域 → 合并框。
+
+    只用于确定人物位置（供逐个 rembg），不要求 mask 精确。
+    """
+    mx = rgb.max(2).astype(int)
+    mn = rgb.min(2).astype(int)
+    fg = ~(((mx - mn) <= 6) & (mn >= 195))
+    lbl, n = ndimage.label(fg)
+    sizes = ndimage.sum(fg, lbl, range(1, n + 1))
+    keep = np.zeros(n + 1, bool); keep[1:] = sizes > 4000
+    fg = keep[lbl]
+    small = ndimage.zoom(fg.astype(float), 0.25) > 0.5
+    lbl, n = ndimage.label(small)
+    boxes = []
+    for i in ndimage.find_objects(lbl):
+        if i is None:
+            continue
+        if (i[0].stop - i[0].start) * (i[1].stop - i[1].start) < 100:
+            continue
+        boxes.append([i[1].start * 4, i[0].start * 4, i[1].stop * 4, i[0].stop * 4])
+    merged = True
+    while merged:
+        merged = False
+        out = []
+        while boxes:
+            b = boxes.pop()
+            for o in out:
+                if not (b[2] + gap < o[0] or o[2] + gap < b[0] or b[3] + gap < o[1] or o[3] + gap < b[1]):
+                    o[0], o[1] = min(o[0], b[0]), min(o[1], b[1])
+                    o[2], o[3] = max(o[2], b[2]), max(o[3], b[3])
+                    merged = True
+                    break
+            else:
+                out.append(b)
+        boxes = out
+    boxes = [b for b in boxes if b[3] - b[1] >= min_h]
+    boxes.sort(key=lambda b: (b[1] // 400, b[0]))
+    return boxes
+
+
 def cut_sheet(path: Path, tol: int = 13, gap: int = 60, min_h: int = 120,
               bg: str = "blue", glow_cut: int = 8):
     """整张 Sheet → [裁好的 RGBA 姿势图]（按连通域合并框）。
 
     gap: 框间合并距离——actions 里板与手有缝要合并，views 三视图间距小要拆开。
     min_h: 框最小高度，滤掉「豆包AI生成」水印等文字条。
+    rembg 模式：u2net 内部只看 320x320，整张喂入则小人物只分到几十像素、
+    鞋子必糊——必须先粗定位、逐个人物裁出单独过模型。
     """
     img = Image.open(path).convert("RGB")
     rgb = np.asarray(img).astype(np.uint8)
     if bg == "rembg":
-        fg = rembg_fg(img)
-        glow_cut = 2                          # AI 边缘干净，仅去除残余混合边
-    elif bg == "checker":
+        cuts = []
+        for (x0, y0, x1, y1) in rough_boxes_checker(rgb, gap=gap, min_h=min_h):
+            pad = 16
+            crop = img.crop((max(0, x0 - pad), max(0, y0 - pad), x1 + pad, y1 + pad))
+            a = rembg_fg(crop)
+            lbl, n = ndimage.label(a)              # 只留主组件 + 面积≥8% 的部件，滤渣点
+            if n > 1:
+                sz = ndimage.sum(a, lbl, range(1, n + 1))
+                keep = np.zeros(n + 1, bool); keep[1:] = sz >= sz.max() * 0.08
+                a = keep[lbl]
+            rgba = np.dstack([np.asarray(crop), a * 255]).astype(np.uint8)
+            rgba = defringe(rgba, glow_cut=2)
+            a2 = rgba[..., 3] > 0                  # defringe 腐蚀会切断细颈，再滤一次
+            lbl, n = ndimage.label(a2)
+            if n > 1:
+                sz = ndimage.sum(a2, lbl, range(1, n + 1))
+                keep = np.zeros(n + 1, bool); keep[1:] = sz >= sz.max() * 0.08
+                rgba[..., 3] = (keep[lbl] * 255).astype(np.uint8)
+            im = Image.fromarray(rgba)
+            cuts.append(im.crop(im.getbbox()))
+        return cuts
+    if bg == "checker":
         fg = checker_fg(rgb)
         glow_cut = min(glow_cut, 3)          # 描边已被颜色规则吃掉，只做浅内缩
     else:
@@ -265,7 +327,18 @@ def on_canvas(im: Image.Image, dy=0, dx=0, scale=(1, 1), tilt=0, dim=1.0, flip=F
         im = Image.fromarray(arr, "RGBA")
     cv = Image.new("RGB", (CANVAS, CANVAS), (255, 0, 255))
     cv.paste(im, ((CANVAS - im.width) // 2 + dx, FOOT_Y - im.height + dy), im)
-    return cv
+    # 清除孤立小色块：GIF 调色板量化会把细连接路径键断，浮出碎片；
+    # 角色本体是大连通域，<150px 的孤岛必是渣点
+    arr = np.asarray(cv).copy()
+    r, g, b = arr[..., 0].astype(int), arr[..., 1].astype(int), arr[..., 2].astype(int)
+    fg = ~((r > 200) & (b > 200) & (g < 110))
+    lbl, n = ndimage.label(fg)
+    if n > 1:
+        sz = ndimage.sum(fg, lbl, range(1, n + 1))
+        for i in range(1, n + 1):
+            if sz[i - 1] < 150:
+                arr[lbl == i] = (255, 0, 255)
+    return Image.fromarray(arr, "RGB")
 
 # --- 3) 主流程 -------------------------------------------------------------
 def load_cuts():
