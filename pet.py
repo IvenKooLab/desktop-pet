@@ -1,10 +1,11 @@
-"""Iven Pet v4 · 3D 手办版桌面宠（行为状态机，运行时零第三方依赖）。
+"""Iven Pet v5 · 3D 手办版桌面宠（行为状态机，运行时零第三方依赖）。
 
-素材来自豆包生成的 3D 三视图 + 6 姿势表情Sheet，由 tools/make_frames3d.py
-切片抠图产出 frames3d/。伪 3D：侧视图走路分左右、360° 转体展示。
+素材来自豆包生成的 3D 三视图 + 表情/步态/呼吸Sheet，由 tools/make_frames3d.py
+切片抠图产出 frames3d/。伪 3D：侧视走路分左右、360° 转体展示。
 
-状态机：GREET(落地打招呼) → IDLE(呼吸) → WALK(走动) → GRAB(挣扎) →
-        FALL(重力下落) → LAND(压扁) → SLEEP(睡着) + CHEER(打板) / SPIN(转一圈)
+状态机：GREET(落地打招呼) → IDLE(呼吸) → WALK(走动) / RUN(小短腿快走) →
+        GRAB(挣扎) → FALL(重力下落) → LAND(压扁) → SLEEP(睡着)
+        + CHEER(打板) / SPIN(转一圈) / BOUNCE(点击弹跳) / HAPPY(双击开心) / SHY(害羞)
 
 平台：屏幕底部 + 所有可见窗口的顶边（Shimeji 式）——掉落时踩到就落地，
      沿窗口顶边行走，窗口关闭/移走会跟着掉下来。
@@ -32,11 +33,13 @@ PLATFORM_MIN_W = 180         # 窗口至少这么宽才配当平台
 PLATFORM_MIN_TOP = 240       # 太靠上的窗口顶不站（会半截出屏）
 PLAT_TOL = 8                 # 站立面吸附容差
 
-FRAMES = ["idle_0", "idle_1", "grab_0", "grab_1", "fall_0", "land_0",
+FRAMES = ["idle_0", "idle_1", "idle_2", "grab_0", "grab_1", "fall_0", "land_0",
           "sleep_0", "sleep_1", "greet_0", "cheer_0", "cheer_1",
-          "spin_0", "spin_1", "spin_2", "spin_3"]
+          "spin_0", "spin_1", "spin_2", "spin_3",
+          "bounce_0", "bounce_1", "happy_0", "happy_1", "shy_0"]
 for _d in ("l", "r"):
     FRAMES += [f"walk_{_d}_{i}" for i in range(4)]
+    FRAMES += [f"fast_{_d}_{i}" for i in range(2)]
 
 LINES = [
     "token 又免费了，快薅！",
@@ -173,7 +176,8 @@ class Pet:
         menu.add_command(label="说句话", command=lambda: self.say(random.choice(LINES)))
         menu.add_command(label="打个板 🎬", command=self._to_cheer)
         menu.add_command(label="转一圈 🔄", command=self._to_spin)
-        menu.add_command(label="跑两步", command=self._to_walk)
+        menu.add_command(label="小短腿快走 🏃", command=self._to_run)
+        menu.add_command(label="害羞一下 😳", command=self._to_shy)
         menu.add_command(label="睡一觉", command=self._to_sleep)
         menu.add_separator()
         menu.add_command(label="退出", command=self.root.destroy)
@@ -193,9 +197,9 @@ class Pet:
 
     def _double(self, e):
         self._touch()
-        if self._support() is not None:               # 双击起跳
-            self.vy = HOP_VY
-            self._set_state("FALL")
+        if self._support() is not None:               # 双击：开心反应
+            self._set_state("HAPPY", 26)
+            self.say(random.choice(["哇！", "开心！", "耶！"]), 1600)
 
     def _drag(self, e):
         self._touch()
@@ -205,13 +209,15 @@ class Pet:
 
     def _release(self, e):
         moved = abs(e.x_root - self.press_pos[0]) + abs(e.y_root - self.press_pos[1])
-        if moved < 6:                                   # 点击（非拖拽）
+        if moved < 6:                                   # 点击（非拖拽）→ 弹跳
             if self.state == "SLEEP":
                 self.say("……吵醒我了。", 1500)
                 self._set_state("IDLE", random.randint(60, 200))
-            elif self.state not in ("CHEER", "SPIN"):
+            elif self.state not in ("CHEER", "SPIN", "BOUNCE", "HAPPY", "SHY"):
+                if self._support() is not None:
+                    self._set_state("BOUNCE", 16)
                 self.say(random.choice(LINES))
-                if self.state == "GRAB":
+                if self.state == "GRAB" and self._support() is None:
                     self._to_fall()
         elif self.state == "GRAB":
             self._to_fall()                             # 松手 → 重力接管
@@ -225,6 +231,21 @@ class Pet:
         self._touch()
         self.dir = random.choice((-1, 1))
         self._set_state("WALK", random.randint(100, 260))
+
+    def _to_run(self):
+        self._touch()
+        if self._support() is None:
+            return
+        self.dir = random.choice((-1, 1))
+        self._set_state("RUN", random.randint(120, 220))
+        self.say("冲呀——！", 1500)
+
+    def _to_shy(self):
+        self._touch()
+        if self._support() is None:
+            return
+        self._set_state("SHY", 30)
+        self.say("……讨厌啦。", 1800)
 
     def _to_fall(self):
         self.vy = 0
@@ -269,21 +290,27 @@ class Pet:
                 self.y = s[1] - SIZE
 
         if self.state == "IDLE":
-            self._anim(["idle_0", "idle_1", "idle_0", "idle_1"], 14)
+            self._anim(["idle_0", "idle_1", "idle_2"], 20)   # 呼吸循环
             if self.state_left <= 0:
                 self._to_walk() if random.random() < 0.6 else \
                     self._set_state("IDLE", random.randint(60, 200))
             if self.tick_n - self.last_input > 1200:    # 60 秒无交互
                 self._to_sleep()
 
-        elif self.state == "WALK":
+        elif self.state in ("WALK", "RUN"):
             s = self._support()
             if s is None:
                 self._to_fall()
             else:
+                run = self.state == "RUN"
                 d = "l" if self.dir < 0 else "r"
-                self._anim([f"walk_{d}_0", f"walk_{d}_1", f"walk_{d}_2", f"walk_{d}_3"], 6)
-                nx = self.x + self.dir * WALK_SPEED
+                if run:
+                    self._anim([f"fast_{d}_0", f"fast_{d}_1"], 5)
+                    self.x += self.dir * (WALK_SPEED + 2)
+                else:
+                    self._anim([f"walk_{d}_0", f"walk_{d}_1", f"walk_{d}_2", f"walk_{d}_3"], 6)
+                    self.x += self.dir * WALK_SPEED
+                nx = self.x
                 if nx + FOOT_INSET < s[0] or nx + SIZE - FOOT_INSET > s[2]:
                     if random.random() < 0.6:           # 到窗口边缘：多半掉头
                         self.dir *= -1
@@ -339,6 +366,21 @@ class Pet:
             self._anim(["sleep_0", "sleep_1"], 40)
             if random.random() < 0.002:
                 self.say(SLEEP_LINE, 1500)
+
+        elif self.state == "BOUNCE":
+            self._anim(["bounce_0", "bounce_1"], 4)
+            if self.state_left <= 0:
+                self._set_state("IDLE", random.randint(60, 200))
+
+        elif self.state == "HAPPY":
+            self._anim(["happy_0", "happy_1"], 6)
+            if self.state_left <= 0:
+                self._set_state("IDLE", random.randint(60, 200))
+
+        elif self.state == "SHY":
+            self._show("shy_0")
+            if self.state_left <= 0:
+                self._set_state("IDLE", random.randint(60, 200))
 
         elif self.state == "CHEER":
             self._anim(["cheer_0", "cheer_1"], 7)

@@ -85,18 +85,31 @@ def remove_thin(fg: np.ndarray, t: int = 7) -> np.ndarray:
         ndimage.binary_erosion(fg, structure=np.ones((1, t), bool)), mask=fg)
     return v & hz
 
-def checker_fg(rgb: np.ndarray) -> np.ndarray:
-    """假透明棋盘格底（白/浅灰中性色块画进像素）：中性浅色规则从四边洪泛。
+def checker_fg(rgb: np.ndarray, tol: int = 13) -> np.ndarray:
+    """假透明棋盘格/纯白底：中性浅色规则从四边洪泛 + 掏空修复。
 
-    白色贴纸描边同属中性浅色，会被一并吃掉，故无需大深度内缩。
+    发丝高光本身接近中性浅白，纯颜色规则必然把头发掏空（洞经轮廓抗锯齿
+    细颈与外界连通）。修复：闭运算剪断细颈 → 掏空处变成封闭洞 →
+    只回填面积 > hole_min 的洞（手臂与身体间的窄缝是小洞，保持透明）。
     """
     mx = rgb.max(2).astype(int)
     mn = rgb.min(2).astype(int)
-    cand = ((mx - mn) <= 14) & (mn >= 200)
+    cand = ((mx - mn) <= 6) & (mn >= 195)
     seed = np.zeros(cand.shape, bool)
     seed[0, :] = seed[-1, :] = seed[:, 0] = seed[:, -1] = True
     bg = ndimage.binary_propagation(seed & cand, mask=cand)
-    return ~bg
+    fg = ~bg
+    fg = ndimage.binary_closing(fg, iterations=3)
+    outside = np.zeros(cand.shape, bool)
+    outside[0, :] = outside[-1, :] = outside[:, 0] = outside[:, -1] = True
+    bg2 = ~fg
+    lbl, n = ndimage.label(bg2)
+    border = set(np.unique(np.concatenate([lbl[0, :], lbl[-1, :], lbl[:, 0], lbl[:, -1]])))
+    sizes = ndimage.sum(bg2, lbl, range(1, n + 1))
+    for i in range(1, n + 1):
+        if i not in border and sizes[i - 1] > 2500:
+            fg |= lbl == i
+    return fg
 
 def cut_sheet(path: Path, tol: int = 13, gap: int = 60, min_h: int = 120,
               bg: str = "blue", glow_cut: int = 8):
@@ -109,6 +122,7 @@ def cut_sheet(path: Path, tol: int = 13, gap: int = 60, min_h: int = 120,
     rgb = np.asarray(img).astype(np.uint8)
     if bg == "checker":
         fg = checker_fg(rgb)
+        fg = remove_thin(fg)                 # 卡片边框/杂线
         glow_cut = min(glow_cut, 3)          # 描边已被颜色规则吃掉，只做浅内缩
     else:
         fg = flood_bg(rgb, tol)
@@ -239,13 +253,20 @@ def load_cuts():
     CUT.mkdir(exist_ok=True)
     views = cut_sheet(SRC / "views_clean.png", gap=14)
     acts = cut_sheet(SRC / "actions.png", gap=60)
-    walks = cut_sheet(SRC / "walk_cycle.png", gap=40, bg="checker", glow_cut=3)
+    walks = cut_sheet(SRC / "walk_cycle.png", gap=14, bg="checker", glow_cut=3)
+    fasts = cut_sheet(SRC / "fastwalk.png", gap=40, bg="checker", glow_cut=3)
+    idles = cut_sheet(SRC / "idle_breathe.png", gap=40, bg="checker", glow_cut=3)
+    cards = cut_sheet(SRC / "actions_lib.png", gap=30, bg="checker", glow_cut=3)
     assert len(views) == 3, f"views 应切出 3 视图，实际 {len(views)}"
     assert len(acts) == 6, f"actions 应切出 6 姿势，实际 {len(acts)}"
     assert len(walks) == 4, f"walk_cycle 应切出 4 步态，实际 {len(walks)}"
+    assert len(fasts) == 4, f"fastwalk 应切出 4 步态，实际 {len(fasts)}"
+    assert len(idles) == 3, f"idle_breathe 应切出 3 帧，实际 {len(idles)}"
+    assert len(cards) == 8, f"actions_lib 应切出 8 卡，实际 {len(cards)}"
     names_v = ["front", "side", "back"]
     names_a = ["happy", "jump", "shy", "wave", "cheer", "hug"]  # 阅读序：上排2+下排4
     names_w = ["wl_contact", "wl_pass", "wr_pass", "wr_contact"]  # 左：接触/过渡，右：过渡/接触
+    names_f = ["fl_a", "fl_b", "fr_a", "fr_b"]
     out = {}
     for im, n in zip(views, names_v):
         im.save(CUT / f"{n}.png"); out[n] = im
@@ -253,6 +274,12 @@ def load_cuts():
         im.save(CUT / f"{n}.png"); out[n] = im
     for im, n in zip(walks, names_w):
         im.save(CUT / f"{n}.png"); out[n] = im
+    for im, n in zip(fasts, names_f):
+        im.save(CUT / f"{n}.png"); out[n] = im
+    for i, im in enumerate(idles):
+        im.save(CUT / f"idleb_{i}.png"); out[f"idleb_{i}"] = im
+    for i, im in enumerate(cards):
+        im.save(CUT / f"card_{i}.png"); out[f"card_{i}"] = im
     return out
 
 def preview(cuts):
@@ -274,9 +301,9 @@ def build_frames(cuts):
     def put(name, im, **kw):
         g[name] = on_canvas(im, **kw)
 
-    # idle：抱板微笑 + 呼吸压扁
-    put("idle_0", cuts["hug"])
-    put("idle_1", cuts["hug"], scale=(1.03, 0.97), dy=3)
+    # idle：呼吸三帧（豆包待机呼吸Sheet）
+    for i in range(3):
+        put(f"idle_{i}", cuts[f"idleb_{i}"])
     # walk：真迈步循环（豆包走路Sheet）——左向=接触/过渡交替，右向=右向两帧
     dys = [0, -4, 0, -3]                                 # 过渡帧轻微抬高，加弹跳感
     for i in range(4):
@@ -284,6 +311,19 @@ def build_frames(cuts):
                   dy=dys[i]).save(FRAMES / f"walk_l_{i}.gif")
         on_canvas(cuts["wr_contact" if i % 2 == 0 else "wr_pass"],
                   dy=dys[i]).save(FRAMES / f"walk_r_{i}.gif")
+    # 小短腿快走（RUN）
+    put("fast_l_0", cuts["fl_a"])
+    put("fast_l_1", cuts["fl_b"], dy=-4)
+    put("fast_r_0", cuts["fr_a"])
+    put("fast_r_1", cuts["fr_b"], dy=-4)
+    # 点击弹跳：抬腿跳 + 眯眼笑
+    put("bounce_0", cuts["card_4"])
+    put("bounce_1", cuts["card_2"])
+    # 开心反应：张嘴欢呼 + 跳起
+    put("happy_0", cuts["card_6"])
+    put("happy_1", cuts["card_6"], dy=-8)
+    # 害羞反应：眨眼
+    put("shy_0", cuts["card_1"])
     # grab：张手开心左右挣扎
     put("grab_0", cuts["happy"], tilt=-8)
     put("grab_1", cuts["happy"], tilt=8)
