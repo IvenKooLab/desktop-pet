@@ -25,9 +25,9 @@ except (ImportError, AttributeError):   # 非 Windows：只有屏幕底部
 MAGENTA = "#FF00FF"
 SIZE = 200                   # 画布边长
 GROUND_MARGIN = 6            # 距屏幕底边
-WALK_SPEED = 3
+WALK_SPEED = 2.5             # 步速与步态帧率匹配（10 tick/步 ≈ 25px 一步）
 GRAVITY = 3
-HOP_VY = -14                 # 双击起跳速度
+HOP_VY = -14                 # 双击起跳速度（保留）
 FOOT_INSET = 40              # 脚底支撑判定的左右内缩
 PLATFORM_MIN_W = 180         # 窗口至少这么宽才配当平台
 PLATFORM_MIN_TOP = 240       # 太靠上的窗口顶不站（会半截出屏）
@@ -148,7 +148,7 @@ class Pet:
         self.bubble = None
         self.bubble_job = None
 
-        self.root.geometry(f"+{self.x}+{self.y}")
+        self.root.geometry(f"+{int(self.x)}+{int(self.y)}")
         self._bind()
         self.root.after(50, self._tick)
 
@@ -205,7 +205,7 @@ class Pet:
         self._touch()
         self.x = e.x_root - self.drag_off[0]
         self.y = e.y_root - self.drag_off[1]
-        self.root.geometry(f"+{self.x}+{self.y}")
+        self.root.geometry(f"+{int(self.x)}+{int(self.y)}")
 
     def _release(self, e):
         moved = abs(e.x_root - self.press_pos[0]) + abs(e.y_root - self.press_pos[1])
@@ -308,7 +308,8 @@ class Pet:
                     self._anim([f"fast_{d}_0", f"fast_{d}_1"], 5)
                     self.x += self.dir * (WALK_SPEED + 2)
                 else:
-                    self._anim([f"walk_{d}_0", f"walk_{d}_1", f"walk_{d}_2", f"walk_{d}_3"], 6)
+                    # 10 tick/步：步频放慢到 ~500ms，脚步不再快速抽搐
+                    self._anim([f"walk_{d}_0", f"walk_{d}_1", f"walk_{d}_2", f"walk_{d}_3"], 10)
                     self.x += self.dir * WALK_SPEED
                 nx = self.x
                 if nx + FOOT_INSET < s[0] or nx + SIZE - FOOT_INSET > s[2]:
@@ -393,7 +394,7 @@ class Pet:
             if self.state_left <= 0:
                 self._set_state("IDLE", random.randint(60, 200))
 
-        self.root.geometry(f"+{self.x}+{int(self.y)}")
+        self.root.geometry(f"+{int(self.x)}+{int(self.y)}")
         self.root.after(50, self._tick)
 
     def _anim(self, names, speed):
@@ -411,7 +412,7 @@ class Pet:
         b = tk.Toplevel(self.root)
         b.overrideredirect(True)
         b.attributes("-topmost", True)
-        b.geometry(f"+{max(10, self.x - 40)}+{max(10, self.y - 56)}")
+        b.geometry(f"+{max(10, int(self.x) - 40)}+{max(10, int(self.y) - 56)}")
         tk.Label(b, text=text, font=("Microsoft YaHei UI", 10),
                  bg="#FFF9C4", fg="#333", padx=10, pady=6,
                  highlightthickness=1, highlightbackground="#E0C94B").pack()

@@ -324,26 +324,27 @@ def build_frames(cuts):
     put("happy_1", cuts["card_6"], dy=-8)
     # 害羞反应：眨眼
     put("shy_0", cuts["card_1"])
-    # grab：张手开心左右挣扎
-    put("grab_0", cuts["happy"], tilt=-8)
-    put("grab_1", cuts["happy"], tilt=8)
-    # fall / jump
-    put("fall_0", cuts["jump"])
-    # land：大幅压扁
-    put("land_0", cuts["hug"], scale=(1.14, 0.84), dy=12)
-    # sleep：害羞眨眼压暗
-    put("sleep_0", cuts["shy"], scale=(1.02, 0.96), dy=4, dim=0.72)
-    put("sleep_1", cuts["shy"], dim=0.72)
-    # greet：挥手
-    put("greet_0", cuts["wave"])
+    # 以下动作全部改用新Sheet素材——旧蓝底Sheet人物比例差 ~25%，彻底退役。
+    # grab：挣扎 = 弹跳姿势左右倾斜
+    put("grab_0", cuts["card_4"], tilt=-8)
+    put("grab_1", cuts["card_2"], tilt=8)
+    # fall：快走俯冲姿势当坠落（蜷腿扑腾感）
+    put("fall_0", cuts["fl_a"])
+    # land：走路接触帧大幅压扁
+    put("land_0", cuts["wl_contact"], scale=(1.14, 0.84), dy=12)
+    # sleep：眯眼笑两帧压暗（闭眼=睡觉）
+    put("sleep_0", cuts["card_3"], scale=(1.02, 0.96), dy=4, dim=0.72)
+    put("sleep_1", cuts["card_2"], dim=0.72)
+    # greet：开心打板（上线演出）
+    put("greet_0", cuts["card_6"])
     # cheer：举板欢呼 + 小跳
-    put("cheer_0", cuts["cheer"])
-    put("cheer_1", cuts["cheer"], dy=-6)
-    # spin：正→右侧→背→左侧
-    put("spin_0", cuts["front"])
-    put("spin_1", cuts["side"], flip=True)
-    put("spin_2", cuts["back"])
-    put("spin_3", cuts["side"])
+    put("cheer_0", cuts["card_7"])
+    put("cheer_1", cuts["card_6"], dy=-6)
+    # spin：正→右侧→背→左侧（views_clean 人物偏大 ~20%，缩放对齐新Sheet）
+    put("spin_0", cuts["front"], scale=(0.83, 0.83))
+    put("spin_1", cuts["side"], scale=(0.83, 0.83), flip=True)
+    put("spin_2", cuts["back"], scale=(0.83, 0.83))
+    put("spin_3", cuts["side"], scale=(0.83, 0.83))
 
     for name, im in g.items():
         im.save(FRAMES / f"{name}.gif")
