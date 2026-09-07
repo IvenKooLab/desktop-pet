@@ -134,7 +134,17 @@ def rembg_fg(img: Image.Image, thresh: int = 127) -> np.ndarray:
     alpha = np.asarray(out)[..., 3]
     strong = alpha >= 140
     weak = alpha >= 25
-    return ndimage.binary_propagation(strong, mask=weak)
+    fg = ndimage.binary_propagation(strong, mask=weak)
+    # 深色部件回收：u2net 偶发丢手持深色道具（场记板）。角色近旁的深蓝紫
+    # 像素（板/鞋/发影）必然属于角色——浅色棋盘格背景在颜色上天然排除
+    rgb = np.asarray(img.convert("RGB")).astype(int)
+    mx = rgb.max(2)
+    dark = (mx < 140) & (rgb[..., 2] >= rgb[..., 0]) & (mx >= 60)
+    near = ndimage.binary_dilation(fg, iterations=35)
+    fg = fg | (dark & near)
+    # 场记板白色条纹/发丝高光是板框/头发包围的封闭区，fill_holes 回填
+    # （露出源图本来颜色）；深底验收需确认手臂贴身处的窄缝未被误填
+    return ndimage.binary_fill_holes(fg)
 
 def rough_boxes_checker(rgb: np.ndarray, gap: int, min_h: int):
     """checker 底的粗定位：中性浅色规则取反 → 连通域 → 合并框。
