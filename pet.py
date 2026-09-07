@@ -13,21 +13,28 @@
     python pet.py
 """
 import os
+import os
 import random
+import socket
 import sys
 import tkinter as tk
 
-try:                    # Windows：枚举窗口顶边当平台 + 单实例互斥
+try:                    # Windows：枚举窗口顶边当平台
     import ctypes
     from ctypes import wintypes
     _WNDENUMPROC = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
-    _mutex = ctypes.windll.kernel32.CreateMutexW(None, False, "IvenPet_SingleInstance")
-    if ctypes.windll.kernel32.GetLastError() == 183:   # ERROR_ALREADY_EXISTS
-        sys.exit(0)
-except (ImportError, AttributeError):
+except (ImportError, AttributeError):   # 非 Windows
     ctypes = None
 
 BASE = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
+
+# 单实例：绑定本地端口。进程退出端口立即释放，不会有互斥锁僵尸句柄问题
+try:
+    _sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    _sock.bind(("127.0.0.1", 56570))
+    _sock.listen(0)
+except OSError:
+    sys.exit(0)                                        # 已有实例在跑
 
 MAGENTA = "#FF00FF"
 SIZE = 200                   # 画布边长
@@ -455,4 +462,15 @@ class Pet:
 
 
 if __name__ == "__main__":
-    Pet().run()
+    try:
+        Pet().run()
+    except Exception:
+        import time
+        import traceback
+        logdir = os.path.dirname(sys.executable) if getattr(sys, "frozen", False) else BASE
+        try:
+            with open(os.path.join(logdir, "crash.log"), "a", encoding="utf-8") as f:
+                f.write(time.strftime("[%F %T]\n") + traceback.format_exc() + "\n")
+        except OSError:
+            pass
+        raise
