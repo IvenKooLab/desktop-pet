@@ -12,15 +12,22 @@
 
     python pet.py
 """
+import os
 import random
+import sys
 import tkinter as tk
 
-try:                    # Windows：枚举窗口顶边当平台
+try:                    # Windows：枚举窗口顶边当平台 + 单实例互斥
     import ctypes
     from ctypes import wintypes
     _WNDENUMPROC = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
-except (ImportError, AttributeError):   # 非 Windows：只有屏幕底部
+    _mutex = ctypes.windll.kernel32.CreateMutexW(None, False, "IvenPet_SingleInstance")
+    if ctypes.windll.kernel32.GetLastError() == 183:   # ERROR_ALREADY_EXISTS
+        sys.exit(0)
+except (ImportError, AttributeError):
     ctypes = None
+
+BASE = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
 
 MAGENTA = "#FF00FF"
 SIZE = 200                   # 画布边长
@@ -145,7 +152,7 @@ class Pet:
         self.canvas = tk.Canvas(self.root, width=SIZE, height=SIZE,
                                 bg=MAGENTA, highlightthickness=0)
         self.canvas.pack()
-        self.frames = {name: tk.PhotoImage(file=f"frames3d/{name}.gif")
+        self.frames = {name: tk.PhotoImage(file=os.path.join(BASE, "frames3d", f"{name}.gif"))
                        for name in FRAMES}
         self.sprite = self.canvas.create_image(0, 0, image=self.frames["fall_0"],
                                                anchor="nw")
