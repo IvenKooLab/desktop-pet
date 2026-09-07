@@ -2,6 +2,8 @@
 
 3D 手办版桌面宠——把 Q 版场记板少女（豆包生成的 3D 三视图 + 表情动作 Sheet）做成 Shimeji 式 Windows 桌宠。
 
+**想给任意 IP 角色做同款桌宠？看 [docs/SOP-IP角色桌宠化.md](docs/SOP-IP角色桌宠化.md)**——从设定图生成、AI 抠图、动作帧合成、三重自检到 PyInstaller 打包的完整标准作业流程（含踩坑速查表）。
+
 **运行时零第三方依赖**——纯 Python 标准库 tkinter。素材帧由 `tools/make_frames3d.py` 预生成（仅构建期需要 Pillow/numpy/scipy）。
 
 ## 功能
