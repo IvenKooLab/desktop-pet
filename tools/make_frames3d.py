@@ -177,6 +177,24 @@ def rough_boxes_checker(rgb: np.ndarray, gap: int, min_h: int):
     return boxes
 
 
+def cut_single(path: Path) -> Image.Image:
+    """单人物原图直接过 rembg（模型满视野，细节最完整）。
+
+    组件过滤阈值降到 2%：手持场记板与手指连接处 alpha 低、易断开成
+    独立组件，8% 阈值会把板整块误删。
+    """
+    img = Image.open(path).convert("RGB")
+    a = rembg_fg(img)
+    lbl, n = ndimage.label(a)
+    if n > 1:
+        sz = ndimage.sum(a, lbl, range(1, n + 1))
+        keep = np.zeros(n + 1, bool); keep[1:] = sz >= sz.max() * 0.02
+        a = keep[lbl]
+    rgba = np.dstack([np.asarray(img), a * 255]).astype(np.uint8)
+    rgba = defringe(rgba, glow_cut=2)
+    im = Image.fromarray(rgba)
+    return im.crop(im.getbbox())
+
 def cut_sheet(path: Path, tol: int = 13, gap: int = 60, min_h: int = 120,
               bg: str = "blue", glow_cut: int = 8):
     """整张 Sheet → [裁好的 RGBA 姿势图]（按连通域合并框）。
@@ -356,6 +374,8 @@ def load_cuts():
     fasts = cut_sheet(SRC / "fastwalk.png", gap=40, bg="rembg")
     idles = cut_sheet(SRC / "idle_breathe.png", gap=40, bg="rembg")
     cards = cut_sheet(SRC / "actions_lib.png", gap=30, bg="rembg")
+    wr_contact_s = cut_single(SRC / "wr_contact_single.png")
+    wr_pass_s = cut_single(SRC / "wr_pass_single.png")
     assert len(views) == 3, f"views 应切出 3 视图，实际 {len(views)}"
     assert len(walks) == 4, f"walk_cycle 应切出 4 步态，实际 {len(walks)}"
     assert len(fasts) == 4, f"fastwalk 应切出 4 步态，实际 {len(fasts)}"
@@ -375,6 +395,8 @@ def load_cuts():
         im.save(CUT / f"idleb_{i}.png"); out[f"idleb_{i}"] = im
     for i, im in enumerate(cards):
         im.save(CUT / f"card_{i}.png"); out[f"card_{i}"] = im
+    wr_contact_s.save(CUT / "wrs_contact.png"); out["wrs_contact"] = wr_contact_s
+    wr_pass_s.save(CUT / "wrs_pass.png"); out["wrs_pass"] = wr_pass_s
     return out
 
 def preview(cuts):
@@ -399,13 +421,13 @@ def build_frames(cuts):
     # idle：呼吸三帧（豆包待机呼吸Sheet）
     for i in range(3):
         put(f"idle_{i}", cuts[f"idleb_{i}"])
-    # walk：真迈步循环（豆包走路Sheet）——左向=接触/过渡交替，右向=右向两帧
+    # walk：右向两帧改用用户单人物原图直切（Sheet 版场记板被组件过滤误删）
+    rsrc = ["wrs_contact", "wrs_pass", "wrs_contact", "wrs_pass"]
     dys = [0, -4, 0, -3]                                 # 过渡帧轻微抬高，加弹跳感
     for i in range(4):
         on_canvas(cuts["wl_contact" if i % 2 == 0 else "wl_pass"],
                   dy=dys[i]).save(FRAMES / f"walk_l_{i}.gif")
-        on_canvas(cuts["wr_contact" if i % 2 == 0 else "wr_pass"],
-                  dy=dys[i]).save(FRAMES / f"walk_r_{i}.gif")
+        on_canvas(cuts[rsrc[i]], dy=dys[i]).save(FRAMES / f"walk_r_{i}.gif")
     # 小短腿快走（RUN）
     put("fast_l_0", cuts["fl_a"])
     put("fast_l_1", cuts["fl_b"], dy=-4)
