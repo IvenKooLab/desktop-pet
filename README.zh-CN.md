@@ -11,7 +11,7 @@ climbs down when you close them — and does a little clapperboard cheer when yo
 English | [简体中文](README.zh-CN.md)
 
 > Part of the **IvenKooLab** IP lab series. Want to turn *your* character into a
-> desktop pet? Follow [docs/SOP-IP角色桌宠化.md](docs/SOP-IP角色桌宠化.md) (Chinese, with checklist).
+> desktop pet? Follow [docs/SOP-IP-character-to-desktop-pet.md](docs/SOP-IP角色桌宠化.md) (Chinese, with checklist).
 
 ## Features
 

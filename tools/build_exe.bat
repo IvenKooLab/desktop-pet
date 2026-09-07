@@ -1,4 +1,6 @@
 @echo off
-rem 构建 IvenPet.exe（输出 dist\IvenPet.exe）
+rem Build IvenPet.exe -> dist\IvenPet.exe
+rem Requirements: Python 3.8+ with tkinter, pip install pyinstaller
+rem Layout: frames3d\ and build_assets\icon.ico next to pet.py
 cd /d %~dp0..
-D:	ools\ComfyUI-aki-v3\python\python.exe -m PyInstaller --onefile --noconsole --name IvenPet --icon E:\work\gitee\comfy-agentuild_assets\icon.ico --add-data "frames3d;frames3d" pet.py
+python -m PyInstaller --onefile --noconsole --name IvenPet --icon build_assets\icon.ico --add-data "frames3d;frames3d" pet.py
