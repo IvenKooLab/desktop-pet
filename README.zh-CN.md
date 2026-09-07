@@ -1,68 +1,38 @@
-# Iven Pet 🐾 · 3D Chibi Desktop Pet
+# desktop-pet · Iven Pet 3D 🐾
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Platform](https://img.shields.io/badge/platform-Windows-blue)](#)
-[![Runtime](https://img.shields.io/badge/runtime-zero%20dependency-green)](#)
+3D 手办版桌面宠——把 Q 版场记板少女（豆包生成的 3D 三视图 + 表情动作 Sheet）做成 Shimeji 式 Windows 桌宠。
 
-A Shimeji-style Windows desktop pet built from **AI-generated 3D character sheets**.
-She walks along your taskbar, stands on top of your application windows,
-climbs down when you close them — and does a little clapperboard cheer when you double-click her.
+**想给任意 IP 角色做同款桌宠？看 [docs/SOP-IP角色桌宠化.md](docs/SOP-IP角色桌宠化.md)**——从设定图生成、AI 抠图、动作帧合成、三重自检到 PyInstaller 打包的完整标准作业流程（含踩坑速查表）。
 
-English | [简体中文](README.zh-CN.md)
+**运行时零第三方依赖**——纯 Python 标准库 tkinter。素材帧由 `tools/make_frames3d.py` 预生成（仅构建期需要 Pillow/numpy/scipy）。
 
-> Part of the **IvenKooLab** IP lab series. Want to turn *your* character into a
-> desktop pet? Follow [docs/SOP-IP-character-to-desktop-pet.md](docs/SOP-IP角色桌宠化.md) (Chinese, with checklist).
+## 功能
 
-## Features
+- **动作库（豆包 Sheet 切片）**：待机呼吸×3 帧循环 / 普通走路（真迈步）/ 小短腿快走（菜单触发）/ 点击弹跳 / 双击开心反应 / 害羞反应 / 打板 🎬 / 转一圈 🔄（伪 3D 360°）/ 睡觉 / 抓取挣扎 / 重力下落与落地压扁
+- **窗口即平台（Shimeji 式）**：屏幕底部 + 所有可见窗口的顶边都是路——掉落时踩到窗口就落地，沿窗口顶边行走，走到边缘多半掉头、偶尔走空掉下去；窗口关闭或移走，她也会跟着掉下来
+- **开场演出**：从天上掉下来 → 落地弹压 → 挥手「我上线啦！」
+- 右键菜单、左键拖拽到任意位置、随机台词气泡
 
-- **Real walk cycle** from AI-generated walk-sheet frames (left/right facing)
-- **Windows are platforms** — she walks on top of your app windows,
-  turns at edges (or falls off), and drops when you close the window
-- Idle breathing · grab struggle · gravity fall · landing squash · sleep
-- Interactions: click = bounce, double-click = happy, right-click menu
-  (clapperboard cheer / 360° spin / fast walk / shy / sleep)
-- **Zero third-party dependencies at runtime** — pure Python standard library (tkinter)
-
-## Quick Start
-
-**Option A — ready-to-run**: grab `IvenPet.exe` (≈11 MB) from
-[Releases](https://github.com/IvenKooLab/desktop-pet/releases), drop it on your desktop, double-click.
-
-**Option B — from source**:
+## 使用
 
 ```bash
-python pet.py        # Windows + Python 3.8+ (tkinter bundled), nothing else to install
+python pet.py
 ```
 
-Right-click the pet for the menu; drag her anywhere; double-click her for a reaction.
-Close her via right-click menu → 退出 (Exit).
+前提：Windows（透明色特性）+ Python 3.8+（tkinter 随装随有）。
 
-## Build Your Own IP Pet
-
-The whole pipeline is documented as a step-by-step SOP:
-generate character sheets with your favorite AI image tool → AI matting →
-animation frame synthesis → automated QA → PyInstaller packaging.
-
-See [docs/SOP-IP角色桌宠化.md](docs/SOP-IP角色桌宠化.md) and the
-[new-IP checklist](docs/SOP-IP角色桌宠化.md#新-ip-接入清单checklist) inside.
+## 重新生成素材帧（可选，仓库已带成品帧）
 
 ```bash
-tools\build_exe.bat   # rebuilds dist\IvenPet.exe (needs pyinstaller)
+python tools/make_frames3d.py           # 抠图+切片，产出 assets/cut/preview.png 供人工检查
+python tools/make_frames3d.py --frames  # 合成 frames3d/ 全套动作帧（27 帧）
+python tools/smoke.py                   # 状态机冒烟测试，自动触发各状态并截图
 ```
 
-## Repository Layout
+素材源在 `assets/src/`（豆包 AI 生成）：`views_clean.png` 正/侧/背三视图、`actions.png` 六姿势表情Sheet、`views_blueprint.png` 标注版留档。
 
-```
-pet.py                  # runtime: state machine + window-as-platform + single instance
-frames3d/               # 33 animation frames (GIF, magenta-key transparency)
-tools/make_frames3d.py  # asset pipeline: AI matting → slicing → frame synthesis
-tools/qa_frames.py      # numeric QA: fragments / holes / size consistency
-tools/qa_diff.py        # pixel regression: final frames vs source cuts
-tools/smoke.py          # state-machine smoke test with screenshots
-docs/                   # SOP + asset pipeline documentation
-assets/src/             # AI-generated character sheets (source of truth)
-```
+抠图原理：棚拍背景是青蓝渐变（实测 G-R ≥ +14），角色全身 G-R ≤ 0——用「G-R/B-G 颜色闸门 + 相邻像素局部梯度洪泛」双条件从四边扩散，渐变背景与软阴影自动吃掉，角色头发泛光处也不渗漏。
 
 ## License
 
-[MIT](LICENSE) · Character art generated with AI, copyright IvenKooLab
+MIT
