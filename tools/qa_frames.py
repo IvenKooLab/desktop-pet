@@ -16,7 +16,7 @@ from PIL import Image, ImageDraw
 from scipy import ndimage
 
 ROOT = Path(__file__).resolve().parent.parent
-FRAMES = ROOT / "frames3d"
+FRAMES = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "frames3d"
 
 
 def keyed(rgb_arr):

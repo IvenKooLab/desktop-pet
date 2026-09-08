@@ -155,6 +155,22 @@ python -m PyInstaller --onefile --noconsole --name IvenPet \
 
 ---
 
+## MVP 快速版：只传一张三视图
+
+不想凑齐全套 Sheet？一张三视图（正/侧/背，从左到右，任意背景）即可出**简化版**桌宠：
+
+```bash
+python tools/make_pet_from_views.py --src 路径/三视图.png --out frames3d_mvp
+PET_FRAMES_DIR=frames3d_mvp python pet.py     # Windows: set PET_FRAMES_DIR=...
+```
+
+- 自动：任意背景通用粗定位 → 逐人 AI 抠图 → 侧视朝向检测（皮肤质心启发式，
+  可用 `--side-faces left|right` 覆盖）→ 21 帧（呼吸压扁/程序剪腿步态/下落落地/
+  抓取/睡觉/360°转体）
+- 取舍：表情反应与真迈步循环为进阶能力（需补充对应 Sheet，走②③完整流程）；
+  宠物脚本会自动隐藏缺失动作的菜单项，缺帧自动回退待机帧
+- 自检：`python tools/qa_frames.py frames3d_mvp`
+
 ## 新 IP 接入清单（Checklist）
 
 - [ ] 豆包出图：动作表情 Sheet + 走路循环 + 待机呼吸（同批生成！）

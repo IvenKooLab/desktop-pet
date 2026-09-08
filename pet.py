@@ -27,6 +27,7 @@ except (ImportError, AttributeError):   # 非 Windows
     ctypes = None
 
 BASE = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
+FRAMES_DIR = os.environ.get("PET_FRAMES_DIR") or os.path.join(BASE, "frames3d")
 
 # 单实例：绑定本地端口。进程退出端口立即释放，不会有互斥锁僵尸句柄问题
 try:
@@ -159,8 +160,14 @@ class Pet:
         self.canvas = tk.Canvas(self.root, width=SIZE, height=SIZE,
                                 bg=MAGENTA, highlightthickness=0)
         self.canvas.pack()
-        self.frames = {name: tk.PhotoImage(file=os.path.join(BASE, "frames3d", f"{name}.gif"))
-                       for name in FRAMES}
+        self.frames = {}
+        for name in FRAMES:
+            path = os.path.join(FRAMES_DIR, f"{name}.gif")
+            if os.path.exists(path):
+                self.frames[name] = tk.PhotoImage(file=path)
+        if "idle_0" not in self.frames:
+            raise FileNotFoundError(f"帧目录缺少 idle_0.gif: {FRAMES_DIR}")
+        self._fallback = next(iter(self.frames))    # 缺帧时用任意可用帧兜底
         self.sprite = self.canvas.create_image(0, 0, image=self.frames["fall_0"],
                                                anchor="nw")
 
@@ -211,10 +218,14 @@ class Pet:
         c.bind("<ButtonRelease-1>", self._release)
         menu = tk.Menu(self.root, tearoff=0)
         menu.add_command(label="说句话", command=lambda: self.say(random.choice(LINES)))
-        menu.add_command(label="打个板 🎬", command=self._to_cheer)
-        menu.add_command(label="转一圈 🔄", command=self._to_spin)
-        menu.add_command(label="小短腿快走 🏃", command=self._to_run)
-        menu.add_command(label="害羞一下 😳", command=self._to_shy)
+        if {"cheer_0", "cheer_1"} <= self.frames.keys():
+            menu.add_command(label="打个板 🎬", command=self._to_cheer)
+        if {"spin_0", "spin_1", "spin_2", "spin_3"} <= self.frames.keys():
+            menu.add_command(label="转一圈 🔄", command=self._to_spin)
+        if "fast_l_0" in self.frames:
+            menu.add_command(label="小短腿快走 🏃", command=self._to_run)
+        if "shy_0" in self.frames:
+            menu.add_command(label="害羞一下 😳", command=self._to_shy)
         menu.add_command(label="睡一觉", command=self._to_sleep)
         menu.add_separator()
         menu.add_command(label="退出", command=self.root.destroy)
@@ -388,8 +399,12 @@ class Pet:
             if self.state_left <= 0:
                 if self.first_land:
                     self.first_land = False
-                    self._set_state("GREET", 30)
-                    self.say("我上线啦！", 1800)
+                    if "greet_0" in self.frames:
+                        self._set_state("GREET", 30)
+                        self.say("我上线啦！", 1800)
+                    else:
+                        self._set_state("IDLE", random.randint(60, 200))
+                        self.say("我上线啦！", 1800)
                 else:
                     self._set_state("IDLE", random.randint(60, 200))
                     if random.random() < 0.5:
@@ -438,7 +453,8 @@ class Pet:
         self._show(names[(self.tick_n // speed) % len(names)])
 
     def _show(self, name):
-        self.canvas.itemconfig(self.sprite, image=self.frames[name])
+        self.canvas.itemconfig(self.sprite,
+                               image=self.frames.get(name, self.frames[self._fallback]))
 
     # ---------- 台词气泡 ----------
     def say(self, text, ms=2600):
