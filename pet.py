@@ -38,7 +38,11 @@ try:
 except OSError:
     # 已有实例在跑；若是其他程序占了端口，留一条日志便于排查
     try:
-        with open(os.path.join(BASE, "crash.log"), "a", encoding="utf-8") as f:
+        logdir = os.path.dirname(sys.executable) if getattr(sys, "frozen", False) else BASE
+        logf = os.path.join(logdir, "crash.log")
+        if os.path.exists(logf) and os.path.getsize(logf) > 65536:
+            os.remove(logf)
+        with open(logf, "a", encoding="utf-8") as f:
             f.write(time.strftime("[%F %T] 单实例端口 56570 被占，退出（可能是已有实例）\n"))
     except OSError:
         pass
@@ -259,25 +263,33 @@ class Pet:
 
     def _drag(self, e):
         self._touch()
+        if self.drag_off is None:
+            return
         self.x = e.x_root - self.drag_off[0]
         self.y = e.y_root - self.drag_off[1]
         self.root.geometry(f"+{int(self.x)}+{int(self.y)}")
 
     def _release(self, e):
+        if self.press_pos is None or self.drag_off is None:
+            return
         moved = abs(e.x_root - self.press_pos[0]) + abs(e.y_root - self.press_pos[1])
         if moved < 6:                                   # 点击（非拖拽）→ 弹跳
             if self.state == "SLEEP":
                 self.say("……吵醒我了。", 1500)
                 self._set_state("IDLE", random.randint(60, 200))
             elif self.state not in ("CHEER", "SPIN", "BOUNCE", "HAPPY", "SHY"):
-                if self._support() is not None and "bounce_0" in self.frames:
+                grounded = self._support() is not None
+                if grounded and "bounce_0" in self.frames:
                     self._set_state("BOUNCE", 16)
+                elif self.state == "GRAB":
+                    # 无弹跳帧的素材（MVP）：点了也要离开 GRAB，防卡死
+                    self._set_state("IDLE", random.randint(60, 200)) if grounded \
+                        else self._to_fall()
                 self.say(random.choice(LINES))
-                if self.state == "GRAB" and self._support() is None:
-                    self._to_fall()
         elif self.state == "GRAB":
             self._to_fall()                             # 松手 → 重力接管
         self.drag_off = None
+        self.press_pos = None
 
     # ---------- 状态切换 ----------
     def _set_state(self, s, duration=0):
