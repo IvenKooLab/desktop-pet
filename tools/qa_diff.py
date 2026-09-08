@@ -5,6 +5,10 @@
 「源里有、成品里没了」的像素占比（lost%）——空洞/变白/被啃都会现形。
 
 用法：python tools/qa_diff.py
+
+注：scale≠1（压扁/缩放）的帧会产生 5~10% 的对齐/二值化方法学假阳性
+（qa_diff 直通 resize+>96 二值化，与管线的预乘+≥160 不同），
+此类帧以 qa_frames 数值 + 双底色目检为准。
 """
 import numpy as np
 from PIL import Image

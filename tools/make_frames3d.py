@@ -2,12 +2,17 @@
 
 输入 assets/src/：
     views_clean.png   正/侧/背三视图（干净版）
-    actions.png       6 姿势表情Sheet（上排：张手开心 / 跳跃；下排：眨眼害羞 / 挥手 / 举板欢呼 / 抱板微笑）
+    walk_cycle.png    走路循环 4 相位（checker/rembg 模式）
+    fastwalk.png      小短腿快走 4 相位
+    idle_breathe.png  待机呼吸 3 帧
+    actions_lib.png   八宫格动作库（点击弹跳/开心/害羞等）
+    views_blueprint.png 标注版留档
 
 流程：
-    1) 局部梯度洪泛抠背景（渐变棚拍背景免疫；软阴影被渐进吃掉）
+    1) 抠背景：rembg AI 抠图（新代素材，滞后阈值+深色回收+fill_holes）
+       或 颜色闸门+局部梯度洪泛（青蓝渐变棚拍底）
     2) 连通域分框切片
-    3) 去蓝边（边缘像素颜色替换为内部色）+ 1px 内缩硬边
+    3) 去边（边缘像素替换为内部色）+ 内缩硬边
     4) 拼贴预览 assets/cut/preview.png（人工检查）—— python make_frames3d.py
     5) 合成 200x200 动作帧 GIF → frames3d/   —— python make_frames3d.py --frames
 

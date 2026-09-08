@@ -7,3 +7,4 @@ assets/preview_idle.png
 dist/
 build/
 *.spec
+frames3d_mvp/
