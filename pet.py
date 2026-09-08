@@ -17,6 +17,7 @@ import os
 import random
 import socket
 import sys
+import time
 import tkinter as tk
 
 try:                    # Windows：枚举窗口顶边当平台
@@ -35,6 +36,12 @@ try:
     _sock.bind(("127.0.0.1", 56570))
     _sock.listen(0)
 except OSError:
+    # 已有实例在跑；若是其他程序占了端口，留一条日志便于排查
+    try:
+        with open(os.path.join(BASE, "crash.log"), "a", encoding="utf-8") as f:
+            f.write(time.strftime("[%F %T] 单实例端口 56570 被占，退出（可能是已有实例）\n"))
+    except OSError:
+        pass
     sys.exit(0)                                        # 已有实例在跑
 
 MAGENTA = "#FF00FF"
@@ -42,7 +49,6 @@ SIZE = 200                   # 画布边长
 GROUND_MARGIN = 6            # 距屏幕底边
 WALK_SPEED = 2.5             # 步速与步态帧率匹配（10 tick/步 ≈ 25px 一步）
 GRAVITY = 3
-HOP_VY = -14                 # 双击起跳速度（保留）
 FOOT_INSET = 40              # 脚底支撑判定的左右内缩
 PLATFORM_MIN_W = 180         # 窗口至少这么宽才配当平台
 PLATFORM_MIN_TOP = 240       # 太靠上的窗口顶不站（会半截出屏）
@@ -245,7 +251,9 @@ class Pet:
 
     def _double(self, e):
         self._touch()
-        if self._support() is not None:               # 双击：开心反应
+        if self._support() is None:
+            return
+        if "happy_0" in self.frames:                  # 双击：开心反应（MVP 缺帧时跳过）
             self._set_state("HAPPY", 26)
             self.say(random.choice(["哇！", "开心！", "耶！"]), 1600)
 
@@ -262,7 +270,7 @@ class Pet:
                 self.say("……吵醒我了。", 1500)
                 self._set_state("IDLE", random.randint(60, 200))
             elif self.state not in ("CHEER", "SPIN", "BOUNCE", "HAPPY", "SHY"):
-                if self._support() is not None:
+                if self._support() is not None and "bounce_0" in self.frames:
                     self._set_state("BOUNCE", 16)
                 self.say(random.choice(LINES))
                 if self.state == "GRAB" and self._support() is None:
@@ -485,7 +493,10 @@ if __name__ == "__main__":
         import traceback
         logdir = os.path.dirname(sys.executable) if getattr(sys, "frozen", False) else BASE
         try:
-            with open(os.path.join(logdir, "crash.log"), "a", encoding="utf-8") as f:
+            logf = os.path.join(logdir, "crash.log")
+            if os.path.exists(logf) and os.path.getsize(logf) > 65536:
+                os.remove(logf)                        # 防 crashes 无限增长
+            with open(logf, "a", encoding="utf-8") as f:
                 f.write(time.strftime("[%F %T]\n") + traceback.format_exc() + "\n")
         except OSError:
             pass

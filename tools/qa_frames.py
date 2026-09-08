@@ -63,16 +63,28 @@ def main():
         head = int(top.sum(axis=1).max()) if len(top) else 0
         stats[f.stem] = (head, h)
 
-    heads = np.array([v[0] for v in stats.values()])
-    hh = np.array([v[1] for v in stats.values()])
-    med_head, med_h = np.median(heads), np.median(hh)
+    # 按视角分类比较：侧视帧（walk/fast/侧spin）头宽天然比正面窄 ~15%，
+    # 混用同一中位数会把正常侧视帧误报；压扁帧(land_0)属设计意图白名单
+    # 按视角聚成正面/侧视两类，取各自头宽中位数；
+    # 头宽贴近任一类别中位数即通过（混合姿势如 fall=侧视帧、倾斜变体天然兼容），
+    # 真破损（整块缺失/比例崩坏）会与两类中位都偏离。land_0 压扁系设计意图白名单。
+    classes = {}
     for name, (head, h) in stats.items():
-        if abs(head - med_head) / med_head > 0.15:
-            problems.append(f"{name}: 头宽 {head} 偏离中位 {med_head:.0f} 超15%")
+        side = any(k in name for k in ("walk_", "fast_", "spin_1", "spin_3"))
+        classes.setdefault("side" if side else "front", []).append((name, head, h))
+    med = {c: (float(np.median([v[1] for v in vs])), float(np.median([v[2] for v in vs])))
+           for c, vs in classes.items()}
+    for c, (mh0, mhh0) in sorted(med.items()):
+        print(f"  [{c}] 中位头宽 {mh0:.0f} 中位高 {mhh0:.0f}  x{len(classes[c])}")
+    ref_head = [v[0] for v in med.values()]
+    med_h = float(np.median([v[1] for v in stats.values()]))
+    for name, (head, h) in stats.items():
+        if ref_head and min(abs(head - m) / m for m in ref_head) > 0.15:
+            problems.append(f"{name}: 头宽 {head} 偏离两类中位 {ref_head} 超15%")
         if name not in ("land_0",) and abs(h - med_h) / med_h > 0.15:
-            problems.append(f"{name}: 高 {h} 偏离中位 {med_h:.0f} 超15%")  # land_0 压扁系设计意图
+            problems.append(f"{name}: 高 {h} 偏离中位 {med_h:.0f} 超15%")
 
-    print(f"== 数值自检：{len(files)} 帧，中位头宽 {med_head:.0f}，中位高 {med_h:.0f}")
+    print(f"== 数值自检：{len(files)} 帧，分类中位头宽 {[round(m) for m in ref_head]}")
     if problems:
         print("== 发现问题：")
         for p in problems:
