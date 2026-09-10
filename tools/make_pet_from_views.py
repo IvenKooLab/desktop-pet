@@ -127,13 +127,15 @@ def main():
         put("idle_0", front)
         put("idle_1", front, scale=(1.03, 0.97), dy=3)
         put("idle_2", front, dy=1)
-    # 走路：侧视程序步态（剪腿+颠步），朝向自适应
+    # 走路：侧视程序步态 8 相位（剪腿+颠步连续变化，播放 ~200ms/帧）
     if side is not None:
-        poses = [(36, -3, 3), (0, 0, -5), (-36, 3, 3), (0, 0, -4)]
-        for i, (dxs, tl, dyv) in enumerate(poses):
-            from make_frames3d import stride
-            base = stride(side, dxs if facing == "left" else -dxs)
-            l_face = facing == "left"
+        from make_frames3d import stride
+        phases = [36, 18, 0, -18, -36, -18, 0, 18]   # 剪腿连续相位
+        l_face = facing == "left"
+        for i, dxs in enumerate(phases):
+            base = stride(side, dxs if l_face else -dxs)
+            dyv = 3 if abs(dxs) > 20 else -4         # 触地低、过渡高（颠步）
+            tl = -dxs / 36 * 3
             put(f"walk_l_{i}", base, tilt=tl if l_face else -tl, dy=dyv,
                 flip=not l_face)
             put(f"walk_r_{i}", base, tilt=-tl if l_face else tl, dy=dyv,

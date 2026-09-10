@@ -192,6 +192,29 @@ def rough_boxes_checker(rgb: np.ndarray, gap: int, min_h: int):
     return boxes
 
 
+def blend_poses(im_a: Image.Image, im_b: Image.Image, w_b: float = 0.4) -> Image.Image:
+    """两张 RGBA 姿势图对齐底心后按权重混合（w_b = b 的权重）。
+
+    覆盖归一化合成：A 独有区显示 A 本色、B 独有区显示 B 本色、重叠区加权
+    平均（动态模糊感）——不会把品红混进角色（对比直接 RGB blend 的粉边鬼影）。
+    """
+    W = max(im_a.width, im_b.width)
+    H = max(im_a.height, im_b.height)
+    ca = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    cb = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    ca.paste(im_a, ((W - im_a.width) // 2, H - im_a.height), im_a)
+    cb.paste(im_b, ((W - im_b.width) // 2, H - im_b.height), im_b)
+    fa = np.asarray(ca).astype(np.float32)
+    fb = np.asarray(cb).astype(np.float32)
+    aa = fa[..., 3:] / 255.0
+    ab = fb[..., 3:] / 255.0
+    num = fa[..., :3] * aa * (1 - w_b) + fb[..., :3] * ab * w_b
+    den = aa * (1 - w_b) + ab * w_b
+    rgb = np.where(den > 1e-3, num / np.maximum(den, 1e-6), 255.0)
+    out_a = np.maximum(fa[..., 3], fb[..., 3])           # 剪影取并集
+    out = np.dstack([np.clip(rgb, 0, 255), out_a]).astype(np.uint8)
+    return Image.fromarray(out, "RGBA")
+
 def cut_single(path: Path) -> Image.Image:
     """单人物原图直接过 rembg（模型满视野，细节最完整）。
 
@@ -437,12 +460,18 @@ def build_frames(cuts):
     for i in range(3):
         put(f"idle_{i}", cuts[f"idleb_{i}"])
     # walk：右向两帧改用用户单人物原图直切（Sheet 版场记板被组件过滤误删）
-    rsrc = ["wrs_contact", "wrs_pass", "wrs_contact", "wrs_pass"]
-    dys = [0, -4, 0, -3]                                 # 过渡帧轻微抬高，加弹跳感
-    for i in range(4):
-        on_canvas(cuts["wl_contact" if i % 2 == 0 else "wl_pass"],
-                  dy=dys[i]).save(FRAMES / f"walk_l_{i}.gif")
-        on_canvas(cuts[rsrc[i]], dy=dys[i]).save(FRAMES / f"walk_r_{i}.gif")
+    # 4 帧循环：接触 → 补间 → 过渡 → 回程补间。补间 = 两姿势对齐底心后
+    # 预乘归一化加权混合（无粉边鬼影），软化 2 姿势硬切的跳变感
+    lsrc = ["wl_contact", "wl_pass"]
+    rsrc = ["wrs_contact", "wrs_pass"]
+    dys = [0, -4, 0, -3]
+    for d, (na, nb) in (("l", lsrc), ("r", rsrc)):
+        pa, pb = cuts[na], cuts[nb]
+        m_cp = blend_poses(pa, pb, 0.4)
+        m_pc = blend_poses(pb, pa, 0.4)
+        for i, (im, dyv) in enumerate([(pa, dys[0]), (m_cp, dys[1]),
+                                       (pb, dys[2]), (m_pc, dys[3])]):
+            on_canvas(im, dy=dyv).save(FRAMES / f"walk_{d}_{i}.gif")
     # 小短腿快走（RUN）
     put("fast_l_0", cuts["fl_a"])
     put("fast_l_1", cuts["fl_b"], dy=-4)

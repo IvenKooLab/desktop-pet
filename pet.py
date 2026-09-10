@@ -178,6 +178,16 @@ class Pet:
         if "idle_0" not in self.frames:
             raise FileNotFoundError(f"帧目录缺少 idle_0.gif: {FRAMES_DIR}")
         self._fallback = next(iter(self.frames))    # 缺帧时用任意可用帧兜底
+        # 走路序列按实际可用帧动态生成；步频按"整循环 ~1.2-2s"自适应
+        # （8 帧→200ms/帧，4 帧→300ms/帧，帧数越多越顺滑）
+        self._walk_seq = {}
+        self._walk_spd = {}
+        for d in ("l", "r"):
+            seq = [f"walk_{d}_{i}" for i in range(8) if f"walk_{d}_{i}" in self.frames]
+            if len(seq) < 8:
+                seq = [f"walk_{d}_{i}" for i in range(4) if f"walk_{d}_{i}" in self.frames]
+            self._walk_seq[d] = seq
+            self._walk_spd[d] = max(4, min(10, round(24 / max(1, len(seq)))))
         self.sprite = self.canvas.create_image(0, 0, image=self.frames["fall_0"],
                                                anchor="nw")
 
@@ -376,8 +386,8 @@ class Pet:
                     self._anim([f"fast_{d}_0", f"fast_{d}_1"], 5)
                     self.x += self.dir * (WALK_SPEED + 2)
                 else:
-                    # 10 tick/步：步频放慢到 ~500ms，脚步不再快速抽搐
-                    self._anim([f"walk_{d}_0", f"walk_{d}_1", f"walk_{d}_2", f"walk_{d}_3"], 10)
+                    # 帧数越多步频越快（补间帧让动作顺滑，见 SOP）
+                    self._anim(self._walk_seq[d], self._walk_spd[d])
                     self.x += self.dir * WALK_SPEED
                 nx = self.x
                 if nx + FOOT_INSET < s[0] or nx + SIZE - FOOT_INSET > s[2]:
