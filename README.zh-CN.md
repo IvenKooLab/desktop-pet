@@ -35,7 +35,7 @@ python pet.py
 
 ```bash
 python tools/make_frames3d.py           # 抠图+切片，产出 assets/cut/preview.png 供人工检查
-python tools/make_frames3d.py --frames  # 合成 frames3d/ 全套动作帧（33 帧）
+python tools/make_frames3d.py --frames  # 合成 frames3d/ 全套动作帧（37 帧）
 python tools/qa_frames.py               # 数值自检：碎片/孔洞/尺寸一致性
 python tools/qa_diff.py                 # 像素回归：成品帧 vs 源切图逐帧对比
 python tools/smoke.py                   # 状态机冒烟测试，自动触发各状态并截图

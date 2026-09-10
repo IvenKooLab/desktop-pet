@@ -22,10 +22,10 @@ FRAMES = ROOT / "frames3d"
 MAP = {
     "idle_0": ("idleb_0", 0, 0, 1, 1, 0), "idle_1": ("idleb_1", 0, 0, 1, 1, 0),
     "idle_2": ("idleb_2", 0, 0, 1, 1, 0),
-    "walk_l_0": ("wl_contact", 0, 0, 1, 1, 0), "walk_l_1": ("wl_pass", -4, 0, 1, 1, 0),
-    "walk_l_2": ("wl_contact", 0, 0, 1, 1, 0), "walk_l_3": ("wl_pass", -3, 0, 1, 1, 0),
-    "walk_r_0": ("wr_contact", 0, 0, 1, 1, 0), "walk_r_1": ("wr_pass", -4, 0, 1, 1, 0),
-    "walk_r_2": ("wr_contact", 0, 0, 1, 1, 0), "walk_r_3": ("wr_pass", -3, 0, 1, 1, 0),
+    "walk_l_0": ("wl_contact", 0, 0, 1, 1, 0), "walk_l_2": ("wl_pass", 0, 0, 1, 1, 0),
+    "walk_r_0": ("wrs_contact", 0, 0, 1, 1, 0), "walk_r_2": ("wrs_pass", 0, 0, 1, 1, 0),
+
+
     "fast_l_0": ("fl_a", 0, 0, 1, 1, 0), "fast_l_1": ("fl_b", -4, 0, 1, 1, 0),
     "fast_r_0": ("fr_a", 0, 0, 1, 1, 0), "fast_r_1": ("fr_b", -4, 0, 1, 1, 0),
     "bounce_0": ("card_4", 0, 0, 1, 1, 0), "bounce_1": ("card_2", 0, 0, 1, 1, 0),

@@ -183,11 +183,11 @@ class Pet:
         self._walk_seq = {}
         self._walk_spd = {}
         for d in ("l", "r"):
-            seq = [f"walk_{d}_{i}" for i in range(8) if f"walk_{d}_{i}" in self.frames]
+            seq = [f"walk_{d}_{i}" for i in range(12) if f"walk_{d}_{i}" in self.frames]
             if len(seq) < 8:
                 seq = [f"walk_{d}_{i}" for i in range(4) if f"walk_{d}_{i}" in self.frames]
             self._walk_seq[d] = seq
-            self._walk_spd[d] = max(4, min(10, round(24 / max(1, len(seq)))))
+            self._walk_spd[d] = max(3, min(10, round(24 / max(1, len(seq)))))
         self.sprite = self.canvas.create_image(0, 0, image=self.frames["fall_0"],
                                                anchor="nw")
 

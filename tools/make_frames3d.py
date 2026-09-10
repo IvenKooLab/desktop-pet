@@ -459,19 +459,16 @@ def build_frames(cuts):
     # idle：呼吸三帧（豆包待机呼吸Sheet）
     for i in range(3):
         put(f"idle_{i}", cuts[f"idleb_{i}"])
-    # walk：右向两帧改用用户单人物原图直切（Sheet 版场记板被组件过滤误删）
-    # 4 帧循环：接触 → 补间 → 过渡 → 回程补间。补间 = 两姿势对齐底心后
-    # 预乘归一化加权混合（无粉边鬼影），软化 2 姿势硬切的跳变感
-    lsrc = ["wl_contact", "wl_pass"]
-    rsrc = ["wrs_contact", "wrs_pass"]
-    dys = [0, -4, 0, -3]
-    for d, (na, nb) in (("l", lsrc), ("r", rsrc)):
-        pa, pb = cuts[na], cuts[nb]
-        m_cp = blend_poses(pa, pb, 0.4)
-        m_pc = blend_poses(pb, pa, 0.4)
-        for i, (im, dyv) in enumerate([(pa, dys[0]), (m_cp, dys[1]),
-                                       (pb, dys[2]), (m_pc, dys[3])]):
-            on_canvas(im, dy=dyv).save(FRAMES / f"walk_{d}_{i}.gif")
+    # walk：过程补帧——4 姿势（接触/过渡交替）经 tween 12 帧化（100ms/帧）
+    # 右向两帧改用用户单人物原图直切（Sheet 版场记板被组件过滤误删）
+    from tween import walk_cycle_tweens
+    seq_l = walk_cycle_tweens([cuts["wl_contact"], cuts["wl_pass"]], w=0.4)
+    seq_r = walk_cycle_tweens([cuts["wrs_contact"], cuts["wrs_pass"]], w=0.4)
+    dys_c = [0, -2, -4, -2]                              # 接触/补间33/过渡/补间67
+    for i, im in enumerate(seq_l):
+        on_canvas(im, dy=dys_c[i % 4]).save(FRAMES / f"walk_l_{i}.gif")
+    for i, im in enumerate(seq_r):
+        on_canvas(im, dy=dys_c[i % 4]).save(FRAMES / f"walk_r_{i}.gif")
     # 小短腿快走（RUN）
     put("fast_l_0", cuts["fl_a"])
     put("fast_l_1", cuts["fl_b"], dy=-4)

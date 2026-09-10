@@ -165,7 +165,7 @@ PET_FRAMES_DIR=frames3d_mvp python pet.py     # Windows: set PET_FRAMES_DIR=...
 ```
 
 - 自动：任意背景通用粗定位 → 逐人 AI 抠图 → 侧视朝向检测（皮肤质心启发式，
-  可用 `--side-faces left|right` 覆盖）→ 21 帧（呼吸压扁/程序剪腿步态/下落落地/
+  可用 `--side-faces left|right` 覆盖）→ 29 帧（呼吸压扁/程序剪腿步态/下落落地/
   抓取/睡觉/360°转体）
 - 取舍：表情反应与真迈步循环为进阶能力（需补充对应 Sheet，走②③完整流程）；
   宠物脚本会自动隐藏缺失动作的菜单项，缺帧自动回退待机帧
