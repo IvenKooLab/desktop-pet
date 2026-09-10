@@ -459,16 +459,20 @@ def build_frames(cuts):
     # idle：呼吸三帧（豆包待机呼吸Sheet）
     for i in range(3):
         put(f"idle_{i}", cuts[f"idleb_{i}"])
-    # walk：过程补帧——4 姿势（接触/过渡交替）经 tween 12 帧化（100ms/帧）
-    # 右向两帧改用用户单人物原图直切（Sheet 版场记板被组件过滤误删）
-    from tween import walk_cycle_tweens
-    seq_l = walk_cycle_tweens([cuts["wl_contact"], cuts["wl_pass"]], w=0.4)
-    seq_r = walk_cycle_tweens([cuts["wrs_contact"], cuts["wrs_pass"]], w=0.4)
-    dys_c = [0, -2, -4, -2]                              # 接触/补间33/过渡/补间67
-    for i, im in enumerate(seq_l):
-        on_canvas(im, dy=dys_c[i % 4]).save(FRAMES / f"walk_l_{i}.gif")
-    for i, im in enumerate(seq_r):
-        on_canvas(im, dy=dys_c[i % 4]).save(FRAMES / f"walk_r_{i}.gif")
+    # walk：单张侧视图 + 程序化关节步态（8 相位，参数化任意帧数零鬼影）。
+    # 实测结论：走路循环 Sheet 的各姿势是独立渲染、镜头角度不一致，
+    # 混合补间=双曝光鬼影、硬切=视角闪烁——都不是连贯动画，弃用。
+    # （待办：豆包重出"同镜头连续相位"Sheet 后可换回真帧路线）
+    side = cuts["side"]
+    phases = [28, 14, 0, -14, -28, -14, 0, 14]           # 剪腿连续相位
+    l_face = True                                        # views_clean 侧视为左向
+    for i, dxs in enumerate(phases):
+        base = stride(side, dxs if l_face else -dxs)
+        contact = abs(dxs) > 20
+        dyv = 2 if contact else -4                       # 触地低、过渡高（颠步）
+        tl = -dxs / 28 * 2.5
+        put(f"walk_l_{i}", base, tilt=tl, dy=dyv)
+        put(f"walk_r_{i}", base, tilt=-tl, dy=dyv, flip=True)
     # 小短腿快走（RUN）
     put("fast_l_0", cuts["fl_a"])
     put("fast_l_1", cuts["fl_b"], dy=-4)
