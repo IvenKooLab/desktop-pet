@@ -18,6 +18,7 @@
 
 构建期依赖 Pillow/numpy/scipy；运行时（pet.py）零第三方依赖。
 """
+import math
 import sys
 from pathlib import Path
 
@@ -130,15 +131,17 @@ def rembg_session():
 def rembg_fg(img: Image.Image, thresh: int = 127) -> np.ndarray:
     """AI 抠图（u2net）：浅色角色×浅色背景的颜色规则终结者。
 
-    白发×白底时 u2net 给白发区输出低 alpha（20~100），单阈值二值化会把
-    头发成片砍掉——改用滞后阈值：alpha≥140 为确定前景，≥25 为候选，
+    白发×白底时 u2net 给白发区输出低 alpha（5~100），单阈值二值化会把
+    头发成片砍掉——改用滞后阈值：alpha≥140 为确定前景，≥5 为候选，
     从确定前景传播生长；白发连着身体被拉回，远离角色的背景噪声被弃。
+    （弱阈值实测：25 时左耳上方发绺楔口只盖 31%，5 可盖 70%；代价是
+    轮廓多吸 2~3px 辉光晕——由 defringe glow_cut=4 腐蚀抵消。）
     """
     from rembg import remove
     out = remove(img, session=rembg_session())
     alpha = np.asarray(out)[..., 3]
     strong = alpha >= 140
-    weak = alpha >= 25
+    weak = alpha >= 5
     fg = ndimage.binary_propagation(strong, mask=weak)
     # 深色部件回收：u2net 偶发丢手持深色道具（场记板）。角色近旁的深蓝紫
     # 像素（板/鞋/发影）必然属于角色——浅色棋盘格背景在颜色上天然排除
@@ -150,6 +153,29 @@ def rembg_fg(img: Image.Image, thresh: int = 127) -> np.ndarray:
     # 场记板白色条纹/发丝高光是板框/头发包围的封闭区，fill_holes 回填
     # （露出源图本来颜色）；深底验收需确认手臂贴身处的窄缝未被误填
     return ndimage.binary_fill_holes(fg)
+
+def color_rule_fg_clusters(img: Image.Image, min_px: int = 1500) -> np.ndarray:
+    """中性浅底颜色闸门前景（按面积≥min_px 过滤簇）：与 rembg 结果取并集用。
+
+    u2net 偶发整块丢失远离身体的深色道具（快走 fr_b 场记板板身
+    alpha=0、深色回收的 35px 邻域也够不着），颜色规则却看得很准，
+    两者互补——实测其他 crop 并集增量≈0，无辉光/阴影误入。
+    只准在白底/棋盘格 Sheet（cut_sheet rembg 分支）调用；
+    蓝底 Sheet（cut_single 的 wr_*）会把背景整片判成前景。
+    """
+    c = np.asarray(img.convert("RGB")).astype(int)
+    mx, mn = c.max(2), c.min(2)
+    cand = ((mx - mn) <= 6) & (mn >= 195)
+    seed = np.zeros(cand.shape, bool)
+    seed[0, :] = seed[-1, :] = seed[:, 0] = seed[:, -1] = True
+    bg = ndimage.binary_propagation(seed & cand, mask=cand)
+    fg = ndimage.binary_opening(~bg, np.ones((3, 3), bool))
+    lbl, n = ndimage.label(fg)
+    if n == 0:
+        return np.zeros_like(fg)
+    sizes = ndimage.sum(fg, lbl, range(1, n + 1))
+    keep = np.zeros(n + 1, bool); keep[1:] = sizes >= min_px
+    return keep[lbl]
 
 def rough_boxes_checker(rgb: np.ndarray, gap: int, min_h: int):
     """checker 底的粗定位：中性浅色规则取反 → 连通域 → 合并框。
@@ -229,7 +255,7 @@ def cut_single(path: Path) -> Image.Image:
         keep = np.zeros(n + 1, bool); keep[1:] = sz >= sz.max() * 0.02
         a = keep[lbl]
     rgba = np.dstack([np.asarray(img), a * 255]).astype(np.uint8)
-    rgba = defringe(rgba, glow_cut=2)
+    rgba = defringe(rgba, glow_cut=4)   # 与 cut_sheet rembg 分支同步：weak≥5 多吸的辉光多腐蚀
     im = Image.fromarray(rgba)
     return im.crop(im.getbbox())
 
@@ -250,18 +276,19 @@ def cut_sheet(path: Path, tol: int = 13, gap: int = 60, min_h: int = 120,
             pad = 16
             crop = img.crop((max(0, x0 - pad), max(0, y0 - pad), x1 + pad, y1 + pad))
             a = rembg_fg(crop)
-            lbl, n = ndimage.label(a)              # 只留主组件 + 面积≥8% 的部件，滤渣点
-            if n > 1:
-                sz = ndimage.sum(a, lbl, range(1, n + 1))
-                keep = np.zeros(n + 1, bool); keep[1:] = sz >= sz.max() * 0.08
+            a = a | color_rule_fg_clusters(crop)   # 并集救回 u2net 整块丢的深色道具
+            lbl, n = ndimage.label(a)              # 只留主组件 + 面积≥2% 的部件，滤渣点
+            if n > 1:                              # 2%：板与手指连接处 alpha 低易断开，
+                sz = ndimage.sum(a, lbl, range(1, n + 1))   # 8% 会把场记板整块误删
+                keep = np.zeros(n + 1, bool); keep[1:] = sz >= sz.max() * 0.02
                 a = keep[lbl]
             rgba = np.dstack([np.asarray(crop), a * 255]).astype(np.uint8)
-            rgba = defringe(rgba, glow_cut=2)
+            rgba = defringe(rgba, glow_cut=4)      # 4：weak≥5 多吸的 2~3px 辉光晕靠多腐蚀抵消
             a2 = rgba[..., 3] > 0                  # defringe 腐蚀会切断细颈，再滤一次
             lbl, n = ndimage.label(a2)
             if n > 1:
                 sz = ndimage.sum(a2, lbl, range(1, n + 1))
-                keep = np.zeros(n + 1, bool); keep[1:] = sz >= sz.max() * 0.08
+                keep = np.zeros(n + 1, bool); keep[1:] = sz >= sz.max() * 0.02
                 rgba[..., 3] = (keep[lbl] * 255).astype(np.uint8)
             im = Image.fromarray(rgba)
             cuts.append(im.crop(im.getbbox()))
@@ -459,20 +486,23 @@ def build_frames(cuts):
     # idle：呼吸三帧（豆包待机呼吸Sheet）
     for i in range(3):
         put(f"idle_{i}", cuts[f"idleb_{i}"])
-    # walk：单张侧视图 + 程序化关节步态（8 相位，参数化任意帧数零鬼影）。
+    # walk：单张侧视图 + 程序化关节步态（24 相位余弦连续，参数化任意帧数零鬼影）。
     # 实测结论：走路循环 Sheet 的各姿势是独立渲染、镜头角度不一致，
     # 混合补间=双曝光鬼影、硬切=视角闪烁——都不是连贯动画，弃用。
-    # （待办：豆包重出"同镜头连续相位"Sheet 后可换回真帧路线）
+    # （待办：图生 3D + Blender 渲染或豆包"同镜头连续相位"Sheet 后可换回真帧路线）
+    # 相位连续化：dxs/dy/tilt 均为 u=cos(2πk/N) 的连续函数，
+    # 帧密只加中间态不加突变——dy 旧版在 |dxs|=20 阈值处相邻帧跳 6px，已消除。
     side = cuts["side"]
-    phases = [28, 14, 0, -14, -28, -14, 0, 14]           # 剪腿连续相位
     l_face = True                                        # views_clean 侧视为左向
-    for i, dxs in enumerate(phases):
+    N = 24                                               # 相位数：整循环 ~1.15s（pet.py 自适应）
+    for k in range(N):
+        u = math.cos(2 * math.pi * k / N)                # 1→-1→1 连续剪腿相位
+        dxs = 28 * u
+        dy = round(6 * u * u - 4)                        # 触地(u=±1)低 2px、过渡(u=0)高 -4px
+        tl = -u * 2.5
         base = stride(side, dxs if l_face else -dxs)
-        contact = abs(dxs) > 20
-        dyv = 2 if contact else -4                       # 触地低、过渡高（颠步）
-        tl = -dxs / 28 * 2.5
-        put(f"walk_l_{i}", base, tilt=tl, dy=dyv)
-        put(f"walk_r_{i}", base, tilt=-tl, dy=dyv, flip=True)
+        put(f"walk_l_{k}", base, tilt=tl, dy=dy)
+        put(f"walk_r_{k}", base, tilt=-tl, dy=dy, flip=True)
     # 小短腿快走（RUN）
     put("fast_l_0", cuts["fl_a"])
     put("fast_l_1", cuts["fl_b"], dy=-4)

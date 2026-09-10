@@ -7,6 +7,9 @@
         GRAB(挣扎) → FALL(重力下落) → LAND(压扁) → SLEEP(睡着)
         + CHEER(打板) / SPIN(转一圈) / BOUNCE(点击弹跳) / HAPPY(双击开心) / SHY(害羞)
 
+主循环：逻辑固定 50ms 步长（tick 语义/状态机节奏不变）+ ~60fps 渲染层——
+        动画相位取自墙钟（帧周期可为任意毫秒）、窗口位置在逻辑步间亚像素插值。
+
 平台：屏幕底部 + 所有可见窗口的顶边（Shimeji 式）——掉落时踩到就落地，
      沿窗口顶边行走，窗口关闭/移走会跟着掉下来。
 
@@ -52,6 +55,10 @@ MAGENTA = "#FF00FF"
 SIZE = 200                   # 画布边长
 GROUND_MARGIN = 6            # 距屏幕底边
 WALK_SPEED = 2.5             # 步速与步态帧率匹配（10 tick/步 ≈ 25px 一步）
+LOGIC_DT = 0.05              # 逻辑步长（秒）＝原 tick 间隔，状态机节奏不变
+RENDER_MS = 16               # 渲染间隔 ~60fps（动画相位/窗口位置在逻辑步间插值）
+WALK_CYCLE_MS = 1150         # 走路整循环时长：帧周期=时长/帧数（24帧≈48ms）
+TURN_TICKS = 6               # 转身过渡：正面帧短停顿（300ms），抹掉镜像硬切
 GRAVITY = 3
 FOOT_INSET = 40              # 脚底支撑判定的左右内缩
 PLATFORM_MIN_W = 180         # 窗口至少这么宽才配当平台
@@ -63,7 +70,9 @@ FRAMES = ["idle_0", "idle_1", "idle_2", "grab_0", "grab_1", "fall_0", "land_0",
           "spin_0", "spin_1", "spin_2", "spin_3",
           "bounce_0", "bounce_1", "happy_0", "happy_1", "shy_0"]
 for _d in ("l", "r"):
-    FRAMES += [f"walk_{_d}_{i}" for i in range(4)]
+    # walk 按目录实际文件加载（生成端现为 24 相位；修复：旧版 range(4) 只装
+    # 0..3，8 相位步态只播一半导致周期断裂闪烁）
+    FRAMES += [f"walk_{_d}_{i}" for i in range(24)]
     FRAMES += [f"fast_{_d}_{i}" for i in range(2)]
 
 LINES = [
@@ -178,16 +187,16 @@ class Pet:
         if "idle_0" not in self.frames:
             raise FileNotFoundError(f"帧目录缺少 idle_0.gif: {FRAMES_DIR}")
         self._fallback = next(iter(self.frames))    # 缺帧时用任意可用帧兜底
-        # 走路序列按实际可用帧动态生成；步频按"整循环 ~1.2-2s"自适应
-        # （8 帧→200ms/帧，4 帧→300ms/帧，帧数越多越顺滑）
+        # 走路序列按实际可用帧动态生成；帧周期=整循环时长/帧数
+        # （24 帧→48ms/帧、8 帧→144ms、4 帧→288ms，帧数越多越顺滑）
         self._walk_seq = {}
-        self._walk_spd = {}
+        self._walk_period = {}
         for d in ("l", "r"):
-            seq = [f"walk_{d}_{i}" for i in range(12) if f"walk_{d}_{i}" in self.frames]
+            seq = [f"walk_{d}_{i}" for i in range(24) if f"walk_{d}_{i}" in self.frames]
             if len(seq) < 8:
                 seq = [f"walk_{d}_{i}" for i in range(4) if f"walk_{d}_{i}" in self.frames]
             self._walk_seq[d] = seq
-            self._walk_spd[d] = max(3, min(10, round(24 / max(1, len(seq)))))
+            self._walk_period[d] = max(40, round(WALK_CYCLE_MS / max(1, len(seq))))
         self.sprite = self.canvas.create_image(0, 0, image=self.frames["fall_0"],
                                                anchor="nw")
 
@@ -214,7 +223,14 @@ class Pet:
 
         self.root.geometry(f"+{int(self.x)}+{int(self.y)}")
         self._bind()
-        self.root.after(50, self._tick)
+        # 双层主循环：逻辑固定步长 + 高频渲染插值，见 _loop/_render
+        self._px, self._py = self.x, self.y     # 渲染插值锚点（上一步位置）
+        self._logic_next = time.monotonic() + LOGIC_DT
+        self._anim_key = ("still", "fall_0")    # ("still",名)|("seq",帧表,周期ms)|("spin",)
+        self._anim_t0 = time.monotonic()
+        self._shown = None                      # 当前已上屏帧名（去重 itemconfig）
+        self._turn = 0                          # 转身过渡剩余 tick
+        self.root.after(RENDER_MS, self._loop)
 
     # ---------- 平台 ----------
     def _all_platforms(self):
@@ -277,6 +293,7 @@ class Pet:
             return
         self.x = e.x_root - self.drag_off[0]
         self.y = e.y_root - self.drag_off[1]
+        self._px, self._py = self.x, self.y     # 拖拽直通，不做步间插值
         self.root.geometry(f"+{int(self.x)}+{int(self.y)}")
 
     def _release(self, e):
@@ -304,6 +321,19 @@ class Pet:
     # ---------- 状态切换 ----------
     def _set_state(self, s, duration=0):
         self.state, self.state_left = s, duration
+
+    def _front_frame(self):
+        """正面立绘帧名（转身过渡用）：优先 spin_0（正视图），无则 idle_0。"""
+        for n in ("spin_0", "idle_0"):
+            if n in self.frames:
+                return n
+        return None
+
+    def _flip(self):
+        """掉头；有正面帧时插入短促转身过渡，否则直接镜像。"""
+        self.dir *= -1
+        if self._front_frame():
+            self._turn = TURN_TICKS
 
     def _to_walk(self):
         self._touch()
@@ -348,7 +378,50 @@ class Pet:
         self.say("转起来～", 1500)
 
     # ---------- 主循环 ----------
-    def _tick(self):
+    def _loop(self):
+        now = time.monotonic()
+        steps = 0
+        while self._logic_next <= now and steps < 4:   # 追帧上限 4 步防风暴
+            self._logic_step()
+            self._logic_next += LOGIC_DT
+            steps += 1
+        if self._logic_next <= now:                    # 卡顿过久：弃追对表
+            self._logic_next = now + LOGIC_DT
+        self._render(now)
+        self.root.after(RENDER_MS, self._loop)
+
+    def _render(self, now):
+        """高频渲染：窗口位置在逻辑步间线性插值（亚像素），动画按墙钟相位取帧。"""
+        a = 1.0 - min(1.0, max(0.0, (self._logic_next - now) / LOGIC_DT))
+        rx = self._px + (self.x - self._px) * a
+        ry = self._py + (self.y - self._py) * a
+        name = self._frame_at(now, a)
+        if name != self._shown:
+            self._shown = name
+            self.canvas.itemconfig(self.sprite,
+                                   image=self.frames.get(name, self.frames[self._fallback]))
+        self.root.geometry(f"+{int(rx)}+{int(ry)}")
+
+    def _frame_at(self, now, alpha):
+        """当前应显示的帧名。alpha=当前逻辑步内进度 0~1（SPIN 用其连续取面）。"""
+        spec = self._anim_key
+        if spec[0] == "seq":
+            _, names, period = spec
+            if not names:                               # 自定义帧目录缺整组帧时兜底
+                return self._fallback
+            return names[int((now - self._anim_t0) * 1000 / period) % len(names)]
+        if spec[0] == "spin":
+            names = [n for n in ("spin_0", "spin_1", "spin_2", "spin_3")
+                     if n in self.frames]
+            if not names:
+                return self._fallback
+            prog = (32 - max(self.state_left, 0)) + alpha   # 每 8 tick 换一面
+            return names[int(prog // 8) % len(names)]
+        return spec[1]
+
+    def _logic_step(self):
+        """固定 50ms 逻辑步（tick 语义与原版一致）。"""
+        self._px, self._py = self.x, self.y          # 渲染插值锚点（步前位置）
         self.tick_n += 1
         if self.state != "GRAB":
             self.state_left -= 1
@@ -368,7 +441,7 @@ class Pet:
                 self.y = s[1] - SIZE
 
         if self.state == "IDLE":
-            self._anim(["idle_0", "idle_1", "idle_2"], 20)   # 呼吸循环
+            self._anim(["idle_0", "idle_1", "idle_2"], 1000)  # 呼吸循环
             if self.state_left <= 0:
                 self._to_walk() if random.random() < 0.6 else \
                     self._set_state("IDLE", random.randint(60, 200))
@@ -379,24 +452,27 @@ class Pet:
             s = self._support()
             if s is None:
                 self._to_fall()
+            elif self._turn > 0:
+                # 转身过渡：正面帧短停顿，不位移（抹掉左右镜像硬切）
+                self._turn -= 1
+                self._show(self._front_frame())
             else:
                 run = self.state == "RUN"
                 d = "l" if self.dir < 0 else "r"
                 if run:
-                    self._anim([f"fast_{d}_0", f"fast_{d}_1"], 5)
+                    self._anim([f"fast_{d}_0", f"fast_{d}_1"], 250)
                     self.x += self.dir * (WALK_SPEED + 2)
                 else:
-                    # 帧数越多步频越快（补间帧让动作顺滑，见 SOP）
-                    self._anim(self._walk_seq[d], self._walk_spd[d])
+                    self._anim(self._walk_seq[d], self._walk_period[d])
                     self.x += self.dir * WALK_SPEED
                 nx = self.x
                 if nx + FOOT_INSET < s[0] or nx + SIZE - FOOT_INSET > s[2]:
                     if random.random() < 0.6:           # 到窗口边缘：多半掉头
-                        self.dir *= -1
+                        self._flip()
                         nx = self.x
                     # 否则径直走下去 → 下个 tick 失去支撑自然掉落
                 if nx < -20 or nx > self.sw - SIZE + 20:
-                    self.dir *= -1
+                    self._flip()
                     nx = self.x
                 self.x = nx
                 if self.state_left <= 0:
@@ -405,7 +481,7 @@ class Pet:
                     self.say(random.choice(LINES))
 
         elif self.state == "GRAB":
-            self._anim(["grab_0", "grab_1"], 4)
+            self._anim(["grab_0", "grab_1"], 200)
 
         elif self.state == "FALL":
             prev_feet = self.y + SIZE
@@ -446,17 +522,17 @@ class Pet:
                 self._set_state("IDLE", random.randint(60, 200))
 
         elif self.state == "SLEEP":
-            self._anim(["sleep_0", "sleep_1"], 40)
+            self._anim(["sleep_0", "sleep_1"], 2000)
             if random.random() < 0.002:
                 self.say(SLEEP_LINE, 1500)
 
         elif self.state == "BOUNCE":
-            self._anim(["bounce_0", "bounce_1"], 4)
+            self._anim(["bounce_0", "bounce_1"], 200)
             if self.state_left <= 0:
                 self._set_state("IDLE", random.randint(60, 200))
 
         elif self.state == "HAPPY":
-            self._anim(["happy_0", "happy_1"], 6)
+            self._anim(["happy_0", "happy_1"], 300)
             if self.state_left <= 0:
                 self._set_state("IDLE", random.randint(60, 200))
 
@@ -466,25 +542,27 @@ class Pet:
                 self._set_state("IDLE", random.randint(60, 200))
 
         elif self.state == "CHEER":
-            self._anim(["cheer_0", "cheer_1"], 7)
+            self._anim(["cheer_0", "cheer_1"], 350)
             if self.state_left <= 0:
                 self._set_state("IDLE", random.randint(60, 200))
 
         elif self.state == "SPIN":
-            i = (32 - max(self.state_left, 0)) // 8    # 每 8 tick 换一面
-            self._show(["spin_0", "spin_1", "spin_2", "spin_3"][i % 4])
+            self._set_anim(("spin",))   # 渲染层按连续进度换面（每面 8 tick）
             if self.state_left <= 0:
                 self._set_state("IDLE", random.randint(60, 200))
 
-        self.root.geometry(f"+{int(self.x)}+{int(self.y)}")
-        self.root.after(50, self._tick)
-
-    def _anim(self, names, speed):
-        self._show(names[(self.tick_n // speed) % len(names)])
+    # ---------- 动画 ----------
+    def _anim(self, names, period_ms):
+        """循环帧组：渲染层按墙钟相位取帧（period_ms = 每帧时长）。"""
+        self._set_anim(("seq", tuple(names), int(period_ms)))
 
     def _show(self, name):
-        self.canvas.itemconfig(self.sprite,
-                               image=self.frames.get(name, self.frames[self._fallback]))
+        self._set_anim(("still", name))
+
+    def _set_anim(self, spec):
+        if spec != self._anim_key:                     # 切换动画时相位归零
+            self._anim_key = spec
+            self._anim_t0 = time.monotonic()
 
     # ---------- 台词气泡 ----------
     def say(self, text, ms=2600):

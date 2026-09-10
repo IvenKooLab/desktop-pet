@@ -15,7 +15,10 @@ English | [简体中文](README.zh-CN.md)
 
 ## Features
 
-- **Real walk cycle** from AI-generated walk-sheet frames (left/right facing)
+- **Smooth walking** — procedural 24-phase walk gait from a single side view
+  (cosine-continuous, zero ghosting), with a front-facing turn-around pause
+- **~60 fps rendering** — fixed 50 ms logic steps + wall-clock animation phase
+  and sub-pixel position interpolation (no more 20 fps stepping)
 - **Windows are platforms** — she walks on top of your app windows,
   turns at edges (or falls off), and drops when you close the window
 - Idle breathing · grab struggle · gravity fall · landing squash · sleep
@@ -54,7 +57,7 @@ tools\build_exe.bat   # rebuilds dist\IvenPet.exe (needs pyinstaller)
 
 ```
 pet.py                  # runtime: state machine + window-as-platform + single instance
-frames3d/               # 33 animation frames (GIF, magenta-key transparency)
+frames3d/               # 73 animation frames (GIF, magenta-key transparency)
 tools/make_frames3d.py  # asset pipeline: AI matting → slicing → frame synthesis
 tools/qa_frames.py      # numeric QA: fragments / holes / size consistency
 tools/qa_diff.py        # pixel regression: final frames vs source cuts

@@ -8,3 +8,8 @@ dist/
 build/
 *.spec
 frames3d_mvp/
+build_assets/dbg_*
+build_assets/exp_*
+build_assets/debug_*
+build_assets/diag_matting.py
+build_assets/exp_fix.py

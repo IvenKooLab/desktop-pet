@@ -10,6 +10,9 @@
 （qa_diff 直通 resize+>96 二值化，与管线的预乘+≥160 不同），
 此类帧以 qa_frames 数值 + 双底色目检为准。
 """
+import math
+import sys
+
 import numpy as np
 from PIL import Image
 from scipy import ndimage
@@ -18,13 +21,14 @@ ROOT = Path(__file__).resolve().parent.parent if (Path := __import__("pathlib").
 CUT = ROOT / "assets" / "cut"
 FRAMES = ROOT / "frames3d"
 
-# 帧 -> (源切图, dy, dx, scale_w, scale_h, tilt)
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from make_frames3d import stride  # noqa: E402  # walk 剪腿复现（与构建端同公式）
+
+# 帧 -> (源切图, dy, dx, scale_w, scale_h, tilt[, flip[, shear_dx]])
+#   shear_dx: walk 帧的剪腿错位量（构建端 stride() 在全分辨率切图上先行施加）
 MAP = {
     "idle_0": ("idleb_0", 0, 0, 1, 1, 0), "idle_1": ("idleb_1", 0, 0, 1, 1, 0),
     "idle_2": ("idleb_2", 0, 0, 1, 1, 0),
-    "walk_l_0": ("wl_contact", 0, 0, 1, 1, 0), "walk_l_2": ("wl_pass", 0, 0, 1, 1, 0),
-    "walk_r_0": ("wrs_contact", 0, 0, 1, 1, 0), "walk_r_2": ("wrs_pass", 0, 0, 1, 1, 0),
-
 
     "fast_l_0": ("fl_a", 0, 0, 1, 1, 0), "fast_l_1": ("fl_b", -4, 0, 1, 1, 0),
     "fast_r_0": ("fr_a", 0, 0, 1, 1, 0), "fast_r_1": ("fr_b", -4, 0, 1, 1, 0),
@@ -41,12 +45,24 @@ MAP = {
     "spin_2": ("back", 0, 0, 0.88, 0.88, 0), "spin_3": ("side", 0, 0, 0.88, 0.88, 0, False),
 }
 
+# walk 24 相位（程序步态）：与 make_frames3d.build_frames 同公式逐帧登记
+#   u=cos(2πk/N)，dxs=28u（左右共用，右向后翻转），dy=round(6u²-4)，tilt=∓2.5u
+for _k in range(24):
+    _u = math.cos(2 * math.pi * _k / 24)
+    MAP[f"walk_l_{_k}"] = ("side", round(6 * _u * _u - 4), 0, 1, 1, -2.5 * _u,
+                           False, 28 * _u)
+    MAP[f"walk_r_{_k}"] = ("side", round(6 * _u * _u - 4), 0, 1, 1, 2.5 * _u,
+                           True, 28 * _u)
+
 FOOT_Y = 194
 FIT_W, FIT_H = 168, 176
 
 
-def fit_mask(im: Image.Image, sw: float, sh: float, tilt: float, flip: bool = False) -> np.ndarray:
+def fit_mask(im: Image.Image, sw: float, sh: float, tilt: float, flip: bool = False,
+             shear_dx: float = 0.0) -> np.ndarray:
     im = im.copy()
+    if shear_dx:                                  # walk 剪腿：全分辨率上先行施加（同构建端）
+        im = stride(im, shear_dx)
     if flip:
         im = im.transpose(Image.FLIP_LEFT_RIGHT)
     im.thumbnail((FIT_W, FIT_H), Image.LANCZOS)
@@ -62,13 +78,14 @@ def main():
     for gif, entry in sorted(MAP.items()):
         src, dy, dx0, sw, sh, tilt = entry[:6]
         flip = entry[6] if len(entry) > 6 else False
+        shear = entry[7] if len(entry) > 7 else 0.0
         fpath = FRAMES / f"{gif}.gif"
         spath = CUT / f"{src}.png"
         arr = np.asarray(Image.open(fpath).convert("RGB"))
         r, g, b = arr[..., 0].astype(int), arr[..., 1].astype(int), arr[..., 2].astype(int)
         gmask = ~((r > 200) & (b > 200) & (g < 110))
         cut = Image.open(spath)
-        smask = fit_mask(cut, sw, sh, tilt, flip)
+        smask = fit_mask(cut, sw, sh, tilt, flip, shear)
         h, w = smask.shape
         best_lost = 1.0
         for ddx in range(-6, 7, 2):
