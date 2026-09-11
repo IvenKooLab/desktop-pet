@@ -40,6 +40,9 @@ python pet.py        # Windows + Python 3.8+ (tkinter bundled), nothing else to 
 Right-click the pet for the menu; drag her anywhere; double-click her for a reaction.
 Close her via right-click menu → 退出 (Exit).
 
+
+![Iven Pet Studio](docs/images/studio.png)
+
 ## Build Your Own IP Pet
 
 The whole pipeline is documented as a step-by-step SOP:
