@@ -31,7 +31,40 @@ except (ImportError, AttributeError):   # 非 Windows
     ctypes = None
 
 BASE = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
-FRAMES_DIR = os.environ.get("PET_FRAMES_DIR") or os.path.join(BASE, "frames3d")
+# 角色数据（characters/）放 exe 同级目录：_MEIPASS 是只读临时解压目录
+DATA_DIR = (os.path.dirname(os.path.abspath(sys.executable))
+            if getattr(sys, "frozen", False)
+            else os.path.dirname(os.path.abspath(__file__)))
+
+
+def _load_profile():
+    """Studio 写的 pet_settings.json + 角色 meta.json → (帧目录, 台词表)。
+
+    优先级：PET_FRAMES_DIR 环境变量 > settings.character > 内置 frames3d。
+    台词表来自 characters/<name>/meta.json 的 lines（空则用内置）。
+    """
+    frames_dir = os.path.join(BASE, "frames3d")
+    lines = []
+    try:
+        import json
+        conf = json.loads(open(os.path.join(DATA_DIR, "pet_settings.json"),
+                               encoding="utf-8").read())
+        ch = conf.get("character") or ""
+        if ch:
+            cand = os.path.join(DATA_DIR, "characters", ch, "frames3d")
+            if os.path.isfile(os.path.join(cand, "idle_0.gif")):
+                frames_dir = cand
+            meta_p = os.path.join(DATA_DIR, "characters", ch, "meta.json")
+            meta = json.loads(open(meta_p, encoding="utf-8").read())
+            if isinstance(meta.get("lines"), list) and meta["lines"]:
+                lines = [str(l) for l in meta["lines"] if str(l).strip()]
+    except Exception:
+        pass
+    frames_dir = os.environ.get("PET_FRAMES_DIR") or frames_dir
+    return frames_dir, lines
+
+
+FRAMES_DIR, _CUSTOM_LINES = _load_profile()
 
 # 单实例：绑定本地端口。进程退出端口立即释放，不会有互斥锁僵尸句柄问题
 try:
@@ -88,6 +121,8 @@ LINES = [
     "我现在是 3D 手办了哦。",
     "你的窗口，都是我的路。",
 ]
+if _CUSTOM_LINES:
+    LINES = _CUSTOM_LINES        # Studio 台词库覆盖（角色 meta.json）
 GRAB_LINES = ["哇！", "放手！", "别提我！"]
 LAND_LINES = ["着陆成功。", "一点不疼。", "再来。"]
 CHEER_LINES = ["Action——！", "咔，一条过！"]
@@ -186,7 +221,9 @@ class Pet:
                 self.frames[name] = tk.PhotoImage(file=path)
         if "idle_0" not in self.frames:
             raise FileNotFoundError(f"帧目录缺少 idle_0.gif: {FRAMES_DIR}")
-        self._fallback = next(iter(self.frames))    # 缺帧时用任意可用帧兜底
+        # 兜底帧：优先 fall_0（状态机主帧），否则任意可用帧（最小角色集也活）
+        self._fallback = ("fall_0" if "fall_0" in self.frames
+                          else next(iter(self.frames)))
         # 走路序列按实际可用帧动态生成；帧周期=整循环时长/帧数
         # （24 帧→48ms/帧、8 帧→144ms、4 帧→288ms，帧数越多越顺滑）
         self._walk_seq = {}
@@ -230,6 +267,8 @@ class Pet:
         self._anim_t0 = time.monotonic()
         self._shown = None                      # 当前已上屏帧名（去重 itemconfig）
         self._turn = 0                          # 转身过渡剩余 tick
+        self._idle_fx = 0                        # 待机微动作剩余 tick
+        self._idle_fx_frame = None
         self.root.after(RENDER_MS, self._loop)
 
     # ---------- 平台 ----------
@@ -442,6 +481,16 @@ class Pet:
 
         if self.state == "IDLE":
             self._anim(["idle_0", "idle_1", "idle_2"], 1000)  # 呼吸循环
+            # 随机微动作（路线C简化版）：低概率眨眼/浅笑，待机永不完全重复
+            if self._idle_fx > 0:
+                self._idle_fx -= 1
+                if self._idle_fx_frame:
+                    self._show(self._idle_fx_frame)
+            elif random.random() < 0.0015:               # 平均 ~33s 一次
+                pool = [n for n in ("shy_0", "happy_0") if n in self.frames]
+                if pool:
+                    self._idle_fx_frame = random.choice(pool)
+                    self._idle_fx = 6                    # 300ms
             if self.state_left <= 0:
                 self._to_walk() if random.random() < 0.6 else \
                     self._set_state("IDLE", random.randint(60, 200))

@@ -1,3 +1,24 @@
 [2026-09-08 21:19:37] 单实例端口 56570 被占，退出（可能是已有实例）
 [2026-09-08 21:19:44] 单实例端口 56570 被占，退出（可能是已有实例）
 [2026-09-08 21:20:22] 单实例端口 56570 被占，退出（可能是已有实例）
+[2026-09-11 01:18:42] 单实例端口 56570 被占，退出（可能是已有实例）
+[2026-09-11 01:18:42]
+Traceback (most recent call last):
+  File "E:\work\gitee\desktop-pet\pet.py", line 637, in <module>
+    Pet().run()
+    ~~~^^
+  File "E:\work\gitee\desktop-pet\pet.py", line 235, in __init__
+    self.sprite = self.canvas.create_image(0, 0, image=self.frames["fall_0"],
+                                                       ~~~~~~~~~~~^^^^^^^^^^
+KeyError: 'fall_0'
+
+[2026-09-11 23:15:06]
+Traceback (most recent call last):
+  File "E:\work\gitee\desktop-pet\pet.py", line 637, in <module>
+    Pet().run()
+    ~~~^^
+  File "E:\work\gitee\desktop-pet\pet.py", line 235, in __init__
+    self.sprite = self.canvas.create_image(0, 0, image=self.frames["fall_0"],
+                                                       ~~~~~~~~~~~^^^^^^^^^^
+KeyError: 'fall_0'
+
