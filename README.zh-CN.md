@@ -25,6 +25,9 @@ python pet.py
 
 ![Iven Pet Studio](docs/images/studio.png)
 
+
+![Iven Pet Studio · 桌宠制作器](docs/images/studio.png)
+
 ## MVP：只传一张三视图
 
 不想凑齐全套 Sheet？一张三视图（正/侧/背，从左到右）即可出**简化版**桌宠（呼吸压扁 + 程序剪腿步态 + 转体，21 帧）：

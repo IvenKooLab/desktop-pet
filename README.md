@@ -43,6 +43,9 @@ Close her via right-click menu → 退出 (Exit).
 
 ![Iven Pet Studio](docs/images/studio.png)
 
+
+![Iven Pet Studio · 桌宠制作器](docs/images/studio.png)
+
 ## Build Your Own IP Pet
 
 The whole pipeline is documented as a step-by-step SOP:
