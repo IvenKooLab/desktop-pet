@@ -103,9 +103,10 @@ FRAMES = ["idle_0", "idle_1", "idle_2", "grab_0", "grab_1", "fall_0", "land_0",
           "spin_0", "spin_1", "spin_2", "spin_3",
           "bounce_0", "bounce_1", "happy_0", "happy_1", "shy_0"]
 for _d in ("l", "r"):
-    # walk 按目录实际文件加载（生成端现为 24 相位；修复：旧版 range(4) 只装
-    # 0..3，8 相位步态只播一半导致周期断裂闪烁）
+    # legacy 24 相位程序步态（ASSET-FIRST 冻结：保留 fallback，优先级低于 av_walk）
     FRAMES += [f"walk_{_d}_{i}" for i in range(24)]
+    # av_walk：8 帧真素材（GPT 同视角步态循环，见 characters/iven-pet/animations/walk）
+    FRAMES += [f"av_walk_{_d}_{i:02d}" for i in range(8)]
     FRAMES += [f"fast_{_d}_{i}" for i in range(2)]
 
 LINES = [
@@ -229,6 +230,12 @@ class Pet:
         self._walk_seq = {}
         self._walk_period = {}
         for d in ("l", "r"):
+            av = [f"av_walk_{d}_{i:02d}" for i in range(8)
+                  if f"av_walk_{d}_{i:02d}" in self.frames]
+            if len(av) == 8:                     # 真素材优先：12 FPS
+                self._walk_seq[d] = av
+                self._walk_period[d] = round(1000 / 12)
+                continue
             seq = [f"walk_{d}_{i}" for i in range(24) if f"walk_{d}_{i}" in self.frames]
             if len(seq) < 8:
                 seq = [f"walk_{d}_{i}" for i in range(4) if f"walk_{d}_{i}" in self.frames]

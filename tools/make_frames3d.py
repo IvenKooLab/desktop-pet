@@ -140,8 +140,11 @@ def rembg_fg(img: Image.Image, thresh: int = 127) -> np.ndarray:
     from rembg import remove
     out = remove(img, session=rembg_session())
     alpha = np.asarray(out)[..., 3]
-    strong = alpha >= 140
-    weak = alpha >= 5
+    rgb = np.asarray(img.convert("RGB")).astype(int)
+    mn = rgb.min(2)
+    near_white = mn >= 235                          # 白底（含 AA 过渡）排除
+    strong = (alpha >= 140) & ~near_white
+    weak = (alpha >= 5) & ~near_white
     fg = ndimage.binary_propagation(strong, mask=weak)
     # 深色部件回收：u2net 偶发丢手持深色道具（场记板）。角色近旁的深蓝紫
     # 像素（板/鞋/发影）必然属于角色——浅色棋盘格背景在颜色上天然排除
