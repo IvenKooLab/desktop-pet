@@ -1,5 +1,14 @@
 # Phase 1 前置分析 · desktop-pet 动画系统现状与改造方案
 
+> **⚠️ ASSET-FIRST 状态（架构审查结论，已确认执行）**
+> 当前 main 的 24 相位程序化 Walk 标记为 **LEGACY**（保留为 fallback/对比基准，不删除、不再调参）。
+> AnimationClip / animation.json 规划暂缓实现，直至 Walk 4 帧一致性测试 PASS（验收标准 A–J 见 WALK_ASSET_SPEC §2）。
+> **Done Definition**：「同一个 Iven Pet 在连续 Walk 帧中拥有稳定角色身份和可信的二维行走运动」
+> ——「程序能播放 N 张图片」不算完成。
+> 本文档第 4 节的改造项在素材 PASS 后解冻执行。
+
+---
+
 > 按「只分析、不写代码」要求产出。分析人：ZCode（desktop-pet 全链路原作者）。
 > 结论可直接作为 Phase 1（Walk 动画）任务单的依据。
 
