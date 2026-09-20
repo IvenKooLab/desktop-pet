@@ -277,10 +277,10 @@ def cut_sheet(path: Path, tol: int = 13, gap: int = 60, min_h: int = 120,
             crop = img.crop((max(0, x0 - pad), max(0, y0 - pad), x1 + pad, y1 + pad))
             a = rembg_fg(crop)
             a = a | color_rule_fg_clusters(crop)   # 并集救回 u2net 整块丢的深色道具
-            lbl, n = ndimage.label(a)              # 只留主组件 + 面积≥2% 的部件，滤渣点
-            if n > 1:                              # 2%：板与手指连接处 alpha 低易断开，
-                sz = ndimage.sum(a, lbl, range(1, n + 1))   # 8% 会把场记板整块误删
-                keep = np.zeros(n + 1, bool); keep[1:] = sz >= sz.max() * 0.02
+            lbl, n = ndimage.label(a)              # 比例过滤：留主组件+≥8%部件
+            if n > 1:                              # 徽章标签≈主组件3%，正确滤除；
+                sz = ndimage.sum(a, lbl, range(1, n + 1))   # 场记板≈15%保留（历史8%误删）
+                keep = np.zeros(n + 1, bool); keep[1:] = sz >= sz.max() * 0.08
                 a = keep[lbl]
             rgba = np.dstack([np.asarray(crop), a * 255]).astype(np.uint8)
             rgba = defringe(rgba, glow_cut=4)      # 4：weak≥5 多吸的 2~3px 辉光晕靠多腐蚀抵消
