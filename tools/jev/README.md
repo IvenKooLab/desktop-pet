@@ -80,10 +80,12 @@ Jev 只消费，不发明分类）。审计全文：`docs/JEV_BOUNDARY_AUDIT.md`
 structured evidence + classifications** 一起发送，指令明确"按给定标准逐项判定"——
 而不是发"这个动画好吗"式的开放提问。
 
-## 已知事实（2026-09-21 边界审计版）
+## 已知事实（2026-09-21 F1/F2 修复后）
 
 当前已入库 8 帧 walk 素材的真实证据在 `tests/jev/fail.json`，判定 **FAIL**：
-- `phase_consistency` / `gif_bottom_clip` = GenuineDefect（真实缺陷：无垂直节奏 + 全帧底部裁切）
-- `leg_reposition` = StandardMismatch（period-2 锯齿规则对 8 帧结构失效）
+- `phase_consistency` = GenuineDefect（bounce 缺失，**暂缓**——产品/动画标准未拍板）
+- `gif_bottom_clip` 已修复（F1：接地线恒 194、裁切 0；sole 抖动 F2 一并消除，
+  前后对比 `tests/jev/placement_fix_verification.json`）
+- `leg_reposition` = StandardMismatch（period-2 锯齿规则对 8 帧结构失效，**暂缓**）
 - `head_width_cv` 警告带 = MeasurementArtifact（发丝摆动混入）
-完整证据链与新发现（sole 抖动、characters/ 未入库）见 `docs/JEV_BOUNDARY_AUDIT.md`。
+完整证据链见 `docs/JEV_BOUNDARY_AUDIT.md`（含修复记录与新发现 F4 尺寸不一致）。

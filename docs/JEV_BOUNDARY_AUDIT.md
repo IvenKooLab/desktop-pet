@@ -120,3 +120,38 @@ collector 现同时测量两者并在 `_provenance` 注明来源。是否把 cha
 4. leg_reposition 规则按 8 帧相位重标定（标准修订）
 5. head_width 口径改进（颅顶带/耳机间距）
 6. F3 characters/ 是否入库
+
+---
+
+## 修复记录 · F1+F2（2026-09-21，同日完成）
+
+**修复方式**（`tools/_build_av_walk.py` 单点修改，同时消除 F1+F2——同根因）：
+
+- `sole_row()` 由"底部 25% 最宽行"（鞋面/脚背的偶然宽扫描线）改为
+  **alpha 二值化后内容的最末行 = 真实接地线**（步行各姿态至少一只鞋贴地）；
+- 二值化时序提前：定锚 mask 与最终贴图 mask 完全一致（旧版锚点用 alpha>96、
+  贴图用 ≥128，两者不一致本身也是隐患）；
+- `SIZE/FOOT_Y/REF_H/统一缩放/左右镜像` 全部未动。
+
+**量化对比**（`tests/jev/placement_fix_verification.json`，前后同口径）：
+
+| 指标 | Before | After |
+|---|---|---|
+| clipped frames | 8/8（clip_px 9~18） | **0/8** |
+| 接地线（内容底行） | 恒 199（被裁切顶到边） | **恒 194**（FOOT_Y 设计值，jitter=0） |
+| py 序列 | [57,55,57,57,64,58,57,56]（9px 不规则抖动） | [41×7,42]（1px = walk_06 源艺术高差） |
+| 鞋底完整度 | 末 ~11px 被裁 | 完整（overlay 可视验证） |
+
+视觉证据：`tests/jev/sole_anchor_overlay.png`（8 帧剪影叠画 + 接地线标线，
+鞋底区放大条见该文件生成脚本）。
+
+**修复后门禁状态**：`runtime.gif_bottom_clip → PASS`；qa_walk8 判定不变（其 FAIL 项
+均为已分类的 StandardMismatch/MeasurementArtifact，按纪律未修改该工具）；
+真实证据重采后 Overall 仍 **FAIL**——唯一剩余 FAIL = phase_consistency
+（bounce，GenuineDefect，暂缓待标准拍板），符合"修 F1/F2 不污染判断边界"的预期。
+
+**新发现 F4（记录，未修，超出本阶段授权）**：全套其它动画（idle/fall/cheer/fast/旧 walk）
+人物高 176px、脚线 192~193；av_walk 人物高 154px——REF_H=874 是初版源帧（874px）
+的身高基准，源素材重切后变为 763px，REF_H 未同步 → walk 状态人物比其它状态
+小 12.5%。修复只需同步 REF_H（如 874→764），但会改变角色上屏尺寸，属视觉变更，
+待 owner 拍板后与 bounce 决策一并处理。
