@@ -32,6 +32,7 @@ REQUIRED_KEYS = {
         "gif_load": bool,
         "fps_match": bool,
         "runtime_error": bool,
+        "gif_bottom_clip": bool,
     },
 }
 
