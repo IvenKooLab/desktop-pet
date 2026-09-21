@@ -61,10 +61,166 @@ def _load_profile():
     except Exception:
         pass
     frames_dir = os.environ.get("PET_FRAMES_DIR") or frames_dir
-    return frames_dir, lines
+    lang = "zh"
+    try:
+        import json as _j
+        conf = _j.loads(open(os.path.join(DATA_DIR, "pet_settings.json"),
+                             encoding="utf-8").read())
+        lang = conf.get("language") or _detect_lang()
+    except Exception:
+        lang = _detect_lang()
+    return frames_dir, lines, lang
 
 
-FRAMES_DIR, _CUSTOM_LINES = _load_profile()
+def _texts(lang):
+    """5 语言 UI/台词表（zh 简中 / zh-Hant 繁中 / en / ko / ja）。"""
+    if lang == "zh-Hant":
+        return {
+            "menu_speak": "說句話", "menu_clap": "打個板 🎬",
+            "menu_spin": "轉一圈 🔄", "menu_run": "小短腿快走 🏃",
+            "menu_shy": "害羞一下 😳", "menu_sleep": "睡一覺",
+            "menu_exit": "退出",
+            "lines": [
+                "token 又免費了，快薅！", "今天的格子，點亮了嗎？",
+                "Agent & RAG，學著呢。", "free tier 也要有夢想。",
+                "README 已經是英文的了哦。", "我的場記板呢……",
+                "三個倉庫，都在雙平台躺著。", "慢慢做，比較快。",
+                "有 bug 去公眾號看我調試。", "我現在是 3D 手辦了哦。",
+                "你的視窗，都是我的路。",
+            ],
+            "grab": ["哇！", "放手！", "別提我！"],
+            "land": ["著陸成功。", "一點不疼。", "再來。"],
+            "cheer": ["Action——！", "咔，一條過！"],
+            "sleep": "Zzz……",
+            "wake": "……吵醒我了。",
+            "greet": "我上線啦！",
+            "shy": "……討厭啦。",
+            "dash": "衝呀——！",
+            "spin": "轉起來～",
+            "wow": ["哇！", "開心！", "耶！"],
+        }
+    if lang == "en":
+        return {
+            "menu_speak": "Say something", "menu_clap": "Clap board 🎬",
+            "menu_spin": "Spin around 🔄", "menu_run": "Quick walk 🏃",
+            "menu_shy": "Get shy 😳", "menu_sleep": "Sleep",
+            "menu_exit": "Exit",
+            "lines": [
+                "Free tokens again — grab 'em!",
+                "Did you light up today's square?",
+                "Learning Agents & RAG.",
+                "Free tier dreams matter too.",
+                "My README is already in English.",
+                "Where's my clapperboard…",
+                "Three repos, napping on two platforms.",
+                "Slow is smooth, smooth is fast.",
+                "Bugs? Watch me debug on my channel.",
+                "I'm a 3D figure now.",
+                "Your windows are my streets.",
+            ],
+            "grab": ["Whoa!", "Let go!", "Hey, hands off!"],
+            "land": ["Landed.", "Didn't hurt a bit.", "Again!"],
+            "cheer": ["Action—!", "One take, perfect!"],
+            "sleep": "Zzz…",
+            "wake": "…Hey, I was sleeping.",
+            "greet": "I'm online!",
+            "shy": "…S-stop that.",
+            "dash": "Here I go—!",
+            "spin": "Spin spin~",
+            "wow": ["Whoa!", "Yay!", "Whee!"],
+        }
+    if lang == "ko":
+        return {
+            "menu_speak": "말 걸기", "menu_clap": "클래퍼 🎬",
+            "menu_spin": "빙글 돌기 🔄", "menu_run": "빠른 걸음 🏃",
+            "menu_shy": "쑥스러움 😳", "menu_sleep": "자기",
+            "menu_exit": "종료",
+            "lines": [
+                "토큰 또 무료래, 얻어먹자!", "오늘의 칸, 채웠어?",
+                "Agent & RAG, 배우는 중.", "무료 티어에도 꿈이 있어.",
+                "README는 이미 영어란 말이야.", "내 클래퍼 보드 어딨지…",
+                "저장소 3개, 두 플랫폼에서 쉬는 중.", "천천히 하면 오히려 빨라.",
+                "버그는 채널에서 디버깅하는 거 봐.", "이제 난 3D 피규어야.",
+                "네 창문들이 전부 내 거야.",
+            ],
+            "grab": ["앗!", "놔!", "그만!"],
+            "land": ["착륙 성공.", "하나도 안 아파.", "또 할래!"],
+            "cheer": ["액션—!", "한 방에 OK!"],
+            "sleep": "쿨쿨…",
+            "wake": "…왜 깨우는 거야!",
+            "greet": "켜졌다!",
+            "shy": "…히힝, 그만해!",
+            "dash": "달려—!",
+            "spin": "빙글빙글~",
+            "wow": ["와!", "신나!", "이야!"],
+        }
+    if lang == "ja":
+        return {
+            "menu_speak": "話しかける", "menu_clap": "カチンコ 🎬",
+            "menu_spin": "ぐるっと回る 🔄", "menu_run": "ちょこ速歩き 🏃",
+            "menu_shy": "照れちゃう 😳", "menu_sleep": "お昼寝",
+            "menu_exit": "終了",
+            "lines": [
+                "トークンまた無料だって、捕まえよう！", "今日のマス、塗った？",
+                "Agent & RAG、勉強中。", "無料枠にも夢があるの。",
+                "README、もう英語だよ。", "私のクラッパーボードどこ…",
+                "リポジトリ 3つ、デュアルで寝てる。", "ゆっくり丁寧が一番速い。",
+                "バグはチャンネルでデバッグ見てね。", "今では 3D フィギュアだよ。",
+                "あなたのウィンドウは私の道。",
+            ],
+            "grab": ["わっ！", "離して！", "やめてよ！"],
+            "land": ["着地成功。", "全然痛くない。", "もう一回！"],
+            "cheer": ["アクション—！", "ワンカット OK!"],
+            "sleep": "Zzz…",
+            "wake": "んー…起こしたの？",
+            "greet": "オンラインだよ！",
+            "shy": "…もう、いじわる。",
+            "dash": "ダッシュ—！",
+            "spin": "ぐるぐる~",
+            "wow": ["わー！", "楽しい！", "イェーイ！"],
+        }
+    return {
+        "menu_speak": "说句话", "menu_clap": "打个板 🎬",
+        "menu_spin": "转一圈 🔄", "menu_run": "小短腿快走 🏃",
+        "menu_shy": "害羞一下 😳", "menu_sleep": "睡一觉",
+        "menu_exit": "退出",
+        "lines": [
+            "token 又免费了，快薅！", "今天的格子，点亮了吗？",
+            "Agent & RAG，学着呢。", "free tier 也要有梦想。",
+            "README 已经是英文的了哦。", "我的场记板呢……",
+            "三个仓库，都在双平台躺着。", "慢慢做，比较快。",
+            "有 bug 去公众号看我调试。", "我现在是 3D 手办了哦。",
+            "你的窗口，都是我的路。",
+        ],
+        "grab": ["哇！", "放手！", "别提我！"],
+        "land": ["着陆成功。", "一点不疼。", "再来。"],
+        "cheer": ["Action——！", "咔，一条过！"],
+        "sleep": "Zzz……",
+        "wake": "……吵醒我了。",
+        "greet": "我上线啦！",
+        "shy": "……讨厌啦。",
+        "dash": "冲呀——！",
+        "spin": "转起来～",
+        "wow": ["哇！", "开心！", "耶！"],
+    }
+
+
+def _detect_lang():
+    """系统 UI 语言检测：中/日/韩 → 对应语言，其余 → 英文。"""
+    try:
+        lid = ctypes.windll.kernel32.GetUserDefaultUILanguage() & 0x3FF
+        return {0x04: "zh", 0x11: "ja", 0x12: "ko"}.get(lid, "en")
+    except Exception:
+        return "zh"
+
+
+FRAMES_DIR, _CUSTOM_LINES, LANG = _load_profile()
+_T = _texts(LANG)
+LINES = _CUSTOM_LINES or _T["lines"]
+GRAB_LINES = _T["grab"]
+LAND_LINES = _T["land"]
+CHEER_LINES = _T["cheer"]
+SLEEP_LINE = _T["sleep"]
 
 # 单实例：绑定本地端口。进程退出端口立即释放，不会有互斥锁僵尸句柄问题
 try:
@@ -299,18 +455,18 @@ class Pet:
         c.bind("<B1-Motion>", self._drag)
         c.bind("<ButtonRelease-1>", self._release)
         menu = tk.Menu(self.root, tearoff=0)
-        menu.add_command(label="说句话", command=lambda: self.say(random.choice(LINES)))
+        menu.add_command(label=_T["menu_speak"], command=lambda: self.say(random.choice(LINES)))
         if {"cheer_0", "cheer_1"} <= self.frames.keys():
-            menu.add_command(label="打个板 🎬", command=self._to_cheer)
+            menu.add_command(label=_T["menu_clap"], command=self._to_cheer)
         if {"spin_0", "spin_1", "spin_2", "spin_3"} <= self.frames.keys():
-            menu.add_command(label="转一圈 🔄", command=self._to_spin)
+            menu.add_command(label=_T["menu_spin"], command=self._to_spin)
         if "fast_l_0" in self.frames:
-            menu.add_command(label="小短腿快走 🏃", command=self._to_run)
+            menu.add_command(label=_T["menu_run"], command=self._to_run)
         if "shy_0" in self.frames:
-            menu.add_command(label="害羞一下 😳", command=self._to_shy)
-        menu.add_command(label="睡一觉", command=self._to_sleep)
+            menu.add_command(label=_T["menu_shy"], command=self._to_shy)
+        menu.add_command(label=_T["menu_sleep"], command=self._to_sleep)
         menu.add_separator()
-        menu.add_command(label="退出", command=self.root.destroy)
+        menu.add_command(label=_T["menu_exit"], command=self.root.destroy)
         c.bind("<Button-3>", lambda e: menu.tk_popup(e.x_root, e.y_root))
 
     def _touch(self):
@@ -331,7 +487,7 @@ class Pet:
             return
         if "happy_0" in self.frames:                  # 双击：开心反应（MVP 缺帧时跳过）
             self._set_state("HAPPY", 26)
-            self.say(random.choice(["哇！", "开心！", "耶！"]), 1600)
+            self.say(random.choice(_T["wow"]), 1600)
 
     def _drag(self, e):
         self._touch()
@@ -348,7 +504,7 @@ class Pet:
         moved = abs(e.x_root - self.press_pos[0]) + abs(e.y_root - self.press_pos[1])
         if moved < 6:                                   # 点击（非拖拽）→ 弹跳
             if self.state == "SLEEP":
-                self.say("……吵醒我了。", 1500)
+                self.say(_T["wake"], 1500)
                 self._set_state("IDLE", random.randint(60, 200))
             elif self.state not in ("CHEER", "SPIN", "BOUNCE", "HAPPY", "SHY"):
                 grounded = self._support() is not None
@@ -392,14 +548,14 @@ class Pet:
             return
         self.dir = random.choice((-1, 1))
         self._set_state("RUN", random.randint(120, 220))
-        self.say("冲呀——！", 1500)
+        self.say(_T["dash"], 1500)
 
     def _to_shy(self):
         self._touch()
         if self._support() is None:
             return
         self._set_state("SHY", 30)
-        self.say("……讨厌啦。", 1800)
+        self.say(_T["shy"], 1800)
 
     def _to_fall(self):
         self.vy = 0
@@ -421,7 +577,7 @@ class Pet:
         if self._support() is None:
             return
         self._set_state("SPIN", 32)                   # 4 帧 × 2 圈
-        self.say("转起来～", 1500)
+        self.say(_T["spin"], 1500)
 
     # ---------- 主循环 ----------
     def _loop(self):
@@ -563,10 +719,10 @@ class Pet:
                     self.first_land = False
                     if "greet_0" in self.frames:
                         self._set_state("GREET", 30)
-                        self.say("我上线啦！", 1800)
+                        self.say(_T["greet"], 1800)
                     else:
                         self._set_state("IDLE", random.randint(60, 200))
-                        self.say("我上线啦！", 1800)
+                        self.say(_T["greet"], 1800)
                 else:
                     self._set_state("IDLE", random.randint(60, 200))
                     if random.random() < 0.5:
