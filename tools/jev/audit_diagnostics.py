@@ -119,10 +119,132 @@ def diagnose_builder_replication():
     }
 
 
+def diagnose_size_consistency():
+    """D. F4 尺寸一致性取证（只读，不产生产物、不改生产 builder）。
+
+    1) 全族 GIF 测量：各动画族的人物高/接地线/内容宽（runtime 1:1 显示，
+       pet.py 无 zoom/subsample → GIF 像素 = 上屏像素）。
+    2) REF_H=874 来源：原始 Sheet（walk/source/walk_sheet_8f.png）人物 bbox
+       @ mx<245 = 874px —— REF_H 量在"Sheet 人物（含边界晕环）"上，
+       而 builder 消费的是抠图切图（762~764px）→ 单位错配。
+    3) 头身比同源性：idle vs av_walk 的 top35% 头宽/身高比（同角色验证）。
+    4) A/B 模拟（纯内存，经真实 builder 数学）：
+       A=现状 REF_H=874；B=REF_H=当前切图最高身高（alpha>96 口径）。
+       各自输出：渲染高/foot line/top 余量/宽/是否裁切/与 idle 盒差。
+    """
+    sys.path.insert(0, str(REPO / "tools"))
+    import _build_av_walk as builder
+    from qa_walk8 import keyed_mask
+
+    fam_files = {}
+    for f in sorted(GIF_DIR.glob("*.gif")):
+        s = f.stem
+        if s.startswith("av_walk"):
+            fam = s[:-3]
+        elif s.startswith("fast") or s.startswith("walk"):
+            fam = s[:6]
+        else:
+            fam = s.split("_")[0]
+        fam_files.setdefault(fam, []).append(f)
+
+    def gif_box(path):
+        arr = np.asarray(Image.open(path).convert("RGB"))
+        fg = keyed_mask(arr)
+        ys, xs = np.where(fg)
+        return {"h": int(ys.max() - ys.min() + 1), "foot": int(ys.max()),
+                "top": int(ys.min()), "w": int(xs.max() - xs.min() + 1)}
+
+    families = {}
+    for fam, files in sorted(fam_files.items()):
+        boxes = [gif_box(f) for f in files]
+        families[fam] = {
+            "n": len(files),
+            "h": sorted({b["h"] for b in boxes}),
+            "foot": sorted({b["foot"] for b in boxes}),
+            "w_max": max(b["w"] for b in boxes),
+            "top": sorted({b["top"] for b in boxes}),
+        }
+
+    # REF_H 来源：Sheet 人物 bbox（含晕环口径）
+    sheet = PNG_DIR.parent / "source" / "walk_sheet_8f.png"
+    sheet_ref = None
+    if sheet.exists():
+        a = np.asarray(Image.open(sheet).convert("RGB")).astype(int)
+        mx = a.max(axis=2)
+        n, sw = 8, a.shape[1] / 8
+        hs = []
+        for i in range(n):
+            ys, _ = np.where((mx < 245)[:, int(i * sw):int((i + 1) * sw)])
+            hs.append(int(ys.max() - ys.min() + 1))
+        sheet_ref = {"per_strip": hs, "max": max(hs),
+                     "note": "REF_H=874 = Sheet 人物 bbox(mx<245) 最高值；切图后剩 762~764"}
+
+    # 头身比同源性：同 mask 同口径测头宽/身高
+    def head_ratio(gif_name):
+        arr = np.asarray(Image.open(GIF_DIR / gif_name).convert("RGB"))
+        fg = keyed_mask(arr)
+        ys, _ = np.where(fg)
+        h = int(ys.max() - ys.min() + 1)
+        band = fg[ys.min():ys.min() + int(h * 0.35)]
+        head = int(band.sum(axis=1).max())
+        return round(head / h, 4)
+
+    ratios = {name: head_ratio(name) for name in
+              ("idle_0.gif", "fall_0.gif", "av_walk_r_00.gif", "av_walk_r_04.gif")}
+
+    # A/B 模拟：走真实 builder 数学（裁切>96 → 缩放 → 二值化≥128 → 内容末行锚）
+    def simulate(ref_h):
+        s = builder.TARGET_H / ref_h
+        out = []
+        for i in range(1, 9):
+            im = Image.open(PNG_DIR / f"walk_0{i}.png").convert("RGBA")
+            a = np.asarray(im)
+            fg = a[..., 3] > 96
+            ys, xs = np.where(fg)
+            im = im.crop((int(xs.min()), int(ys.min()), int(xs.max()) + 1, int(ys.max()) + 1))
+            im = im.resize((max(1, round(im.width * s)), max(1, round(im.height * s))),
+                           Image.LANCZOS)
+            a = np.asarray(im).copy()
+            a[..., 3] = np.where(a[..., 3] >= 128, 255, 0).astype(np.uint8)
+            fg = a[..., 3] > 0
+            ys, xs = np.where(fg)
+            sole = builder.sole_row(a, fg)
+            py = builder.FOOT_Y - sole
+            out.append({"frame": i - 1, "h": int(im.height),
+                        "top": int(py + int(ys.min())), "foot": int(builder.FOOT_Y),
+                        "w": int(xs.max() - xs.min() + 1),
+                        "clipped": bool(py + im.height - 1 > 199 or py + int(ys.min()) < 0)})
+        return {
+            "ref_h": ref_h, "scale": round(s, 5), "frames": out,
+            "h_series": sorted({o["h"] for o in out}),
+            "top_series": [o["top"] for o in out],
+            "w_max": max(o["w"] for o in out),
+            "any_clip": any(o["clipped"] for o in out),
+        }
+
+    src_heights = []
+    for i in range(1, 9):
+        a = np.asarray(Image.open(PNG_DIR / f"walk_0{i}.png").convert("RGBA"))
+        ys, _ = np.where(a[..., 3] > 96)
+        src_heights.append(int(ys.max() - ys.min() + 1))
+    ref_b = max(src_heights)
+
+    return {
+        "families": families,
+        "sheet_ref_height": sheet_ref,
+        "head_height_ratio": ratios,
+        "sim_A_current_REF_H_874": simulate(874),
+        "sim_B_ref_h_current_max_cut": simulate(ref_b),
+        "sim_B_ref_h_value": ref_b,
+        "runtime_scaling": "pet.py 无 zoom/subsample/resize —— GIF 1:1 上屏",
+        "system_fit_box": "tools/make_frames3d.py:36 FIT_H,FIT_W = 176,168",
+    }
+
 if __name__ == "__main__":
     out = {
         "A_head_band_decomposition": diagnose_head_bands(),
         "B_delivered_gif_vertical": diagnose_gif_vertical(),
         "C_builder_replication": diagnose_builder_replication(),
+        "D_size_consistency": diagnose_size_consistency(),
     }
     print(json.dumps(out, indent=2, ensure_ascii=False))
