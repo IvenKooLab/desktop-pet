@@ -7,14 +7,14 @@
     "fps": 12
   },
   "visual_quality": {
-    "height_cv": 0.008,
+    "height_cv": 0.0008,
     "head_width_cv": 0.095,
     "badges": 0,
     "holes": 0,
     "fragments": 0
   },
   "motion_quality": {
-    "leg_reposition": true,
+    "leg_reposition": false,
     "phase_consistency": true
   },
   "runtime": {
@@ -91,5 +91,5 @@
     "gif_top_jitter_px": 0,
     "forensics": "python tools/jev/audit_diagnostics.py 可复现全部取证数字"
   },
-  "_note": "合规场景用例（构造值）：全部客观标准满足、无警告带/伪影/规则失效项 —— 预期 PASS。"
+  "_note": "Case 3 场景用例（基于真实测量构造）：唯一失败项为 leg_reposition（period-2 锯齿规则，分类=StandardMismatch，对 8 帧 Contact/Down/Passing/Up 结构失效）—— 预期 REVIEW 而非 FAIL。"
 }

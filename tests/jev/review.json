@@ -20,7 +20,8 @@
   "runtime": {
     "gif_load": true,
     "fps_match": true,
-    "runtime_error": false
+    "runtime_error": false,
+    "gif_bottom_clip": false
   },
   "_measured": {
     "frames": [
@@ -64,5 +65,31 @@
       184
     ]
   },
-  "_note": "场景用例（基于真实测量改写）：假设动检两项经人工确认通过，但 head_width_cv=0.1323 落在警告带 (0.10, 0.15] —— 预期判定 REVIEW。"
+  "_provenance": {
+    "identity_source": "characters/iven-pet/animations/walk/frames/*.png（gitignore，本地艺术源）",
+    "delivery_source": "frames3d/av_walk_r_*.gif（git 已跟踪交付物）",
+    "gif_tops": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "gif_heights": [
+      199,
+      199,
+      199,
+      199,
+      199,
+      199,
+      199,
+      199
+    ],
+    "gif_top_jitter_px": 0,
+    "forensics": "python tools/jev/audit_diagnostics.py 可复现全部取证数字"
+  },
+  "_note": "Case 2 场景用例（基于真实测量构造）：动检与运行时全部合规，仅 head_width_cv=0.1323 落在警告带 (0.10, 0.15] 且分类=MeasurementArtifact —— 预期 REVIEW。"
 }

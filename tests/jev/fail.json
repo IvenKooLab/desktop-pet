@@ -20,7 +20,8 @@
   "runtime": {
     "gif_load": true,
     "fps_match": true,
-    "runtime_error": false
+    "runtime_error": false,
+    "gif_bottom_clip": true
   },
   "_measured": {
     "frames": [
@@ -64,5 +65,31 @@
       184
     ]
   },
-  "_note": "真实采集证据（collect_evidence.py @ 2026-09-21）：当前已入库 8 帧素材的真实测量。motion_quality 两项 false 与 qa_walk8.py 现行判定一致（可用 python tools/qa_walk8.py 复现）。预期判定 FAIL——暴露既有自动化标准与已上线素材之间的差距，供人工决策（修素材或修订标准）。"
+  "_provenance": {
+    "identity_source": "characters/iven-pet/animations/walk/frames/*.png（gitignore，本地艺术源）",
+    "delivery_source": "frames3d/av_walk_r_*.gif（git 已跟踪交付物）",
+    "gif_tops": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "gif_heights": [
+      199,
+      199,
+      199,
+      199,
+      199,
+      199,
+      199,
+      199
+    ],
+    "gif_top_jitter_px": 0,
+    "forensics": "python tools/jev/audit_diagnostics.py 可复现全部取证数字"
+  },
+  "_note": "真实采集证据（collect_evidence.py @ 2026-09-21，Decision Boundary Audit 版）。真实判定 FAIL：runtime.gif_bottom_clip 与 motion_quality.phase_consistency = GenuineDefect；leg_reposition = StandardMismatch；head_width_cv 警告带 = MeasurementArtifact。全部证据链见 docs/JEV_BOUNDARY_AUDIT.md 与 tools/jev/audit_diagnostics.py。"
 }
