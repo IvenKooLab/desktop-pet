@@ -244,3 +244,93 @@ if __name__ == "__main__":
         "D_size_consistency": diagnose_size_consistency(),
     }
     print(json.dumps(out, indent=2, ensure_ascii=False))
+
+
+def diagnose_bounce_kinematics():
+    """E. Bounce 决策前取证（只读）：当前 8 帧是否已含垂直身体运动 + 系统动画语言振幅。
+
+    bounce 定义区分：真 bounce = 结构性身体锚点（头/躯干）y 随步态相位周期变化；
+    腿部视觉运动 = 下域轮廓/步幅变化而上域不动。com_y 受发丝质量分布影响大，
+    单独标注不可作为身体位移证据。
+    """
+    sys.path.insert(0, str(REPO / "tools"))
+    import statistics as st
+    from qa_walk8 import keyed_mask
+
+    def kin(path):
+        arr = np.asarray(Image.open(path).convert("RGB"))
+        fg = keyed_mask(arr)
+        ys, xs = np.where(fg)
+        top, bot = int(ys.min()), int(ys.max())
+        h = bot - top + 1
+        rowmass = fg.sum(axis=1).astype(float)
+
+        def band_com(f0, f1):
+            y0, y1 = top + int(h * f0), top + int(h * f1)
+            seg = rowmass[y0:y1]
+            return round(float((seg * np.arange(y0, y1)).sum() / seg.sum()), 2)
+
+        head_w_band = fg[top:top + int(h * 0.35)]
+        foot_row = fg[bot - 4]
+        fx = np.where(foot_row)[0]
+        return {"top": top, "bottom": bot, "h": h,
+                "com_y": band_com(0, 1) if False else round(float((rowmass * np.arange(len(rowmass))).sum() / rowmass.sum()), 2),
+                "head_band_y": band_com(0.18, 0.30), "torso_y": band_com(0.35, 0.65),
+                "pelvis_y": band_com(0.60, 0.85),
+                "head_w": int(head_w_band.sum(axis=1).max()),
+                "stride": int(fx.max() - fx.min()) if len(fx) else 0}
+
+    def amp(vals):
+        return round(max(vals) - min(vals), 2)
+
+    walk_frames = [kin(GIF_DIR / f"av_walk_r_{i:02d}.gif") for i in range(8)]
+    keys = ("top", "bottom", "h", "com_y", "head_band_y", "torso_y",
+            "pelvis_y", "head_w", "stride")
+    amplitudes = {k: amp([f[k] for f in walk_frames]) for k in keys}
+
+    def family_top_amp(pattern):
+        tops = []
+        for f in sorted(GIF_DIR.glob(pattern)):
+            arr = np.asarray(Image.open(f).convert("RGB"))
+            ys = np.where(keyed_mask(arr))[0]
+            tops.append(int(ys.min()))
+        return {"tops": tops, "amplitude_px": amp(tops)}
+
+    art_heights = []
+    for i in range(1, 9):
+        a = np.asarray(Image.open(PNG_DIR / f"walk_0{i}.png").convert("RGBA"))
+        ys, _ = np.where(a[..., 3] > 96)
+        art_heights.append(int(ys.max() - ys.min() + 1))
+
+    return {
+        "bounce_definition": {
+            "true_bounce": "结构锚点（头/躯干 bbox 或 band）y 随步态相位周期变化，脚底接地保持",
+            "leg_illusion": "下域轮廓/步幅变化而上域不动（腿部交替/膝弯/接地）",
+            "com_caveat": "com_y 受发丝质量分布影响大（与 head_w 强相关），不单独作为身体位移证据",
+        },
+        "av_walk_delivered": {"per_frame": walk_frames, "amplitude_px": amplitudes},
+        "av_walk_art_layer": {
+            "source_heights": art_heights,
+            "amplitude_px": amp(art_heights),
+            "rendered_equivalent_px": round(amp(art_heights) * builder_scale(), 2),
+        },
+        "system_language_vertical": {
+            "old_walk_24f": family_top_amp("walk_r_*.gif"),
+            "fast_r": family_top_amp("fast_r_*.gif"),
+            "happy_jump": family_top_amp("happy_*.gif"),
+            "idle_breathe": family_top_amp("idle_*.gif"),
+            "bounce_state_frames": family_top_amp("bounce_*.gif"),
+        },
+        "phase_structure": {
+            "stride_series": [f["stride"] for f in walk_frames],
+            "head_w_series": [f["head_w"] for f in walk_frames],
+            "note": "stride 无 C/D/P/U 锯齿；head_w 呈 {F1,F2}/{F3-5}/{F6-8} 三组=连续渐变结构，"
+                    "标准 walk bounce 的 Down/Up 语义在当前 Sheet 上无帧锚点",
+        },
+    }
+
+
+def builder_scale():
+    sys.path.insert(0, str(REPO / "tools"))
+    import _build_av_walk as builder
+    return builder.TARGET_H / builder.measure_ref_h()
