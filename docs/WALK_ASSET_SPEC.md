@@ -62,6 +62,12 @@ Character Master（身份）
 | I | 真实动作变化 | 必须是真实腿部/手臂动作，而非整体形变 |
 | J | 重心变化 | 包含真实腿部/手臂/重心变化 |
 
+**自动初筛（Jev Gate，2026-09-21 起）**：上表中的客观子项（B 头宽 / F 身高 / E 脚底线 /
+碎片孔洞 / 帧数与 fps）已固化为 `tools/jev/schema.py` 的阈值，由
+`tools/jev/collect_evidence.py` 实测 → `tools/jev/evaluate.py` 出 PASS/REVIEW/FAIL。
+Jev 只对照本表既有标准判断、不发明标准；主观项（A 视角 / D 刘海 / G 比例 / H 焦距 /
+I 真实动作 / J 重心）仍归监督人工打分。详见 `tools/jev/README.md`。
+
 ---
 
 ## 3. 豆包 Prompt 模板（直接复制使用）
