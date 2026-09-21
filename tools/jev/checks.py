@@ -58,6 +58,14 @@ CHECKS = {
         "standard_source": "qa_walk8.py:52-57（非主连通域>0.2%主域面积）",
         "classification": None,
     },
+    "visual_quality.character_height": {
+        "standard_source": "tools/make_frames3d.py:36 FIT_H=176（系统成文角色适配盒）"
+                          "+ docs/JEV_BOUNDARY_AUDIT.md F4 审计（全族实测 176 基线）",
+        "classification": None,
+        "note": "交付 av_walk 8 帧内容高（foot-top+1）的众数，必须等于 FIT_H。"
+                "F4 教训：缩放基准曾量在原始 Sheet 人物（含晕环 874px）而非实际切图"
+                "（764px）→ 角色缩到 154px；builder 现已改为 measure_ref_h() 实测。",
+    },
 
     # ── motion_quality ──
     "motion_quality.leg_reposition": {

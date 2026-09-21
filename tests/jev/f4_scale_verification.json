@@ -1,0 +1,197 @@
+{
+  "meta": {
+    "date": "2026-09-21",
+    "purpose": "F4 尺寸修复 before/after 量化（用户要求，不接受只说看起来正常）",
+    "standard": "make_frames3d.py:36 FIT_H=176（系统成文基线）"
+  },
+  "before": {
+    "ref_h": 874,
+    "frames": [
+      {
+        "h": 154,
+        "top": 41,
+        "foot": 194,
+        "w": 88
+      },
+      {
+        "h": 154,
+        "top": 41,
+        "foot": 194,
+        "w": 90
+      },
+      {
+        "h": 154,
+        "top": 41,
+        "foot": 194,
+        "w": 90
+      },
+      {
+        "h": 154,
+        "top": 41,
+        "foot": 194,
+        "w": 92
+      },
+      {
+        "h": 154,
+        "top": 41,
+        "foot": 194,
+        "w": 91
+      },
+      {
+        "h": 153,
+        "top": 42,
+        "foot": 194,
+        "w": 89
+      },
+      {
+        "h": 154,
+        "top": 41,
+        "foot": 194,
+        "w": 80
+      },
+      {
+        "h": 154,
+        "top": 41,
+        "foot": 194,
+        "w": 78
+      }
+    ],
+    "h_series": [
+      153,
+      154
+    ],
+    "top_series": [
+      41,
+      41,
+      41,
+      41,
+      41,
+      42,
+      41,
+      41
+    ],
+    "foot_series": [
+      194,
+      194,
+      194,
+      194,
+      194,
+      194,
+      194,
+      194
+    ],
+    "w_max": 92,
+    "bottom_clip_frames": 0,
+    "idle_box": {
+      "h": 176,
+      "top": 18,
+      "foot": 193,
+      "w": 101
+    },
+    "idle_walk_height_delta": -23,
+    "idle_walk_top_delta": 24
+  },
+  "after": {
+    "ref_h_measured": 764,
+    "scale": 0.23037,
+    "frames": [
+      {
+        "h": 176,
+        "top": 19,
+        "foot": 194,
+        "w": 101
+      },
+      {
+        "h": 176,
+        "top": 19,
+        "foot": 194,
+        "w": 103
+      },
+      {
+        "h": 176,
+        "top": 19,
+        "foot": 194,
+        "w": 103
+      },
+      {
+        "h": 176,
+        "top": 19,
+        "foot": 194,
+        "w": 106
+      },
+      {
+        "h": 176,
+        "top": 19,
+        "foot": 194,
+        "w": 104
+      },
+      {
+        "h": 176,
+        "top": 19,
+        "foot": 194,
+        "w": 102
+      },
+      {
+        "h": 176,
+        "top": 19,
+        "foot": 194,
+        "w": 91
+      },
+      {
+        "h": 176,
+        "top": 19,
+        "foot": 194,
+        "w": 89
+      }
+    ],
+    "h_series": [
+      176
+    ],
+    "top_series": [
+      19,
+      19,
+      19,
+      19,
+      19,
+      19,
+      19,
+      19
+    ],
+    "foot_series": [
+      194,
+      194,
+      194,
+      194,
+      194,
+      194,
+      194,
+      194
+    ],
+    "w_max": 106,
+    "bottom_clip_frames": 0,
+    "row199_fg_px_total": 0,
+    "bottom_margin_px": 5,
+    "sole_jitter_px": 0,
+    "idle_box": {
+      "h": 176,
+      "top": 18,
+      "foot": 193,
+      "w": 101
+    },
+    "state_switch": {
+      "idle_to_walk": {
+        "height_delta": 0,
+        "top_delta": 1,
+        "foot_delta": 1
+      },
+      "fast_to_walk": {
+        "height_delta": 0,
+        "top_delta": 1
+      },
+      "walk_to_fall": {
+        "height_delta": 0,
+        "top_delta": -1
+      }
+    }
+  }
+}

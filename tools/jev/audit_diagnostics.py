@@ -90,7 +90,8 @@ def diagnose_builder_replication():
     import _build_av_walk as builder
 
     SIZE, FOOT_Y = builder.SIZE, builder.FOOT_Y
-    s = builder.TARGET_H / builder.REF_H
+    ref_h = builder.measure_ref_h()
+    s = builder.TARGET_H / ref_h
     rows = []
     for i in range(1, 9):
         im = Image.open(PNG_DIR / f"walk_0{i}.png").convert("RGBA")
@@ -222,12 +223,7 @@ def diagnose_size_consistency():
             "any_clip": any(o["clipped"] for o in out),
         }
 
-    src_heights = []
-    for i in range(1, 9):
-        a = np.asarray(Image.open(PNG_DIR / f"walk_0{i}.png").convert("RGBA"))
-        ys, _ = np.where(a[..., 3] > 96)
-        src_heights.append(int(ys.max() - ys.min() + 1))
-    ref_b = max(src_heights)
+    ref_b = builder.measure_ref_h()
 
     return {
         "families": families,

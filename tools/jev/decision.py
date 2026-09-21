@@ -99,6 +99,15 @@ def mock_decide(ev: dict) -> dict:
                         m.get("classification"), m.get("standard_source"), m.get("note", ""),
                         f"{key}={val} > {thr}", ""))
 
+    # character_height：必须精确等于系统成文基线（F4）
+    c = "visual_quality.character_height"
+    m = reg.get(c)
+    val = vq.get("character_height", 0)
+    out.append(_chk(c, val, val == THRESHOLDS["character_height"], False,
+                    m.get("classification"), m.get("standard_source"), m.get("note", ""),
+                    f"character_height={val} != 系统统一基线 {THRESHOLDS['character_height']}"
+                    f"（缩放基准与实际工件错位，见 F4 审计）", ""))
+
     # ── motion_quality ──
     for key, label in (("leg_reposition", "步幅交替"), ("phase_consistency", "垂直节奏")):
         c = f"motion_quality.{key}"

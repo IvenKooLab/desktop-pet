@@ -11,7 +11,8 @@
     "head_width_cv": 0.1323,
     "badges": 0,
     "holes": 0,
-    "fragments": 0
+    "fragments": 0,
+    "character_height": 176
   },
   "motion_quality": {
     "leg_reposition": false,
@@ -69,27 +70,27 @@
     "identity_source": "characters/iven-pet/animations/walk/frames/*.png（gitignore，本地艺术源）",
     "delivery_source": "frames3d/av_walk_r_*.gif（git 已跟踪交付物）",
     "gif_tops": [
-      41,
-      41,
-      41,
-      41,
-      41,
-      42,
-      41,
-      41
+      19,
+      19,
+      19,
+      19,
+      19,
+      19,
+      19,
+      19
     ],
     "gif_heights": [
-      158,
-      158,
-      158,
-      158,
-      158,
-      157,
-      158,
-      158
+      176,
+      176,
+      176,
+      176,
+      176,
+      176,
+      176,
+      176
     ],
-    "gif_top_jitter_px": 1,
+    "gif_top_jitter_px": 0,
     "forensics": "python tools/jev/audit_diagnostics.py 可复现全部取证数字"
   },
-  "_note": "真实采集证据（collect_evidence.py @ 2026-09-21，F1/F2 修复后重采）。gif_bottom_clip 已修复 → PASS。剩余 FAIL 仅 phase_consistency（bounce，GenuineDefect，暂缓待标准拍板）；head_width_cv=MeasurementArtifact→REVIEW；leg_reposition=StandardMismatch→REVIEW。证据链见 docs/JEV_BOUNDARY_AUDIT.md；落位修复前后对比见 tests/jev/placement_fix_verification.json。"
+  "_note": "真实采集证据（collect_evidence.py @ 2026-09-21，F1/F2/F4 修复后重采）。gif_bottom_clip→PASS、character_height=176→PASS（F4）。剩余 FAIL 仅 phase_consistency（bounce，GenuineDefect，暂缓待标准拍板）；head_width_cv=MeasurementArtifact→REVIEW；leg_reposition=StandardMismatch→REVIEW。证据链见 docs/JEV_BOUNDARY_AUDIT.md。"
 }

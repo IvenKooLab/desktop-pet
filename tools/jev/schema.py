@@ -23,6 +23,7 @@ REQUIRED_KEYS = {
         "badges": int,
         "holes": int,
         "fragments": int,
+        "character_height": int,
     },
     "motion_quality": {
         "leg_reposition": bool,
@@ -45,6 +46,8 @@ THRESHOLDS = {
     "fragments_max": 0,
     "fps_min": 12,
     "frames_min": 8,
+    # 系统成文角色高度（make_frames3d.py:36 FIT_H=176；F4 审计确立）
+    "character_height": 176,
 }
 
 

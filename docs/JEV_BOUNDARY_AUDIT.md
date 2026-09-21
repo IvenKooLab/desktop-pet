@@ -247,3 +247,41 @@ builder 输入为抠图切图——缩放基建立在错误工件上，且切图
 - Jev 各项维持不变：唯一真实 FAIL 仍为 bounce（DEFERRED），zigzag（DEFERRED）、
   head_width（MeasurementArtifact→REVIEW）不动，F4 不新入 schema 检查
   （尺寸基线已由本审计建立事实，待修复指令后可加检查项）。
+
+---
+
+## F4 修复记录（2026-09-21，owner 批准后的最小修复）
+
+**修复方式**（`tools/_build_av_walk.py`）：废除硬编码 `REF_H=874`，新增
+`measure_ref_h()`——每次构建对 8 张**实际输入切图**实测 alpha>96 bbox 高、取最高帧
+（本次实测 764），`scale = TARGET_H(176) / ref_h`。缩放基准与消费工件永久同源，
+素材再重切也不会复发。FOOT_Y / sole_row（F1/F2）/ SIZE / TARGET_H / 镜像全部未动。
+
+**Before / After**（交付 GIF 实测，`tests/jev/f4_scale_verification.json`）：
+
+| 指标 | Before | After |
+|---|---|---|
+| character height | 153~154 | **176（8/8 全一致）** |
+| foot line | 194 | **194（不变）** |
+| top | 41 | **19** |
+| width max | 92 | 106（≤200，无裁边） |
+| bottom clip | 0 | **0**（row199 前景=0，下边距 5px） |
+| sole jitter | 0 | **0** |
+| idle↔walk height delta | -22px（-12.5%） | **0** |
+| idle↔walk top delta | +23px | **+1px（AA 级）** |
+
+状态切换（fast→walk、walk→fall 同表）：高度 delta 全部归零，top/foot 差 ≤1px。
+F1/F2 回归：零污染（foot 恒 194、无裁切、无抖动）。
+
+**Jev 变更（最小且语义不变）**：新增证据字段 `visual_quality.character_height`
+（交付 GIF 内容高众数）+ check `character_height == 176`（标准来源 =
+make_frames3d.py:36 FIT_H 成文基线，classification=None → 违反即 FAIL）。
+ bounce=FAIL、zigzag=REVIEW、head_width=REVIEW 语义原样。
+
+**修复后门禁终态**：F1 PASS / F2 PASS / F4 PASS / head_width REVIEW /
+zigzag REVIEW / **bounce FAIL（DEFERRED，唯一剩余 FAIL）**——Overall FAIL，
+符合"F4 修复不能让 bounce FAIL 消失"的预期。
+
+**Spin 留档**：154px，源于 make_frames3d.py:538-542 有明确"views_clean 人物偏大
+~20%，缩放对齐新Sheet"注释的历史手工缩放。本阶段未修改，作为独立后续事项
+（av_walk 已修复，spin 成为唯一的 154px 离群）。

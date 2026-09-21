@@ -103,7 +103,9 @@ def measure_gifs() -> dict:
         "soles": g,
         "bottom_clip": any(s >= h_canvas - 1 for s in g),
         "top_jitter_px": max(r) - min(r),
-        "heights": [h_canvas - 1 - t for t in r],
+        # 内容高 = 接地线 - 顶 + 1（F1 修复后接地线=194 不再贴画布底，
+        # 不能再用 画布末行-top 的旧口径）
+        "heights": [s - t + 1 for t, s in zip(r, g)],
     }
 
 
@@ -140,6 +142,8 @@ def collect() -> dict:
     frag_total = sum(m["fragments"] for m in M if not m.get("empty"))
 
     gifs = measure_gifs()
+    # character_height：交付 av_walk 人物高众数（系统成文基线 FIT_H=176，F4 审计）
+    character_height = st.mode(gifs["heights"]) if gifs["heights"] else 0
 
     return {
         "project": "desktop-pet/iven-pet walk",
@@ -155,6 +159,7 @@ def collect() -> dict:
             "badges": badges_total,
             "holes": holes_total,
             "fragments": frag_total,
+            "character_height": character_height,
         },
         "motion_quality": {
             "leg_reposition": zigzag(strides),
