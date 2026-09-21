@@ -54,10 +54,11 @@ def render(out: dict) -> str:
         name = name.replace("asset.", "").replace("runtime.", "")
         line = f"  {mark}  {name}: {chk['measurement']}"
         lines.append(line)
-        if chk.get("reason"):
-            lines.append(f"          reason: {chk['reason']}")
-        if chk.get("classification"):
-            lines.append(f"          class : {chk['classification']}  ← {chk.get('standard_source', '')}")
+        if chk["status"] != "PASS":
+            if chk.get("reason"):
+                lines.append(f"          reason: {chk['reason']}")
+            if chk.get("classification"):
+                lines.append(f"          class : {chk['classification']}  ← {chk.get('standard_source', '')}")
     if not out.get("checks"):
         for r in out["reasons"]:
             lines.append(f"  · {r}")
@@ -80,11 +81,14 @@ def selftest() -> int:
             return "REVIEW"
         if stem.startswith("fail"):
             return "FAIL"
-        return None
+        return "SKIP"
 
     failures = 0
     for case in cases:
         want = expect_of(case.stem)
+        if want == "SKIP":
+            print(f"[skip] {case.name}: 非 evidence 用例（fixture/文档类）")
+            continue
         out = evaluate(case, "mock")
         got = out["decision"]
         ok = (want is None) or (got == want)

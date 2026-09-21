@@ -74,9 +74,9 @@ CHECKS = {
                           "+ make_frames3d.py:504（历代交付步行均含 dy 弹跳先例）",
         "classification": GenuineDefect,
         "note": "audit_diagnostics B/C 项：交付动画无垂直节奏——艺术高度平（scaled 154×7+153×1），"
-                "builder 无 dy 表，GIF 垂直位移全部来自 sole 行检测抖动（py 55~64，±4.5px 不规则下沉，"
-                "违反 _build_av_walk.py 自身『保证脚底不上下跳』设计目标）。"
-                "历代步行均带弹跳（make_frames3d.py:504 dy=6u²-4），本代丢失 → 真实缺失，判 FAIL。"
+                "builder 无 dy 表。历代步行均带弹跳（make_frames3d.py:504 dy=6u²-4），本代丢失 → 真实缺失，判 FAIL。"
+                "（原叠加的 sole 行检测抖动 ±4.5px 已随 2026-09-21 F2 修复消除，接地线恒定 194；"
+                "bounce 本身属产品/动画标准决策，暂缓待 owner 拍板。）"
                 "标准硬度的注意事项：该判据目前只存在于 qa_walk8 docstring（代码从未 enforce）；"
                 "若人工决定本作风格不需要 bounce，应走标准修订（改 qa_walk8/本表），而非由 Jev 降级。",
     },
@@ -97,10 +97,10 @@ CHECKS = {
     "runtime.gif_bottom_clip": {
         "standard_source": "_build_av_walk.py:3（锚定规则：脚底基线对齐 FOOT_Y=194）与 :11-12（SIZE=200 画布）",
         "classification": GenuineDefect,
-        "note": "audit_diagnostics C 项：8/8 帧 py+scaled_h≈210/209 > 199（画布末行），鞋底被静默裁切约 11px，"
-                "交付 GIF 内容全部直触画布末行（gif soles 恒=199）。"
-                "sole 行启发式（底部 25% 最宽行）在步行姿态下选到非贴地行 → 整体下贴过头。"
-                "违反 builder 自身 FOOT_Y 锚定设计 → 真实缺陷，判 FAIL。",
+        "note": "audit_diagnostics C 项（修复前）：8/8 帧 py+scaled_h≈210/209 > 199（画布末行），"
+                "鞋底被静默裁切约 11px。根因 = sole 行启发式（底部 25% 最宽行）选中高于内容底的行。"
+                "2026-09-21 F1 修复：锚点改取二值化内容末行（真实接地线），当前 8/8 帧底部=194、"
+                "裁切=0（前后对比见 tests/jev/placement_fix_verification.json）。分类保留：若回归即 FAIL。",
     },
 }
 

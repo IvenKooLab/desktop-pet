@@ -21,7 +21,7 @@
     "gif_load": true,
     "fps_match": true,
     "runtime_error": false,
-    "gif_bottom_clip": true
+    "gif_bottom_clip": false
   },
   "_measured": {
     "frames": [
@@ -69,27 +69,27 @@
     "identity_source": "characters/iven-pet/animations/walk/frames/*.png（gitignore，本地艺术源）",
     "delivery_source": "frames3d/av_walk_r_*.gif（git 已跟踪交付物）",
     "gif_tops": [
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0
+      41,
+      41,
+      41,
+      41,
+      41,
+      42,
+      41,
+      41
     ],
     "gif_heights": [
-      199,
-      199,
-      199,
-      199,
-      199,
-      199,
-      199,
-      199
+      158,
+      158,
+      158,
+      158,
+      158,
+      157,
+      158,
+      158
     ],
-    "gif_top_jitter_px": 0,
+    "gif_top_jitter_px": 1,
     "forensics": "python tools/jev/audit_diagnostics.py 可复现全部取证数字"
   },
-  "_note": "真实采集证据（collect_evidence.py @ 2026-09-21，Decision Boundary Audit 版）。真实判定 FAIL：runtime.gif_bottom_clip 与 motion_quality.phase_consistency = GenuineDefect；leg_reposition = StandardMismatch；head_width_cv 警告带 = MeasurementArtifact。全部证据链见 docs/JEV_BOUNDARY_AUDIT.md 与 tools/jev/audit_diagnostics.py。"
+  "_note": "真实采集证据（collect_evidence.py @ 2026-09-21，F1/F2 修复后重采）。gif_bottom_clip 已修复 → PASS。剩余 FAIL 仅 phase_consistency（bounce，GenuineDefect，暂缓待标准拍板）；head_width_cv=MeasurementArtifact→REVIEW；leg_reposition=StandardMismatch→REVIEW。证据链见 docs/JEV_BOUNDARY_AUDIT.md；落位修复前后对比见 tests/jev/placement_fix_verification.json。"
 }

@@ -69,27 +69,27 @@
     "identity_source": "characters/iven-pet/animations/walk/frames/*.png（gitignore，本地艺术源）",
     "delivery_source": "frames3d/av_walk_r_*.gif（git 已跟踪交付物）",
     "gif_tops": [
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0
+      41,
+      41,
+      41,
+      41,
+      41,
+      42,
+      41,
+      41
     ],
     "gif_heights": [
-      199,
-      199,
-      199,
-      199,
-      199,
-      199,
-      199,
-      199
+      158,
+      158,
+      158,
+      158,
+      158,
+      157,
+      158,
+      158
     ],
-    "gif_top_jitter_px": 0,
+    "gif_top_jitter_px": 1,
     "forensics": "python tools/jev/audit_diagnostics.py 可复现全部取证数字"
   },
-  "_note": "合规场景用例（构造值）：全部客观标准满足、无警告带/伪影/规则失效项 —— 预期 PASS。"
+  "_note": "合规场景用例（构造值）：全部客观标准满足 —— 预期 PASS。"
 }

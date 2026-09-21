@@ -8,7 +8,7 @@
   },
   "visual_quality": {
     "height_cv": 0.0008,
-    "head_width_cv": 0.095,
+    "head_width_cv": 0.1323,
     "badges": 0,
     "holes": 0,
     "fragments": 0
@@ -69,27 +69,27 @@
     "identity_source": "characters/iven-pet/animations/walk/frames/*.png（gitignore，本地艺术源）",
     "delivery_source": "frames3d/av_walk_r_*.gif（git 已跟踪交付物）",
     "gif_tops": [
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0
+      41,
+      41,
+      41,
+      41,
+      41,
+      42,
+      41,
+      41
     ],
     "gif_heights": [
-      199,
-      199,
-      199,
-      199,
-      199,
-      199,
-      199,
-      199
+      158,
+      158,
+      158,
+      158,
+      158,
+      157,
+      158,
+      158
     ],
-    "gif_top_jitter_px": 0,
+    "gif_top_jitter_px": 1,
     "forensics": "python tools/jev/audit_diagnostics.py 可复现全部取证数字"
   },
-  "_note": "Case 3 场景用例（基于真实测量构造）：唯一失败项为 leg_reposition（period-2 锯齿规则，分类=StandardMismatch，对 8 帧 Contact/Down/Passing/Up 结构失效）—— 预期 REVIEW 而非 FAIL。"
+  "_note": "Case 3 场景用例：唯一失败项 leg_reposition（period-2 规则，StandardMismatch）—— 预期 REVIEW 而非 FAIL。"
 }

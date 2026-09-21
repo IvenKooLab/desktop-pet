@@ -92,7 +92,7 @@ def measure_gifs() -> dict:
     r, g = [], []
     for f in sorted(RUNTIME_DIR.glob("av_walk_r_*.gif")):
         arr = np.asarray(Image.open(f).convert("RGB"))
-        ri, bi, gi = arr[..., 0].astype(int), arr[..., 1].astype(int), arr[..., 2].astype(int)
+        ri, gi, bi = arr[..., 0].astype(int), arr[..., 1].astype(int), arr[..., 2].astype(int)
         fg = ~((ri > 200) & (bi > 200) & (gi < 110))
         ys, _ = np.where(fg)
         r.append(int(ys.min()))

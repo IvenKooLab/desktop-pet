@@ -69,27 +69,27 @@
     "identity_source": "characters/iven-pet/animations/walk/frames/*.png（gitignore，本地艺术源）",
     "delivery_source": "frames3d/av_walk_r_*.gif（git 已跟踪交付物）",
     "gif_tops": [
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0
+      41,
+      41,
+      41,
+      41,
+      41,
+      42,
+      41,
+      41
     ],
     "gif_heights": [
-      199,
-      199,
-      199,
-      199,
-      199,
-      199,
-      199,
-      199
+      158,
+      158,
+      158,
+      158,
+      158,
+      157,
+      158,
+      158
     ],
-    "gif_top_jitter_px": 0,
+    "gif_top_jitter_px": 1,
     "forensics": "python tools/jev/audit_diagnostics.py 可复现全部取证数字"
   },
-  "_note": "Case 2 场景用例（基于真实测量构造）：动检与运行时全部合规，仅 head_width_cv=0.1323 落在警告带 (0.10, 0.15] 且分类=MeasurementArtifact —— 预期 REVIEW。"
+  "_note": "Case 2 场景用例（基于真实测量构造）：仅 head_width_cv 落警告带且分类=MeasurementArtifact —— 预期 REVIEW。"
 }

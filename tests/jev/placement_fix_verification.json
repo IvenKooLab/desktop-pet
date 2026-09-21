@@ -1,0 +1,252 @@
+{
+  "meta": {
+    "date": "2026-09-21",
+    "purpose": "F1/F2 修复前后量化对比基线（用户要求的 before/after JSON）",
+    "canvas": 200,
+    "FOOT_Y": 194,
+    "REF_H": 874,
+    "sole_algorithm_before": "底部25%最宽行（qa/审计确认：不同步姿选中不同行→F2抖动；且锚行高于内容底→F1裁切）",
+    "reference_set": "全套其它动画 idle/fall/cheer/fast 脚线=192~193，人物高176px（av_walk 当前154px：REF_H=874 过期，记录为 F4 不在本阶段修）",
+    "sole_algorithm_after": "内容末行=真实接地线（alpha二值化后同 mask 定锚与贴图）；修复仅动 _build_av_walk.py 的 sole_row 与二值化时序，SIZE/FOOT_Y/REF_H/缩放/镜像全部未动",
+    "date_fixed": "2026-09-21"
+  },
+  "before": {
+    "frames": [
+      {
+        "frame": 0,
+        "scaled_h": 154,
+        "sole_row": 137,
+        "py": 57,
+        "expected_content_bottom": 210,
+        "gif_top": 57,
+        "gif_bottom": 199,
+        "ground_line": 199,
+        "clip": true,
+        "clip_px": 11
+      },
+      {
+        "frame": 1,
+        "scaled_h": 154,
+        "sole_row": 139,
+        "py": 55,
+        "expected_content_bottom": 208,
+        "gif_top": 55,
+        "gif_bottom": 199,
+        "ground_line": 199,
+        "clip": true,
+        "clip_px": 9
+      },
+      {
+        "frame": 2,
+        "scaled_h": 154,
+        "sole_row": 137,
+        "py": 57,
+        "expected_content_bottom": 210,
+        "gif_top": 57,
+        "gif_bottom": 199,
+        "ground_line": 199,
+        "clip": true,
+        "clip_px": 11
+      },
+      {
+        "frame": 3,
+        "scaled_h": 154,
+        "sole_row": 137,
+        "py": 57,
+        "expected_content_bottom": 210,
+        "gif_top": 57,
+        "gif_bottom": 199,
+        "ground_line": 199,
+        "clip": true,
+        "clip_px": 11
+      },
+      {
+        "frame": 4,
+        "scaled_h": 154,
+        "sole_row": 130,
+        "py": 64,
+        "expected_content_bottom": 217,
+        "gif_top": 64,
+        "gif_bottom": 199,
+        "ground_line": 199,
+        "clip": true,
+        "clip_px": 18
+      },
+      {
+        "frame": 5,
+        "scaled_h": 153,
+        "sole_row": 136,
+        "py": 58,
+        "expected_content_bottom": 210,
+        "gif_top": 58,
+        "gif_bottom": 199,
+        "ground_line": 199,
+        "clip": true,
+        "clip_px": 11
+      },
+      {
+        "frame": 6,
+        "scaled_h": 154,
+        "sole_row": 137,
+        "py": 57,
+        "expected_content_bottom": 210,
+        "gif_top": 57,
+        "gif_bottom": 199,
+        "ground_line": 199,
+        "clip": true,
+        "clip_px": 11
+      },
+      {
+        "frame": 7,
+        "scaled_h": 154,
+        "sole_row": 138,
+        "py": 56,
+        "expected_content_bottom": 209,
+        "gif_top": 56,
+        "gif_bottom": 199,
+        "ground_line": 199,
+        "clip": true,
+        "clip_px": 10
+      }
+    ],
+    "py_series": [
+      57,
+      55,
+      57,
+      57,
+      64,
+      58,
+      57,
+      56
+    ],
+    "py_jitter_px": 9,
+    "ground_line_series": [
+      199,
+      199,
+      199,
+      199,
+      199,
+      199,
+      199,
+      199
+    ],
+    "clipped_frames": 8,
+    "max_clip_px": 18
+  },
+  "after": {
+    "frames": [
+      {
+        "frame": 0,
+        "scaled_h": 154,
+        "sole_row": 153,
+        "py": 41,
+        "gif_top": 41,
+        "gif_bottom": 194,
+        "ground_line": 194,
+        "clip": false,
+        "clip_px": 0
+      },
+      {
+        "frame": 1,
+        "scaled_h": 154,
+        "sole_row": 153,
+        "py": 41,
+        "gif_top": 41,
+        "gif_bottom": 194,
+        "ground_line": 194,
+        "clip": false,
+        "clip_px": 0
+      },
+      {
+        "frame": 2,
+        "scaled_h": 154,
+        "sole_row": 153,
+        "py": 41,
+        "gif_top": 41,
+        "gif_bottom": 194,
+        "ground_line": 194,
+        "clip": false,
+        "clip_px": 0
+      },
+      {
+        "frame": 3,
+        "scaled_h": 154,
+        "sole_row": 153,
+        "py": 41,
+        "gif_top": 41,
+        "gif_bottom": 194,
+        "ground_line": 194,
+        "clip": false,
+        "clip_px": 0
+      },
+      {
+        "frame": 4,
+        "scaled_h": 154,
+        "sole_row": 153,
+        "py": 41,
+        "gif_top": 41,
+        "gif_bottom": 194,
+        "ground_line": 194,
+        "clip": false,
+        "clip_px": 0
+      },
+      {
+        "frame": 5,
+        "scaled_h": 153,
+        "sole_row": 152,
+        "py": 42,
+        "gif_top": 42,
+        "gif_bottom": 194,
+        "ground_line": 194,
+        "clip": false,
+        "clip_px": 0
+      },
+      {
+        "frame": 6,
+        "scaled_h": 154,
+        "sole_row": 153,
+        "py": 41,
+        "gif_top": 41,
+        "gif_bottom": 194,
+        "ground_line": 194,
+        "clip": false,
+        "clip_px": 0
+      },
+      {
+        "frame": 7,
+        "scaled_h": 154,
+        "sole_row": 153,
+        "py": 41,
+        "gif_top": 41,
+        "gif_bottom": 194,
+        "ground_line": 194,
+        "clip": false,
+        "clip_px": 0
+      }
+    ],
+    "py_series": [
+      41,
+      41,
+      41,
+      41,
+      41,
+      42,
+      41,
+      41
+    ],
+    "ground_line_series": [
+      194,
+      194,
+      194,
+      194,
+      194,
+      194,
+      194,
+      194
+    ],
+    "ground_line_jitter_px": 0,
+    "clipped_frames": 0,
+    "max_clip_px": 0,
+    "visual_evidence": "tests/jev/sole_anchor_overlay.png（8帧剪影叠画+接地线）"
+  }
+}

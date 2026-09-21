@@ -83,19 +83,14 @@ def diagnose_gif_vertical():
 
 
 def diagnose_builder_replication():
-    """C. 用当前 builder 代码+_build_av_walk.py 参数在内存复算构建结果，
-    与交付 GIF 对比。用于证明：底部裁切（py+scaled_h > 画布底）与
-    sole 检测抖动（py 逐帧不一致，违反其 docstring"脚底不上下跳"承诺）。"""
+    """C. 导入真实 builder（tools/_build_av_walk.py）复算构建落位，与交付 GIF 对比。
+    证明：接地线逐帧恒定（F2 已修）且内容不越画布底（F1 已修）。
+    直接 import builder 而非复制其算法，避免诊断与实现漂移。"""
     sys.path.insert(0, str(REPO / "tools"))
-    from qa_walk8 import keyed_mask  # noqa: F401  (保持与交付 GIF 同 mask 口径)
+    import _build_av_walk as builder
 
-    SIZE, FOOT_Y, REF_H = 200, 194, 874
-
-    def sole_row(arr, fg):
-        h = arr.shape[0]
-        band = fg[int(h * 0.75):]
-        return int(h * 0.75) + int(band.sum(axis=1).argmax())
-
+    SIZE, FOOT_Y = builder.SIZE, builder.FOOT_Y
+    s = builder.TARGET_H / builder.REF_H
     rows = []
     for i in range(1, 9):
         im = Image.open(PNG_DIR / f"walk_0{i}.png").convert("RGBA")
@@ -103,24 +98,24 @@ def diagnose_builder_replication():
         fg = a[..., 3] > 96
         ys, xs = np.where(fg)
         im = im.crop((int(xs.min()), int(ys.min()), int(xs.max()) + 1, int(ys.max()) + 1))
-        s = 176 / REF_H
         im = im.resize((max(1, round(im.width * s)), max(1, round(im.height * s))), Image.LANCZOS)
-        a = np.asarray(im)
-        fg = a[..., 3] > 96
-        ys2, _ = np.where(fg)
-        sole = sole_row(a, fg)
+        a = np.asarray(im).copy()
+        a[..., 3] = np.where(a[..., 3] >= 128, 255, 0).astype(np.uint8)
+        fg = a[..., 3] > 0
+        sole = builder.sole_row(a, fg)
         py = FOOT_Y - sole
         rows.append({"frame": f"walk_0{i}", "scaled_h": int(im.height), "sole": sole,
-                     "py": int(py), "content_bottom": int(py + im.height),
-                     "clipped": py + im.height > SIZE - 1})
-    gif_soles = diagnose_gif_vertical()
+                     "py": int(py), "content_bottom": int(py + im.height - 1),
+                     "clipped": py + im.height - 1 > SIZE - 1})
+    gif_v = diagnose_gif_vertical()
     return {
         "per_frame": rows,
+        "ground_line_series": gif_v["per_frame"] and
+                              [r["sole_y"] for r in gif_v["per_frame"]],
         "py_series": [r["py"] for r in rows],
-        "py_jitter_px": max(r["py"] for r in rows) - min(r["py"] for r in rows),
-        "scaled_h_series": [r["scaled_h"] for r in rows],
-        "all_clipped": all(r["clipped"] for r in rows),
-        "gif_sole_y_constant_at_canvas_edge": gif_soles["sole_y_constant"],
+        "ground_line_jitter_px": max(r["content_bottom"] for r in rows)
+                                 - min(r["content_bottom"] for r in rows),
+        "clipped_frames": sum(1 for r in rows if r["clipped"]),
     }
 
 
