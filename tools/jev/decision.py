@@ -1,104 +1,175 @@
-"""Jev 决策引擎 · 结构化证据 → PASS / REVIEW / FAIL。
+"""Jev 决策引擎 · 结构化证据 → 逐项判定 → PASS / REVIEW / FAIL。
 
-mock_decide(): 确定性规则引擎（离线 POC 主判定），逐项对照 schema.THRESHOLDS。
-jev_decide(): 真实 Jev API 占位（需 JEV_API_KEY，接口确定后实现）。
+mock_decide(): 确定性规则引擎（离线 POC 主判定）。对每个检查项产出：
+    {check, measurement, status: PASS|FAIL|REVIEW, classification, standard_source, reason}
+整体决策 = 最坏项：
+    任一 FAIL（GenuineDefect 违反）      → FAIL
+    否则任一 REVIEW（警告带/伪影/规则失效）→ REVIEW
+    否则                                 → PASS
 
-决策契约：
-- PASS   全部客观标准满足，且无指标落在警告带
-- REVIEW 证据不确定：指标落在警告带（灰区），需人工复核
-- FAIL   任一客观标准被违反
+分类语义（分类表在 checks.py，由人工审计维护，Jev 只消费）：
+    违反 + GenuineDefect       → FAIL   真实缺陷
+    违反/警告带 + MeasurementArtifact → REVIEW 测量口径受混杂，人工复核
+    违反 + StandardMismatch    → REVIEW 规则对当前资产结构失效，人工重标定
+Jev 不发明阈值、不改 gait 定义、不用常识覆盖项目标准。
+
+build_jev_payload(): 真实 Jev API 的输入契约——发送
+    acceptance criteria（阈值+标准出处） + structured evidence + classifications，
+    而不是"这个动画好吗"式的开放提问。jev_decide() 仍为占位。
 """
 import os
 
 from schema import THRESHOLDS
 
-# 警告带下界：指标超过该值但未超阈值 → REVIEW 而非直接 PASS
+# 警告带下界：指标超过该值但未超阈值 → REVIEW 而非 PASS（schema 阈值不变）
 WARN_BAND = {
     "height_cv": 0.10,
     "head_width_cv": 0.10,
 }
 
 
+def _chk(check, measurement, ok, warn, classification, source, note, fail_reason, warn_reason):
+    """组装单项判定。ok=True 且无 warn → PASS；分类调节 FAIL→REVIEW 的降级。"""
+    if ok and not warn:
+        return {"check": check, "measurement": measurement, "status": "PASS",
+                "classification": classification, "standard_source": source}
+    if ok and warn:
+        return {"check": check, "measurement": measurement, "status": "REVIEW",
+                "classification": classification, "standard_source": source,
+                "reason": warn_reason}
+    # 违反：分类决定 FAIL 还是 REVIEW
+    if classification == "MeasurementArtifact":
+        return {"check": check, "measurement": measurement, "status": "REVIEW",
+                "classification": classification, "standard_source": source,
+                "reason": f"{fail_reason}；但分类=MeasurementArtifact（{note}）→ 人工复核"}
+    if classification == "StandardMismatch":
+        return {"check": check, "measurement": measurement, "status": "REVIEW",
+                "classification": classification, "standard_source": source,
+                "reason": f"{fail_reason}；但分类=StandardMismatch（{note}）→ 人工重标定规则"}
+    return {"check": check, "measurement": measurement, "status": "FAIL",
+            "classification": classification, "standard_source": source,
+            "reason": f"{fail_reason}；{note}" if note else fail_reason}
+
+
 def mock_decide(ev: dict) -> dict:
+    import checks as reg
+
     asset = ev.get("asset", {})
     vq = ev.get("visual_quality", {})
     mq = ev.get("motion_quality", {})
     rt = ev.get("runtime", {})
+    out = []
 
-    failed = []
-    review = []
+    # ── asset ──
+    for key, need, label in (
+        ("walk_frames_total", THRESHOLDS["frames_min"], "帧数"),
+        ("left_frames", THRESHOLDS["frames_min"] // 2, "左向帧数"),
+        ("right_frames", THRESHOLDS["frames_min"] // 2, "右向帧数"),
+    ):
+        c = f"asset.{key}"
+        m = reg.get(c)
+        out.append(_chk(c, asset.get(key), asset.get(key, 0) >= need, False,
+                        m.get("classification"), m.get("standard_source"), m.get("note", ""),
+                        f"{label}={asset.get(key)} < {need}", ""))
+    c = "asset.fps"
+    m = reg.get(c)
+    out.append(_chk(c, asset.get("fps"), asset.get("fps", 0) >= THRESHOLDS["fps_min"], False,
+                    m.get("classification"), m.get("standard_source"), m.get("note", ""),
+                    f"fps={asset.get('fps')} < {THRESHOLDS['fps_min']}", ""))
 
-    # ── 客观标准：违反即 FAIL ──
-    if asset.get("walk_frames_total", 0) < THRESHOLDS["frames_min"]:
-        failed.append(f"asset.walk_frames_total={asset.get('walk_frames_total')} < {THRESHOLDS['frames_min']}")
-    if asset.get("left_frames", 0) < THRESHOLDS["frames_min"] // 2:
-        failed.append(f"asset.left_frames={asset.get('left_frames')} < {THRESHOLDS['frames_min'] // 2}")
-    if asset.get("right_frames", 0) < THRESHOLDS["frames_min"] // 2:
-        failed.append(f"asset.right_frames={asset.get('right_frames')} < {THRESHOLDS['frames_min'] // 2}")
-    if asset.get("fps", 0) < THRESHOLDS["fps_min"]:
-        failed.append(f"asset.fps={asset.get('fps')} < {THRESHOLDS['fps_min']}")
+    # ── visual_quality ──
+    for key, thr, warn_at, unit in (
+        ("height_cv", THRESHOLDS["height_cv_max"], WARN_BAND["height_cv"], ""),
+        ("head_width_cv", THRESHOLDS["head_width_cv_max"], WARN_BAND["head_width_cv"], ""),
+    ):
+        c = f"visual_quality.{key}"
+        m = reg.get(c)
+        val = vq.get(key, 1.0)
+        out.append(_chk(c, val, val <= thr, val > warn_at,
+                        m.get("classification"), m.get("standard_source"), m.get("note", ""),
+                        f"{key}={val} > {thr}",
+                        f"{key}={val} 落在警告带 ({warn_at}, {thr}]"))
+    for key, thr in (("badges", THRESHOLDS["badges_max"]),
+                     ("holes", THRESHOLDS["holes_max"]),
+                     ("fragments", THRESHOLDS["fragments_max"])):
+        c = f"visual_quality.{key}"
+        m = reg.get(c)
+        val = vq.get(key, 0)
+        out.append(_chk(c, val, val <= thr, False,
+                        m.get("classification"), m.get("standard_source"), m.get("note", ""),
+                        f"{key}={val} > {thr}", ""))
 
-    if vq.get("height_cv", 1.0) > THRESHOLDS["height_cv_max"]:
-        failed.append(f"visual_quality.height_cv={vq.get('height_cv')} > {THRESHOLDS['height_cv_max']}")
-    if vq.get("head_width_cv", 1.0) > THRESHOLDS["head_width_cv_max"]:
-        failed.append(f"visual_quality.head_width_cv={vq.get('head_width_cv')} > {THRESHOLDS['head_width_cv_max']}")
-    if vq.get("badges", 0) > THRESHOLDS["badges_max"]:
-        failed.append(f"visual_quality.badges={vq.get('badges')} > {THRESHOLDS['badges_max']}")
-    if vq.get("holes", 0) > THRESHOLDS["holes_max"]:
-        failed.append(f"visual_quality.holes={vq.get('holes')} > {THRESHOLDS['holes_max']}")
-    if vq.get("fragments", 0) > THRESHOLDS["fragments_max"]:
-        failed.append(f"visual_quality.fragments={vq.get('fragments')} > {THRESHOLDS['fragments_max']}")
+    # ── motion_quality ──
+    for key, label in (("leg_reposition", "步幅交替"), ("phase_consistency", "垂直节奏")):
+        c = f"motion_quality.{key}"
+        m = reg.get(c)
+        val = mq.get(key, False)
+        out.append(_chk(c, val, bool(val), False,
+                        m.get("classification"), m.get("standard_source"), m.get("note", ""),
+                        f"{label}检验未通过（qa_walk8 口径）", ""))
 
-    if not mq.get("leg_reposition", False):
-        failed.append("motion_quality.leg_reposition=false（qa_walk8 步幅交替检验未通过）")
-    if not mq.get("phase_consistency", False):
-        failed.append("motion_quality.phase_consistency=false（qa_walk8 垂直节奏检验未通过）")
+    # ── runtime ──
+    for key, label in (("gif_load", "GIF 加载"), ("fps_match", "fps 一致性")):
+        c = f"runtime.{key}"
+        m = reg.get(c)
+        val = rt.get(key, False)
+        out.append(_chk(c, val, bool(val), False,
+                        m.get("classification"), m.get("standard_source"), m.get("note", ""),
+                        f"{label}未通过", ""))
+    c = "runtime.runtime_error"
+    m = reg.get(c)
+    err = rt.get("runtime_error", False)
+    out.append(_chk(c, err, not err, False,
+                    m.get("classification"), m.get("standard_source"), m.get("note", ""),
+                    "运行时/采集过程出现异常", ""))
+    c = "runtime.gif_bottom_clip"
+    m = reg.get(c)
+    clip = rt.get("gif_bottom_clip", False)
+    out.append(_chk(c, clip, not clip, False,
+                    m.get("classification"), m.get("standard_source"), m.get("note", ""),
+                    "交付 GIF 内容触及画布末行（底部裁切，违反 builder FOOT_Y 锚定设计）", ""))
 
-    if not rt.get("gif_load", False):
-        failed.append("runtime.gif_load=false（帧文件无法加载）")
-    if not rt.get("fps_match", False):
-        failed.append("runtime.fps_match=false（运行时 fps 与 animation.json 不一致）")
-    if rt.get("runtime_error", False):
-        failed.append("runtime.runtime_error=true（运行时出现异常）")
+    statuses = [o["status"] for o in out]
+    if "FAIL" in statuses:
+        decision, conf = "FAIL", 0.98
+    elif "REVIEW" in statuses:
+        decision, conf = "REVIEW", 0.72
+    else:
+        decision, conf = "PASS", 0.96
 
-    if failed:
-        return {
-            "decision": "FAIL",
-            "confidence": 0.98,
-            "reasons": failed,
-            "requires_human_review": False,
-        }
+    reasons = [f'{o["check"]}={o["measurement"]} → {o["status"]}'
+               for o in out if o["status"] != "PASS"]
+    if not reasons:
+        reasons = ["全部客观标准满足，无警告带/伪影/规则失效项"]
 
-    # ── 灰区：未违反但指标落在警告带 → REVIEW ──
-    if vq.get("height_cv", 0.0) > WARN_BAND["height_cv"]:
-        review.append(f"height_cv={vq.get('height_cv')} 落在警告带 ({WARN_BAND['height_cv']}, {THRESHOLDS['height_cv_max']}]")
-    if vq.get("head_width_cv", 0.0) > WARN_BAND["head_width_cv"]:
-        review.append(f"head_width_cv={vq.get('head_width_cv')} 落在警告带 ({WARN_BAND['head_width_cv']}, {THRESHOLDS['head_width_cv_max']}]")
-
-    if review:
-        return {
-            "decision": "REVIEW",
-            "confidence": 0.72,
-            "reasons": review,
-            "requires_human_review": True,
-        }
-
-    # ── 全部通过 ──
     return {
-        "decision": "PASS",
-        "confidence": 0.96,
-        "reasons": [
-            f"walk_frames_total={asset.get('walk_frames_total')} ≥ {THRESHOLDS['frames_min']}，左右各 ≥ {THRESHOLDS['frames_min'] // 2}，fps={asset.get('fps')}",
-            f"height_cv={vq.get('height_cv')} / head_width_cv={vq.get('head_width_cv')} 均在阈值内",
-            f"badges/holes/fragments = {vq.get('badges')}/{vq.get('holes')}/{vq.get('fragments')}",
-            "步幅交替与垂直节奏检验通过；运行时加载与 fps 一致",
-        ],
-        "requires_human_review": False,
+        "decision": decision,
+        "confidence": conf,
+        "reasons": reasons,
+        "checks": out,
+        "requires_human_review": decision != "PASS",
+    }
+
+
+def build_jev_payload(ev: dict) -> dict:
+    """真实 Jev API 的输入契约：标准 + 证据 + 分类上下文，一起发送。"""
+    import checks as reg
+    from schema import SCHEMA_VERSION
+    return {
+        "schema_version": SCHEMA_VERSION,
+        "acceptance_criteria": {
+            "thresholds": THRESHOLDS,
+            "sources": {k: v.get("standard_source") for k, v in reg.CHECKS.items()},
+        },
+        "classifications": {k: v.get("classification") for k, v in reg.CHECKS.items()},
+        "evidence": ev,
+        "instruction": "按给定 acceptance criteria 与 classifications 对 evidence 逐项判定；"
+                       "不得发明新标准、不得修改阈值、不得以常识覆盖项目验收规则。",
     }
 
 
 def jev_decide(ev: dict) -> dict:
-    """真实 Jev API 占位。接口确定后实现；当前任何情况都返回 REVIEW。"""
+    """真实 Jev API 占位。接口确定后：POST build_jev_payload(ev) → 解析判定。"""
     if not os.environ.get("JEV_API_KEY"):
         return {
             "decision": "REVIEW",
@@ -109,6 +180,7 @@ def jev_decide(ev: dict) -> dict:
     return {
         "decision": "REVIEW",
         "confidence": 0.0,
-        "reasons": ["Jev 真实 API 尚未实现（POC 阶段，mock_decide 为主判定）"],
+        "reasons": ["Jev 真实 API 尚未实现（POC 阶段，mock_decide 为主判定）；"
+                    "接入时将发送 build_jev_payload()：标准+证据+分类上下文"],
         "requires_human_review": True,
     }

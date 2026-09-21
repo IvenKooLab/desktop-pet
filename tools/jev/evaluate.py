@@ -43,14 +43,27 @@ def evaluate(path: Path, mode: str = "mock") -> dict:
 def render(out: dict) -> str:
     icon = {"PASS": "✅", "REVIEW": "⚠️", "FAIL": "❌"}[out["decision"]]
     lines = [
-        "=" * 56,
-        f"Jev Decision  {icon} {out['decision']}   (confidence {out['confidence']})",
+        "=" * 60,
+        f"Jev Quality Gate   {icon} {out['decision']}   (confidence {out['confidence']})",
         f"mode={out['mode']}  schema={out.get('schema_version', '?')}  evidence={out.get('evidence', '-')}",
-        "-" * 56,
+        "-" * 60,
     ]
-    for r in out["reasons"]:
-        lines.append(f"  · {r}")
-    lines.append("=" * 56)
+    for chk in out.get("checks", []):
+        mark = {"PASS": "PASS  ", "REVIEW": "REVIEW", "FAIL": "FAIL  "}[chk["status"]]
+        name = chk["check"].replace("visual_quality.", "").replace("motion_quality.", "")
+        name = name.replace("asset.", "").replace("runtime.", "")
+        line = f"  {mark}  {name}: {chk['measurement']}"
+        lines.append(line)
+        if chk.get("reason"):
+            lines.append(f"          reason: {chk['reason']}")
+        if chk.get("classification"):
+            lines.append(f"          class : {chk['classification']}  ← {chk.get('standard_source', '')}")
+    if not out.get("checks"):
+        for r in out["reasons"]:
+            lines.append(f"  · {r}")
+    lines.append("-" * 60)
+    lines.append(f"Overall: {out['decision']}")
+    lines.append("=" * 60)
     return "\n".join(lines)
 
 
@@ -59,17 +72,26 @@ def selftest() -> int:
     if not cases:
         print("no test cases found in tests/jev/")
         return 2
-    expect = {"pass": "PASS", "review": "REVIEW", "fail": "FAIL"}
+
+    def expect_of(stem: str):
+        if stem.startswith("pass"):
+            return "PASS"
+        if stem.startswith("review"):
+            return "REVIEW"
+        if stem.startswith("fail"):
+            return "FAIL"
+        return None
+
     failures = 0
     for case in cases:
-        want = expect.get(case.stem)
+        want = expect_of(case.stem)
         out = evaluate(case, "mock")
         got = out["decision"]
         ok = (want is None) or (got == want)
         failures += 0 if ok else 1
         mark = "ok " if ok else "MISMATCH"
         print(f"[{mark}] {case.name}: expected={want or 'n/a'} got={got}")
-        for r in out["reasons"][:3]:
+        for r in out["reasons"][:4]:
             print(f"       · {r}")
     print(f"{'ALL CASES PASS' if failures == 0 else f'{failures} case(s) failed'}")
     return 1 if failures else 0

@@ -85,6 +85,31 @@ def cv(values) -> float:
     return round(st.pstdev(values) / mean, 4) if mean else 1.0
 
 
+def measure_gifs() -> dict:
+    """交付 GIF（frames3d/av_walk_r_*.gif，git 已跟踪）逐帧垂直测量。
+    交付物级事实：底部裁切 / top 位移。品红为不透明调色板色
+    （运行时靠窗口 transparentcolor 抠像），mask 用 qa_walk8.keyed_mask 同款。"""
+    r, g = [], []
+    for f in sorted(RUNTIME_DIR.glob("av_walk_r_*.gif")):
+        arr = np.asarray(Image.open(f).convert("RGB"))
+        ri, bi, gi = arr[..., 0].astype(int), arr[..., 1].astype(int), arr[..., 2].astype(int)
+        fg = ~((ri > 200) & (bi > 200) & (gi < 110))
+        ys, _ = np.where(fg)
+        r.append(int(ys.min()))
+        g.append(int(ys.max()))
+    h_canvas = SIZE_CANVAS
+    return {
+        "tops": r,
+        "soles": g,
+        "bottom_clip": any(s >= h_canvas - 1 for s in g),
+        "top_jitter_px": max(r) - min(r),
+        "heights": [h_canvas - 1 - t for t in r],
+    }
+
+
+SIZE_CANVAS = 200  # _build_av_walk.py SIZE
+
+
 def collect() -> dict:
     anim = json.loads((WALK_DIR / "animation.json").read_text(encoding="utf-8"))
     frames = sorted((WALK_DIR / "frames").glob("walk_*.png"))
@@ -114,6 +139,8 @@ def collect() -> dict:
     badges_total = sum(m["badges"] for m in M if not m.get("empty"))
     frag_total = sum(m["fragments"] for m in M if not m.get("empty"))
 
+    gifs = measure_gifs()
+
     return {
         "project": "desktop-pet/iven-pet walk",
         "asset": {
@@ -138,12 +165,21 @@ def collect() -> dict:
             "fps_match": fps_match,
             # 语义：本采集过程中帧/GIF 加载零异常；完整 GUI 冒烟由 tools/smoke.py 负责
             "runtime_error": not (gif_load and all(not m.get("empty") for m in M)),
+            "gif_bottom_clip": gifs["bottom_clip"],
         },
         "_measured": {
             "frames": [f.name for f in frames],
             "heights": heights,
             "head_widths": heads,
             "strides": strides,
+        },
+        "_provenance": {
+            "identity_source": "characters/iven-pet/animations/walk/frames/*.png（gitignore，本地艺术源）",
+            "delivery_source": "frames3d/av_walk_r_*.gif（git 已跟踪交付物）",
+            "gif_tops": gifs["tops"],
+            "gif_heights": gifs["heights"],
+            "gif_top_jitter_px": gifs["top_jitter_px"],
+            "forensics": "python tools/jev/audit_diagnostics.py 可复现全部取证数字",
         },
     }
 
