@@ -51,26 +51,39 @@ $PY tools/jev/schema.py tests/jev/pass.json
 - **phase_consistency**：身高序列奇偶锯齿交替（Down 低 / Up 高 意图）
 - **fps_match**：animation.json fps 与 pet.py 8 帧 av_walk 分支 `round(1000/12)` 交叉核对
 
-## mock 决策规则
+## mock 决策规则（Decision Boundary Audit 后）
 
-1. 任一客观标准违反 → **FAIL**（confidence 0.98，逐条列出违反项）
-2. 无违反但 `height_cv` / `head_width_cv` 落在警告带 `(0.10, 0.15]` → **REVIEW**（0.72）
-3. 全部达标且无灰区 → **PASS**（0.96）
-4. evidence 结构不完整 → **REVIEW**（0.5，列出缺失字段）
+每个检查项独立产出 `{check, measurement, status, classification, standard_source, reason}`：
 
-警告带下界在 `decision.WARN_BAND`。
+1. **违反客观标准** → 按 `checks.py` 分类调节：
+   - `GenuineDefect`（真实缺陷）→ **FAIL**
+   - `MeasurementArtifact`（测量伪影，如发丝摆动混入头宽）→ **REVIEW** 人工复核
+   - `StandardMismatch`（规则来自旧 gait 假设，如 period-2 锯齿）→ **REVIEW** 人工重标定
+2. **警告带** `(0.10, 0.15]`（height_cv / head_width_cv）→ **REVIEW**
+3. 全部达标且无灰区 → **PASS**
+4. evidence 结构不完整 → **REVIEW**（列出缺失字段）
+
+整体 = 最坏项：任一 FAIL → FAIL；否则任一 REVIEW → REVIEW；否则 PASS。
+
+**追溯纪律**：每个 FAIL 必须沿 `check → standard_source（文档/代码出处）→ threshold →
+measurement → Jev` 追溯。分类表在 `checks.py`（由人工审计写入、附证据出处；
+Jev 只消费，不发明分类）。审计全文：`docs/JEV_BOUNDARY_AUDIT.md`。
+
+**取证工具**：`python tools/jev/audit_diagnostics.py` 复现全部审计数字
+（头宽带分解 / 交付 GIF 垂直测量 / builder 复算——底部裁切与 sole 抖动证明）。
 
 ## 真实 Jev API（占位）
 
 `jev_decide()` 需要 `JEV_API_KEY` 环境变量；接口确定前任何输入都返回 REVIEW。
 **API Key 永不入库**（走环境变量）。
+接入契约已固化：`build_jev_payload(ev)` 把 **acceptance criteria（阈值+标准出处）+
+structured evidence + classifications** 一起发送，指令明确"按给定标准逐项判定"——
+而不是发"这个动画好吗"式的开放提问。
 
-## 已知事实（2026-09-21 采集）
+## 已知事实（2026-09-21 边界审计版）
 
-当前已入库 8 帧 walk 素材的真实证据在 `tests/jev/fail.json`：动检两项
-（leg_reposition / phase_consistency）未过——与 `python tools/qa_walk8.py` 的现行
-FAIL 判定一致，根因是锯齿规则按旧 4 帧步态的 period-2 假设写死，8 帧
-Contact/Down/Passing/Up 循环天然不满足；且基线对齐的源帧本身不含垂直弹跳。
-素材是靠人工目检上线的。**这个差距正是 Jev 要暴露的东西**：后续由人工决策
-（a）修素材补真弹跳/交替步幅，或（b）把标准按 8 帧结构修订——那是改
-`schema.THRESHOLDS` / qa 工具的事，属于本 POC 范围之外。
+当前已入库 8 帧 walk 素材的真实证据在 `tests/jev/fail.json`，判定 **FAIL**：
+- `phase_consistency` / `gif_bottom_clip` = GenuineDefect（真实缺陷：无垂直节奏 + 全帧底部裁切）
+- `leg_reposition` = StandardMismatch（period-2 锯齿规则对 8 帧结构失效）
+- `head_width_cv` 警告带 = MeasurementArtifact（发丝摆动混入）
+完整证据链与新发现（sole 抖动、characters/ 未入库）见 `docs/JEV_BOUNDARY_AUDIT.md`。
