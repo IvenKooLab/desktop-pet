@@ -1,6 +1,7 @@
 """构建 av_walk 真素材帧：characters/iven-pet/animations/walk/frames/walk_01..08.png
 → frames3d/av_walk_{l,r}_{00..07}.gif（200x200 品红画布，脚底线锚定，左向=镜像）。
-锚定规则：每帧以"脚底基线行"（脚步区最宽行）对齐 FOOT_Y，保证脚底不上下跳。
+锚定规则：每帧以"内容末行"（真实接地线）对齐 FOOT_Y，保证脚底不上下跳。
+缩放规则：统一比例 = TARGET_H / 实测切图最高身高（measure_ref_h），禁止逐帧适配。
 """
 import numpy as np
 from PIL import Image
@@ -10,11 +11,27 @@ SRC = Path('characters/iven-pet/animations/walk/frames')
 OUT = Path('frames3d')
 SIZE = 200
 FOOT_Y = 194
-# 统一缩放基准：以最高帧身高为 176px 基准，8 帧共用同一比例（禁止逐帧缩放）
-# 注意：REF_H 是"写作时最高源帧身高"。源素材重切后会变化（874→当前 763），
-# 不同步更新的表现 = 人物相对全套动画变小（审计发现 F4，修否待 owner 决策）
-REF_H = 874
-TARGET_H = 176
+TARGET_H = 176   # 系统统一角色高度（make_frames3d.py:36 FIT_H=176）
+
+
+def measure_ref_h():
+    """缩放基准 = 本 builder 实际消费工件的最高帧身高（逐帧实测）。
+
+    F4 教训（docs/JEV_BOUNDARY_AUDIT.md）：旧版 REF_H=874 硬编码量在
+    原始 Sheet 人物 bbox 上（walk_sheet_8f.png strip8 @ mx<245 = 874px，
+    含抗锯齿晕环），而本 builder 消费的是 rembg+defringe 后的切图
+    （762~764px）→ 角色缩到 154px，比全套动画小 12.5%。
+    语义纪律：缩放基准必须与实际输入工件同源——每次构建时对 8 张切图
+    实测 alpha>96 bbox 高、取最高帧，禁止引用任何 Sheet/历史魔法数。
+    """
+    heights = []
+    for i in range(1, 9):
+        im = Image.open(SRC / f'walk_{i:02d}.png').convert('RGBA')
+        a = np.asarray(im)
+        fg = a[..., 3] > 96
+        ys, _ = np.where(fg)
+        heights.append(int(ys.max() - ys.min() + 1))
+    return max(heights)
 
 
 def sole_row(arr, fg):
@@ -33,6 +50,9 @@ def sole_row(arr, fg):
 
 
 def build():
+    ref_h = measure_ref_h()
+    s = TARGET_H / ref_h
+    print(f'ref_h={ref_h} (实测切图最高身高) scale={s:.5f} -> TARGET_H={TARGET_H}')
     ims = []
     for i in range(1, 9):
         im = Image.open(SRC / f'walk_{i:02d}.png').convert('RGBA')
@@ -40,8 +60,7 @@ def build():
         fg = a[..., 3] > 96
         ys, xs = np.where(fg)
         im = im.crop((xs.min(), ys.min(), xs.max() + 1, ys.max() + 1))
-        # 统一比例缩放（高度基准 REF_H，禁止逐帧适配）
-        s = TARGET_H / REF_H
+        # 统一比例缩放（基准=实测切图最高身高，禁止逐帧适配）
         w = max(1, round(im.width * s))
         h = max(1, round(im.height * s))
         im = im.resize((w, h), Image.LANCZOS)
