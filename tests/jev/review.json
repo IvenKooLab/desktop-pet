@@ -1,0 +1,68 @@
+{
+  "project": "desktop-pet/iven-pet walk",
+  "asset": {
+    "walk_frames_total": 8,
+    "left_frames": 8,
+    "right_frames": 8,
+    "fps": 12
+  },
+  "visual_quality": {
+    "height_cv": 0.0008,
+    "head_width_cv": 0.1323,
+    "badges": 0,
+    "holes": 0,
+    "fragments": 0
+  },
+  "motion_quality": {
+    "leg_reposition": true,
+    "phase_consistency": true
+  },
+  "runtime": {
+    "gif_load": true,
+    "fps_match": true,
+    "runtime_error": false
+  },
+  "_measured": {
+    "frames": [
+      "walk_01.png",
+      "walk_02.png",
+      "walk_03.png",
+      "walk_04.png",
+      "walk_05.png",
+      "walk_06.png",
+      "walk_07.png",
+      "walk_08.png"
+    ],
+    "heights": [
+      763,
+      763,
+      763,
+      763,
+      763,
+      762,
+      764,
+      764
+    ],
+    "head_widths": [
+      336,
+      334,
+      408,
+      414,
+      410,
+      309,
+      304,
+      304
+    ],
+    "strides": [
+      195,
+      189,
+      177,
+      192,
+      210,
+      38,
+      174,
+      184
+    ]
+  },
+  "_note": "场景用例（基于真实测量改写）：假设动检两项经人工确认通过，但 head_width_cv=0.1323 落在警告带 (0.10, 0.15] —— 预期判定 REVIEW。"
+}
