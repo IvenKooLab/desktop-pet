@@ -1,7 +1,7 @@
-"""Iven Pet v5 · 3D 手办版桌面宠（行为状态机，运行时零第三方依赖）。
+"""Iven Pet · macOS/Windows 独立 3D 绒质桌宠（运行时纯标准库）。
 
-素材来自豆包生成的 3D 三视图 + 表情/步态/呼吸Sheet，由 tools/make_frames3d.py
-切片抠图产出 frames3d/。伪 3D：侧视走路分左右、360° 转体展示。
+素材由批准的 Iven v2 母版导出，原版 3D 绒质风格。Mac 使用透明 PNG，
+Windows 使用色键 GIF；时间轴来自 animation.json，观察四周不等于全身转体。
 
 状态机：GREET(落地打招呼) → IDLE(呼吸) → WALK(走动) / RUN(小短腿快走) →
         GRAB(挣扎) → FALL(重力下落) → LAND(压扁) → SLEEP(睡着)
@@ -23,6 +23,7 @@ import sys
 import time
 import tkinter as tk
 from animation_assets import load_clips, timed_frame
+from desktop_platform import configure_transparency, frame_path, clear_legacy_color_key
 
 try:                    # Windows：枚举窗口顶边当平台
     import ctypes
@@ -358,10 +359,8 @@ class Pet:
         self.root = tk.Tk()
         self.root.overrideredirect(True)
         self.root.attributes("-topmost", True)
-        try:
-            self.root.attributes("-transparentcolor", MAGENTA)
-        except tk.TclError:
-            print("[warn] 环境不支持透明色")
+        self.root.title("Iven Pet · 独立桌宠")
+        self.background = configure_transparency(self.root)
 
         self.sw = self.root.winfo_screenwidth()
         self.sh = self.root.winfo_screenheight()
@@ -370,15 +369,18 @@ class Pet:
         self.ground = self.base - SIZE
 
         self.canvas = tk.Canvas(self.root, width=SIZE, height=SIZE,
-                                bg=MAGENTA, highlightthickness=0)
+                                bg=self.background, highlightthickness=0, bd=0)
         self.canvas.pack()
         self.frames = {}
         self.clips = load_clips(FRAMES_DIR)
         extra_frames = {name for names, _ in self.clips.values() for name in names}
         for name in sorted(set(FRAMES) | extra_frames):
-            path = os.path.join(FRAMES_DIR, f"{name}.gif")
-            if os.path.exists(path):
-                self.frames[name] = tk.PhotoImage(file=path)
+            path = frame_path(FRAMES_DIR, name)
+            if path.is_file():
+                image = tk.PhotoImage(file=str(path))
+                if sys.platform == "darwin" and path.suffix == ".gif":
+                    clear_legacy_color_key(image)
+                self.frames[name] = image
         if "idle_0" not in self.frames:
             raise FileNotFoundError(f"帧目录缺少 idle_0.gif: {FRAMES_DIR}")
         # 兜底帧：优先 fall_0（状态机主帧），否则任意可用帧（最小角色集也活）
@@ -458,6 +460,8 @@ class Pet:
         c.bind("<B1-Motion>", self._drag)
         c.bind("<ButtonRelease-1>", self._release)
         menu = tk.Menu(self.root, tearoff=0)
+        menu.add_command(label="Iven Pet · 独立桌宠", state="disabled")
+        menu.add_separator()
         menu.add_command(label=_T["menu_speak"], command=lambda: self.say(random.choice(LINES)))
         if {"cheer_0", "cheer_1"} <= self.frames.keys():
             menu.add_command(label=_T["menu_clap"], command=self._to_cheer)
@@ -474,6 +478,12 @@ class Pet:
         menu.add_separator()
         menu.add_command(label=_T["menu_exit"], command=self.root.destroy)
         c.bind("<Button-3>", lambda e: menu.tk_popup(e.x_root, e.y_root))
+        if sys.platform == "darwin":
+            c.bind("<Button-2>", lambda e: menu.tk_popup(e.x_root, e.y_root))
+            def control_menu(e):
+                menu.tk_popup(e.x_root, e.y_root)
+                return "break"
+            c.bind("<Control-Button-1>", control_menu)
 
     def _touch(self):
         self.last_input = self.tick_n
@@ -814,6 +824,11 @@ class Pet:
 
     def run(self):
         self.last_input = self.tick_n
+        self.root.update_idletasks()
+        print("[start] Iven Pet standalone | platform=%s | Tk=%s | background=%s | frames=%s" %
+              (sys.platform, self.root.tk.call("info", "patchlevel"), self.background, len(self.frames)), flush=True)
+        self.root.after(800, lambda: print("[window] mapped=%s | canvas=%s | state=%s" %
+                        (self.root.winfo_ismapped(), self.canvas.cget("bg"), self.state), flush=True))
         self.root.mainloop()
 
 

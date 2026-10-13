@@ -22,7 +22,9 @@
 python pet.py
 ```
 
-前提：Windows（透明色特性）+ Python 3.8+（tkinter 随装随有）。
+Windows：Python 3.8+（tkinter）。Mac：Python 3.8+ 与 Tk 8.6+，双击根目录 **start-mac.command**，或运行 `python3 pet.py`。独立程序不需要 Codex、账号或模型 API。
+
+Mac 使用原生透明窗口与 PNG alpha，Windows 使用色键 GIF。拖拽、点击、双击和菜单两端共用；Mac 还支持 Control＋点击菜单。目前其他应用窗口顶边的平台行走仅在 Windows 实现，Mac 沿桌面底边移动，Linux 尚未适配。
 
 
 ![Iven Pet Studio](docs/images/studio.png)

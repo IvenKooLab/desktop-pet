@@ -6,7 +6,7 @@
 [![Platform](https://img.shields.io/badge/platform-Windows-blue)](#)
 [![Runtime](https://img.shields.io/badge/runtime-zero%20dependency-green)](#)
 
-A Shimeji-style Windows desktop pet built from **AI-generated 3D character sheets**.
+A standalone macOS/Windows desktop pet built from **AI-generated 3D character sheets**.
 She walks along your taskbar, stands on top of your application windows,
 climbs down when you close them — and does a little clapperboard cheer when you double-click her.
 
@@ -39,6 +39,12 @@ Existing executables may still contain the older art; rebuild from source for Iv
 ```bash
 python pet.py        # Windows + Python 3.8+ (tkinter bundled), nothing else to install
 ```
+
+On macOS, double-click `start-mac.command`, or run `python3 pet.py` with Tk 8.6+.
+Native transparent windows use RGBA PNG on Mac and color-key GIF on Windows.
+The app runs independently of Codex or ChatGPT, without an account or model API.
+Desktop movement, gravity, dragging and menus work on both platforms; walking on
+other applications' window edges currently remains Windows-only. Linux is not yet supported.
 
 Right-click the pet for the menu; drag her anywhere; double-click her for a reaction.
 Close her via right-click menu → 退出 (Exit).

@@ -59,10 +59,13 @@ def export(source, destinations):
                 "canvas":[200,200],"scale":200/208,"foot_baseline":193,
                 "style":"original-3d-plush","motion":"directional hopping",
                 "clips":clips}
-    encoded = {}
+    encoded, transparent = {}, {}
     for name,image in images.items():
         # One shared affine fit for every pose: 192x208 -> 185x200, centered.
         sprite = image.resize((185,200),Image.Resampling.LANCZOS)
+        alpha_canvas = Image.new("RGBA", (200,200), (0,0,0,0))
+        alpha_canvas.alpha_composite(sprite, (7,0))
+        transparent[name] = alpha_canvas
         mask = sprite.getchannel("A").point(lambda a:255 if a>=128 else 0)
         canvas = Image.new("RGB",(200,200),(255,0,255))
         canvas.paste(sprite.convert("RGB"),(7,0),mask)
@@ -71,6 +74,7 @@ def export(source, destinations):
         destination.mkdir(parents=True,exist_ok=True)
         for name,image in encoded.items():
             image.save(destination/(name+".gif"))
+            transparent[name].save(destination/(name+".png"))
         (destination/"animation.json").write_text(json.dumps(manifest,ensure_ascii=False,indent=2),encoding="utf-8")
     return manifest
 
