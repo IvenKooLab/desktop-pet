@@ -22,6 +22,7 @@ import socket
 import sys
 import time
 import tkinter as tk
+from animation_assets import load_clips, timed_frame
 
 try:                    # Windows：枚举窗口顶边当平台
     import ctypes
@@ -372,7 +373,9 @@ class Pet:
                                 bg=MAGENTA, highlightthickness=0)
         self.canvas.pack()
         self.frames = {}
-        for name in FRAMES:
+        self.clips = load_clips(FRAMES_DIR)
+        extra_frames = {name for names, _ in self.clips.values() for name in names}
+        for name in sorted(set(FRAMES) | extra_frames):
             path = os.path.join(FRAMES_DIR, f"{name}.gif")
             if os.path.exists(path):
                 self.frames[name] = tk.PhotoImage(file=path)
@@ -459,7 +462,10 @@ class Pet:
         if {"cheer_0", "cheer_1"} <= self.frames.keys():
             menu.add_command(label=_T["menu_clap"], command=self._to_cheer)
         if {"spin_0", "spin_1", "spin_2", "spin_3"} <= self.frames.keys():
-            menu.add_command(label=_T["menu_spin"], command=self._to_spin)
+            label = ({"zh": "四处看看 👀", "zh-TW": "四處看看 👀", "en": "Look around 👀",
+                      "ja": "見回す 👀", "ko": "둘러보기 👀"}.get(LANG, "Look around 👀")
+                     if "SPIN" in self.clips else _T["menu_spin"])
+            menu.add_command(label=label, command=self._to_spin)
         if "fast_l_0" in self.frames:
             menu.add_command(label=_T["menu_run"], command=self._to_run)
         if "shy_0" in self.frames:
@@ -577,7 +583,8 @@ class Pet:
         if self._support() is None:
             return
         self._set_state("SPIN", 32)                   # 4 帧 × 2 圈
-        self.say(_T["spin"], 1500)
+        self.say(("看看周围～" if LANG.startswith("zh") else "Looking around~")
+                 if "SPIN" in self.clips else _T["spin"], 1500)
 
     # ---------- 主循环 ----------
     def _loop(self):
@@ -607,6 +614,9 @@ class Pet:
     def _frame_at(self, now, alpha):
         """当前应显示的帧名。alpha=当前逻辑步内进度 0~1（SPIN 用其连续取面）。"""
         spec = self._anim_key
+        if spec[0] == "clip":
+            _, names, durations = spec
+            return timed_frame(names, durations, (now - self._anim_t0) * 1000)
         if spec[0] == "seq":
             _, names, period = spec
             if not names:                               # 自定义帧目录缺整组帧时兜底
@@ -643,7 +653,7 @@ class Pet:
                 self.y = s[1] - SIZE
 
         if self.state == "IDLE":
-            self._anim(["idle_0", "idle_1", "idle_2"], 1000)  # 呼吸循环
+            self._play_clip("IDLE", ["idle_0", "idle_1", "idle_2"], 1000)
             # 随机微动作（路线C简化版）：低概率眨眼/浅笑，待机永不完全重复
             if self._idle_fx > 0:
                 self._idle_fx -= 1
@@ -672,10 +682,10 @@ class Pet:
                 run = self.state == "RUN"
                 d = "l" if self.dir < 0 else "r"
                 if run:
-                    self._anim([f"fast_{d}_0", f"fast_{d}_1"], 250)
+                    self._play_clip("RUN_" + d, [f"fast_{d}_0", f"fast_{d}_1"], 250)
                     self.x += self.dir * (WALK_SPEED + 2)
                 else:
-                    self._anim(self._walk_seq[d], self._walk_period[d])
+                    self._play_clip("WALK_" + d, self._walk_seq[d], self._walk_period[d])
                     self.x += self.dir * WALK_SPEED
                 nx = self.x
                 if nx + FOOT_INSET < s[0] or nx + SIZE - FOOT_INSET > s[2]:
@@ -693,7 +703,7 @@ class Pet:
                     self.say(random.choice(LINES))
 
         elif self.state == "GRAB":
-            self._anim(["grab_0", "grab_1"], 200)
+            self._play_clip("GRAB", ["grab_0", "grab_1"], 200)
 
         elif self.state == "FALL":
             prev_feet = self.y + SIZE
@@ -729,41 +739,51 @@ class Pet:
                         self.say(random.choice(LAND_LINES), 1200)
 
         elif self.state == "GREET":
-            self._show("greet_0")
+            self._play_clip("GREET", ["greet_0"], 1500)
             if self.state_left <= 0:
                 self._set_state("IDLE", random.randint(60, 200))
 
         elif self.state == "SLEEP":
-            self._anim(["sleep_0", "sleep_1"], 2000)
+            self._play_clip("SLEEP", ["sleep_0", "sleep_1"], 2000)
             if random.random() < 0.002:
                 self.say(SLEEP_LINE, 1500)
 
         elif self.state == "BOUNCE":
-            self._anim(["bounce_0", "bounce_1"], 200)
+            self._play_clip("BOUNCE", ["bounce_0", "bounce_1"], 200)
             if self.state_left <= 0:
                 self._set_state("IDLE", random.randint(60, 200))
 
         elif self.state == "HAPPY":
-            self._anim(["happy_0", "happy_1"], 300)
+            self._play_clip("HAPPY", ["happy_0", "happy_1"], 300)
             if self.state_left <= 0:
                 self._set_state("IDLE", random.randint(60, 200))
 
         elif self.state == "SHY":
-            self._show("shy_0")
+            self._play_clip("SHY", ["shy_0"], 1500)
             if self.state_left <= 0:
                 self._set_state("IDLE", random.randint(60, 200))
 
         elif self.state == "CHEER":
-            self._anim(["cheer_0", "cheer_1"], 350)
+            self._play_clip("CHEER", ["cheer_0", "cheer_1"], 350)
             if self.state_left <= 0:
                 self._set_state("IDLE", random.randint(60, 200))
 
         elif self.state == "SPIN":
-            self._set_anim(("spin",))   # 渲染层按连续进度换面（每面 8 tick）
+            if "SPIN" in self.clips:
+                self._play_clip("SPIN", [], 1)
+            else:
+                self._set_anim(("spin",))
             if self.state_left <= 0:
                 self._set_state("IDLE", random.randint(60, 200))
 
     # ---------- 动画 ----------
+    def _play_clip(self, state, legacy_names, period_ms):
+        clip = self.clips.get(state)
+        if clip:
+            self._set_anim(("clip", clip[0], clip[1]))
+        else:
+            self._anim(legacy_names, period_ms)
+
     def _anim(self, names, period_ms):
         """循环帧组：渲染层按墙钟相位取帧（period_ms = 每帧时长）。"""
         self._set_anim(("seq", tuple(names), int(period_ms)))

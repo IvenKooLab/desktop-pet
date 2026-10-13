@@ -1,0 +1,25 @@
+{
+  "ok": true,
+  "directories": [
+    {
+      "directory": "frames3d",
+      "frames": 111,
+      "canvas": [
+        200,
+        200
+      ],
+      "exact_chroma": true,
+      "clipping": false
+    },
+    {
+      "directory": "characters/iven-pet/frames3d",
+      "frames": 111,
+      "canvas": [
+        200,
+        200
+      ],
+      "exact_chroma": true,
+      "clipping": false
+    }
+  ]
+}

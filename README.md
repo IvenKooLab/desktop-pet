@@ -1,5 +1,7 @@
 # Iven Pet 🐾 · 3D Chibi Desktop Pet
 
+**Default artwork updated on 2026-10-13:** Iven v2 preserves the approved original 3D fleece-toy identity, with consistent proportions, cleaned chroma edges and full per-frame timing. Built-in and Studio assets share the same export. See [migration, rebuild and rollback notes](docs/IVEN_V2_MIGRATION.md).
+
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows-blue)](#)
 [![Runtime](https://img.shields.io/badge/runtime-zero%20dependency-green)](#)
@@ -15,21 +17,22 @@ English | [简体中文](README.zh-CN.md)
 
 ## Features
 
-- **Smooth walking** — procedural 24-phase walk gait from a single side view
-  (cosine-continuous, zero ghosting), with a front-facing turn-around pause
+- **Consistent original 3D fleece artwork** — eight-pose hopping movement,
+  shared scale and per-frame timing, with a front-facing turn-around pause
 - **~60 fps rendering** — fixed 50 ms logic steps + wall-clock animation phase
   and sub-pixel position interpolation (no more 20 fps stepping)
 - **Windows are platforms** — she walks on top of your app windows,
   turns at edges (or falls off), and drops when you close the window
-- Idle breathing · grab struggle · gravity fall · landing squash · sleep
+- Idle blinking · grab reaction · gravity fall · landing · closed-eye sleep
 - Interactions: click = bounce, double-click = happy, right-click menu
-  (clapperboard cheer / 360° spin / fast walk / shy / sleep)
+  (clapperboard action / sixteen-direction look-around / faster hopping / shy / sleep)
 - **Zero third-party dependencies at runtime** — pure Python standard library (tkinter)
 
 ## Quick Start
 
 **Option A — ready-to-run**: grab `IvenPet.exe` (≈11 MB) from
 [Releases](https://github.com/IvenKooLab/desktop-pet/releases), drop it on your desktop, double-click.
+Existing executables may still contain the older art; rebuild from source for Iven v2.
 
 **Option B — from source**:
 
@@ -63,13 +66,17 @@ tools\build_exe.bat   # rebuilds dist\IvenPet.exe (needs pyinstaller)
 
 ```
 pet.py                  # runtime: state machine + window-as-platform + single instance
-frames3d/               # 73 animation frames (GIF, magenta-key transparency)
-tools/make_frames3d.py  # asset pipeline: AI matting → slicing → frame synthesis
+frames3d/               # default GIF frames, compatibility aliases and animation.json
+animation_assets.py    # optional per-frame timing, compatible with legacy characters
+tools/export_iven_v2.py # approved atlas → default and Studio assets
+tools/make_frames3d.py  # legacy pipeline (isolated output only)
 tools/qa_frames.py      # numeric QA: fragments / holes / size consistency
 tools/qa_diff.py        # pixel regression: final frames vs source cuts
 tools/smoke.py          # state-machine smoke test with screenshots
 docs/                   # SOP + asset pipeline documentation
-assets/src/             # AI-generated character sheets (source of truth)
+assets/iven-v2/          # approved default atlas and validation evidence
+assets/src/             # original character identity references
+assets/legacy-pre-iven-v2/ # archived old frames for explicit rollback
 ```
 
 ## License

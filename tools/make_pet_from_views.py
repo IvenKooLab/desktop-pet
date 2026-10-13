@@ -93,6 +93,8 @@ def main():
     ap.add_argument("--order", default="front,side,back", help="从左到右的角色视图名")
     ap.add_argument("--side-faces", default="auto", choices=["auto", "left", "right"])
     args = ap.parse_args()
+    if (Path(args.out) / "animation.json").exists():
+        ap.error("该目录已有批准的动画时间轴；请用 --out 指定新的角色目录，避免覆盖默认角色。")
 
     img = Image.open(args.src).convert("RGB")
     boxes = rough_boxes(img)

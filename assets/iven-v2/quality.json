@@ -1,0 +1,67 @@
+{
+  "ok": true,
+  "atlas": "pet-work/iven-original/final/spritesheet-extended.png",
+  "encoded_bytes": 1942441,
+  "sha256": "24bb6cd882e94c478ba38c7c0193ff7a8d12184a4f7c2cb7cf79527ba4889887",
+  "jump": {
+    "idle_baseline": 200,
+    "jump_baselines": [
+      200,
+      189,
+      179,
+      189,
+      200
+    ],
+    "airborne_lift_pixels": 21,
+    "landing_delta_pixels": 0
+  },
+  "look_registration": {
+    "neutral_center_x": 96.0,
+    "look_centers_x": [
+      96.5,
+      91.5,
+      90.0,
+      87.5,
+      88.5,
+      91.0,
+      92.0,
+      97.5,
+      95.0,
+      96.0,
+      94.5,
+      95.5,
+      100.0,
+      103.0,
+      104.0,
+      105.0
+    ],
+    "look_widths": [
+      97,
+      91,
+      88,
+      81,
+      81,
+      82,
+      82,
+      89,
+      92,
+      88,
+      83,
+      83,
+      82,
+      84,
+      86,
+      86
+    ],
+    "maximum_center_drift_pixels": 9.0,
+    "maximum_width_ratio": 1.1975308641975309
+  },
+  "errors": [],
+  "warnings": [
+    "look direction 157.5 accepted with a reviewed warning",
+    "look direction 337.5 accepted with a reviewed warning",
+    "135->157.5 diff is a local outlier (1311 pixels vs neighbor average 838)",
+    "337.5->000 diff is a local outlier (2167 pixels vs neighbor average 1111)",
+    "337.5->000 center shift is high (8.6px)"
+  ]
+}
