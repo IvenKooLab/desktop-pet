@@ -3,6 +3,8 @@ import json
 from pathlib import Path
 from PIL import Image, ImageDraw
 
+PLAYBACK_SPEED = 0.75
+
 ROOT = Path(__file__).resolve().parents[1]
 GROUPS = {
     'little-breaks': [('STRETCH', 1), ('DOZE', 1), ('RUBIK', 1)],
@@ -28,7 +30,7 @@ def main():
                     draw = ImageDraw.Draw(canvas)
                     draw.text((140, 232), state.replace('_', ' '), fill='#51456e', anchor='mm')
                     frames.append(canvas)
-                    durations.append(round(duration / 10) * 10)
+                    durations.append(round(duration / PLAYBACK_SPEED / 10) * 10)
         path = output / (title + '.gif')
         frames[0].save(path, save_all=True, append_images=frames[1:],
                        duration=durations, loop=0, disposal=2, optimize=False)

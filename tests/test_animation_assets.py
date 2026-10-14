@@ -69,14 +69,15 @@ class AnimationTests(unittest.TestCase):
         # Load actual Pet methods without starting Tk or binding its single-instance port.
         tree=ast.parse((ROOT/"pet.py").read_text())
         cls=next(node for node in tree.body if isinstance(node,ast.ClassDef) and node.name=="Pet")
-        namespace={"time":time,"timed_frame":timed_frame}
+        namespace={"time":time,"timed_frame":timed_frame,"PLAYBACK_SPEED":0.75}
         exec(compile(ast.Module(body=[cls],type_ignores=[]),"pet.py","exec"),namespace)
         pet=namespace["Pet"].__new__(namespace["Pet"])
         pet.clips={"IDLE":(("idle_0","idle_1"),(280,110))}
         pet._anim_key=None
         pet._play_clip("IDLE",["legacy"],1000)
         start=pet._anim_t0
-        self.assertEqual(pet._frame_at(start+.300,0),"idle_1")
+        self.assertEqual(pet._frame_at(start+.300,0),"idle_0")
+        self.assertEqual(pet._frame_at(start+.400,0),"idle_1")
         pet._play_clip("IDLE",["legacy"],1000)
         self.assertEqual(pet._anim_t0,start)  # repeated logic ticks cannot reset phase
         pet._play_clip("GRAB",["grab_0","grab_1"],200)

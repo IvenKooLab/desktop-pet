@@ -2,6 +2,8 @@ import AppKit
 import QuartzCore
 import Darwin
 
+let playbackSpeed = 0.75
+
 struct Clip: Decodable {
     let frames: [String]
     let durations: [Int]
@@ -186,13 +188,13 @@ final class PetController: NSObject, NSApplicationDelegate {
         mode = newMode
         clipName = name
         clipStart = ProcessInfo.processInfo.systemUptime
-        deadline = seconds > 0 ? clipStart + seconds : 0
+        deadline = seconds > 0 ? clipStart + seconds / playbackSpeed : 0
         shown = ""
         view?.show(images[clip.frames[0]]!)
     }
     @objc private func tick() {
         let now = ProcessInfo.processInfo.systemUptime
-        let dt = min(0.05,max(0,now-previous))
+        let dt = min(0.05,max(0,now-previous)) * playbackSpeed
         previous = now
         if !pressed {
             var origin = panel.frame.origin
@@ -229,7 +231,7 @@ final class PetController: NSObject, NSApplicationDelegate {
             }
             panel.setFrameOrigin(origin)
         }
-        let frame = clips[clipName]!.frame(at:Int((now-clipStart)*1000))
+        let frame = clips[clipName]!.frame(at:Int((now-clipStart)*1000*playbackSpeed))
         if frame != shown {
             shown = frame
             view.show(images[frame]!)

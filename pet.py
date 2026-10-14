@@ -210,7 +210,8 @@ MAGENTA = "#FF00FF"
 SIZE = 200                   # 画布边长
 GROUND_MARGIN = 6            # 距屏幕底边
 WALK_SPEED = 2.5             # 步速与步态帧率匹配（10 tick/步 ≈ 25px 一步）
-LOGIC_DT = 0.05              # 逻辑步长（秒）＝原 tick 间隔，状态机节奏不变
+PLAYBACK_SPEED = 0.75        # 动作、移动与轮播共用的整体速度
+LOGIC_DT = 0.05 / PLAYBACK_SPEED  # 渲染频率不变，逻辑时间放慢
 RENDER_MS = 16               # 渲染间隔 ~60fps（动画相位/窗口位置在逻辑步间插值）
 WALK_CYCLE_MS = 1150         # 走路整循环时长：帧周期=时长/帧数（24帧≈48ms）
 TURN_TICKS = 6               # 转身过渡：正面帧短停顿（300ms），抹掉镜像硬切
@@ -623,12 +624,12 @@ class Pet:
         spec = self._anim_key
         if spec[0] == "clip":
             _, names, durations = spec
-            return timed_frame(names, durations, (now - self._anim_t0) * 1000)
+            return timed_frame(names, durations, (now - self._anim_t0) * 1000 * PLAYBACK_SPEED)
         if spec[0] == "seq":
             _, names, period = spec
             if not names:                               # 自定义帧目录缺整组帧时兜底
                 return self._fallback
-            return names[int((now - self._anim_t0) * 1000 / period) % len(names)]
+            return names[int((now - self._anim_t0) * 1000 * PLAYBACK_SPEED / period) % len(names)]
         if spec[0] == "spin":
             names = [n for n in ("spin_0", "spin_1", "spin_2", "spin_3")
                      if n in self.frames]
