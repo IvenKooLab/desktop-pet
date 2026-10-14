@@ -442,7 +442,8 @@ class Pet:
         auto = tk.BooleanVar(value=self.autoplay)
         menu.add_checkbutton(label="自动轮播 / Auto play", variable=auto,
                              command=lambda: setattr(self, "autoplay", auto.get()))
-        for state, title in (("WAITING", "等待 / Waiting"), ("WORK", "工作 / Working"),
+        for state, title in (("STRETCH", "伸懒腰 / Stretch"), ("DOZE", "打瞌睡 / Doze"),
+                             ("RUBIK", "玩魔方 / Rubik cube"), ("WAITING", "等待 / Waiting"), ("WORK", "工作 / Working"),
                              ("REVIEW", "检查 / Reviewing"), ("FAILED", "失落 / Sad")):
             if state in self.clips:
                 menu.add_command(label=title, command=lambda s=state: self._menu_clip(s))
@@ -518,7 +519,7 @@ class Pet:
             return
         if not self._action_deck:
             self._action_deck = [s for s in ("GREET", "BOUNCE", "CHEER", "SPIN",
-                                "WAITING", "WORK", "REVIEW", "FAILED") if s in self.clips]
+                                "WAITING", "WORK", "REVIEW", "FAILED", "STRETCH", "DOZE", "RUBIK") if s in self.clips]
             self._action_deck += ["WALK"]
             random.shuffle(self._action_deck)
             if len(self._action_deck) > 1 and self._action_deck[-1] == self._last_auto_action:
@@ -746,7 +747,7 @@ class Pet:
             if self.state_left <= 0:
                 self._set_state("IDLE", random.randint(60, 120))
 
-        elif self.state in ("WAITING", "WORK", "REVIEW", "FAILED"):
+        elif self.state in ("WAITING", "WORK", "REVIEW", "FAILED", "STRETCH", "DOZE", "RUBIK"):
             self._play_clip(self.state, [], 1)
             if self.state_left <= 0:
                 self._set_state("IDLE", random.randint(60, 120))

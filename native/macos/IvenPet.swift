@@ -81,7 +81,7 @@ struct ActionDeck {
     private var remaining: [String] = []
     private var last = ""
     mutating func next(available: Set<String>, pinned: Bool) -> String {
-        let candidates = ["GREET", "BOUNCE", "CHEER", "SPIN", "WAITING", "WORK", "REVIEW", "FAILED"]
+        let candidates = ["GREET", "BOUNCE", "CHEER", "SPIN", "WAITING", "WORK", "REVIEW", "FAILED", "STRETCH", "DOZE", "RUBIK"]
             .filter { available.contains($0) } + (pinned ? [] : ["WALK_r", "WALK_l"].filter { available.contains($0) })
         remaining = remaining.filter { candidates.contains($0) }
         if remaining.isEmpty { remaining = candidates.shuffled() }
@@ -278,7 +278,7 @@ final class PetController: NSObject, NSApplicationDelegate {
         auto.representedObject = "AUTOPLAY"
         auto.state = autoplay ? .on : .off
         menu.addItem(auto)
-        for (title,action) in [("等待","WAITING"),("工作","WORK"),("检查","REVIEW"),("失落","FAILED"),("挥手打招呼","GREET"),("弹跳","BOUNCE"),("开心","HAPPY"),
+        for (title,action) in [("伸懒腰","STRETCH"),("打瞌睡","DOZE"),("玩魔方","RUBIK"),("等待","WAITING"),("工作","WORK"),("检查","REVIEW"),("失落","FAILED"),("挥手打招呼","GREET"),("弹跳","BOUNCE"),("开心","HAPPY"),
                                ("打板","CHEER"),("观察四周","SPIN"),("小跳快走","RUN"),
                                ("害羞","SHY"),("睡觉","SLEEP"),("唤醒","IDLE"),("退出独立版","QUIT")] {
             let item = NSMenuItem(title:title,action:#selector(menuAction),keyEquivalent:"")

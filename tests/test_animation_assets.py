@@ -21,11 +21,11 @@ class AnimationTests(unittest.TestCase):
         pet.clips = load_clips(ROOT / "frames3d")
         pet.autoplay, pet._action_deck, pet._last_auto_action = True, [], None
         cycle = []
-        for _ in range(9):
+        for _ in range(12):
             pet._next_auto_action()
             cycle.append(pet.state)
             self.assertGreater(pet.state_left, 0)
-        self.assertEqual(set(cycle), {"GREET", "BOUNCE", "CHEER", "SPIN", "WAITING", "WORK", "REVIEW", "FAILED", "WALK"})
+        self.assertEqual(set(cycle), {"GREET", "BOUNCE", "CHEER", "SPIN", "WAITING", "WORK", "REVIEW", "FAILED", "STRETCH", "DOZE", "RUBIK", "WALK"})
         pet.autoplay = False
         pet._next_auto_action()
         self.assertEqual(pet.state, "IDLE")

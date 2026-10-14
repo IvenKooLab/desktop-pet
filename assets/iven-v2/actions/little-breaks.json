@@ -1,0 +1,70 @@
+{
+  "source": "little-breaks.png",
+  "sha256": "aa0f53769df2a0c1773e32adb64613377294bcc362e2637d9488d8010d199160",
+  "columns": [
+    0,
+    344,
+    650,
+    930,
+    1209,
+    1492,
+    1774
+  ],
+  "rows": [
+    0,
+    296,
+    592,
+    887
+  ],
+  "centers": [
+    192,
+    503,
+    789,
+    1067,
+    1349,
+    1634
+  ],
+  "baselines": [
+    295,
+    295,
+    294
+  ],
+  "scale": 0.45017182130584193,
+  "actions": [
+    {
+      "name": "STRETCH",
+      "durations": [
+        300,
+        180,
+        220,
+        700,
+        220,
+        400
+      ]
+    },
+    {
+      "name": "DOZE",
+      "durations": [
+        300,
+        350,
+        500,
+        850,
+        250,
+        400
+      ]
+    },
+    {
+      "name": "RUBIK",
+      "durations": [
+        300,
+        300,
+        350,
+        350,
+        650,
+        400
+      ]
+    }
+  ],
+  "inspiration": "https://github.com/PC2005-cloud/dsh-pet",
+  "artwork": "Iven v2, generated from shipped idle pose"
+}

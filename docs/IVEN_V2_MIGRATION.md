@@ -31,3 +31,9 @@ Windows 打包继续用 `tools/build_exe.bat`，PyInstaller 会收集新增标�
 ## 2026-10-14 范围调整
 
 桌宠制作器、角色选择配置及三视图生成向导已移除。项目专注独立 Iven 桌宠，发布帧仅导出到 `frames3d/`。根目录 `README.md` 为中文主文档，英文版为 `README.en.md`。
+
+## 日常小动作（2026-10-14）
+
+新增伸懒腰、打瞌睡与玩魔方，参考 dsh-pet 的动作主题，以现有 Iven 待机帧生成补充素材，未复制对方角色。源图及切片坐标、共同缩放比例、源文件 SHA-256 和逐帧时间轴在 `assets/iven-v2/actions/`。补充动作共用一套缩放，不按姿势独立放大；脚底锚点维持 193。伸懒腰与瞌睡以默认待机姿势开头、结尾，魔方动作保留道具。自动轮播和手动菜单均支持三种动作；手动睡觉仍保持睡眠，瞌睡是一段有限时长的表演。
+
+README GIF：`python tools/make_readme_previews.py`（Pillow）。运行回归测试：`python -m unittest discover -s tests`；Mac 构建：`zsh tools/build_macos.sh`。真实桌面拖动与 Windows 运行仍需实机检查。

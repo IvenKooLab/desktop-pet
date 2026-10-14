@@ -335,6 +335,61 @@
         100,
         100
       ]
+    },
+    "STRETCH": {
+      "frames": [
+        "idle_0",
+        "stretch_1",
+        "stretch_2",
+        "stretch_3",
+        "stretch_4",
+        "idle_0"
+      ],
+      "durations": [
+        300,
+        180,
+        220,
+        700,
+        220,
+        400
+      ]
+    },
+    "DOZE": {
+      "frames": [
+        "idle_0",
+        "doze_1",
+        "doze_2",
+        "doze_3",
+        "doze_4",
+        "idle_0"
+      ],
+      "durations": [
+        300,
+        350,
+        500,
+        850,
+        250,
+        400
+      ]
+    },
+    "RUBIK": {
+      "frames": [
+        "rubik_0",
+        "rubik_1",
+        "rubik_2",
+        "rubik_3",
+        "rubik_4",
+        "rubik_5"
+      ],
+      "durations": [
+        300,
+        300,
+        350,
+        350,
+        650,
+        400
+      ]
     }
-  }
+  },
+  "additional_source_sha256": "aa0f53769df2a0c1773e32adb64613377294bcc362e2637d9488d8010d199160"
 }

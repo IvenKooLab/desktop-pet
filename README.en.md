@@ -1,83 +1,85 @@
-# Iven Pet 🐾 · 3D Chibi Desktop Pet
-
-**Default artwork updated on 2026-10-13:** Iven v2 preserves the approved original 3D fleece-toy identity, with consistent proportions, cleaned chroma edges and full per-frame timing. See [migration, rebuild and rollback notes](docs/IVEN_V2_MIGRATION.md).
-
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows-blue)](#)
-[![Runtime](https://img.shields.io/badge/runtime-zero%20dependency-green)](#)
-
-A standalone macOS/Windows desktop pet built from **AI-generated 3D character sheets**.
-She hops along your desktop and automatically performs expressive actions.
-On Windows, she can also stand on application windows and fall when they close.
+# Iven Pet 🐾
 
 [简体中文](README.md) | English
 
-## Animated previews
+A tiny 3D plush companion for work and little breaks. With lavender-white hair, cyan headphones and a clapperboard, Iven hops around your desktop, waves, claps her board and looks around—then reacts when you click or drag her.
 
-| Idle & look around | Wave, bounce & clapperboard | Action sequence |
+Runs independently on **macOS and Windows**. No Codex, account or model API required.
+
+## A glimpse of her day
+
+| Blink & look around | Wave, bounce & clapperboard | Wait, work & review |
 | :---: | :---: | :---: |
-| ![Idle and look around](docs/previews/idle-look.gif) | ![Reactions](docs/previews/reactions.gif) | ![Action sequence](docs/previews/action-cycle.gif) |
+| ![Idle and look around](docs/previews/idle-look.gif) | ![Interactive actions](docs/previews/reactions.gif) | ![Everyday actions](docs/previews/action-cycle.gif) |
 
-These GIFs use shipped PNG frames and their timing, on a preview backdrop; they are not desktop recordings. The sequence demonstrates waiting, working, reviewing and sadness between idle clips. Runtime order is randomized.
+### Little breaks
 
-**Automatic playback is on by default.** A shuffled action pool plays each action once per cycle, with 3–6 seconds of idle between actions. Pause it from the right-click menu. Manual sleep stays asleep until a click wakes her; dragging suspends scheduling. A pinned Mac pet continues in-place actions without roaming. All nine source animations and sixteen gaze directions retain the approved Iven v2 proportions.
+A stretch, a sleepy nod, then a few turns of a Rubik's cube. All three join automatic playback and can be selected from the right-click menu.
 
-Animation-chain and preview ideas are inspired by [dsh-pet](https://github.com/PC2005-cloud/dsh-pet); character artwork remains this project's own Iven v2.
+![Stretching, dozing and playing with a Rubik's cube](docs/previews/little-breaks.gif)
 
-Rebuild previews: `python tools/make_readme_previews.py` (Pillow is needed only for generation).
+## What she does
 
-## Features
+- **Desktop roaming:** eight-frame hopping and faster movement, with a brief front-facing pause when turning on Windows.
+- **Expressions and actions:** six-frame blinking idle, waving, five-frame bouncing, happiness, shyness, clapperboard, waiting, working, reviewing, sadness, sixteen gaze directions, closed-eye sleep, stretching, dozing and playing with a Rubik's cube.
+- **Automatic performances:** shuffled action cycles with short rests between actions. Pause playback or pick an action from the right-click menu.
+- **Mouse interactions:** click to bounce, double-click for a happy reaction, drag for a grab reaction, then release to fall and land.
+- **Smooth and transparent:** approximately 60fps rendering, consistent proportions and per-frame timing, with native transparent windows on Mac.
+- **Windows as platforms:** walks along the desktop, taskbar and visible app window tops; turns or falls at edges and drops when a supporting window closes or moves. Arrives with a fall, landing and wave, and occasionally speaks through a bubble.
+- **Pin on Mac:** keep her in a chosen spot while in-place animations continue.
 
-- **Consistent original 3D fleece artwork** — eight-pose hopping movement,
-  shared scale and per-frame timing, with a front-facing turn-around pause
-- **~60 fps rendering** — fixed 50 ms logic steps + wall-clock animation phase
-  and sub-pixel position interpolation (no more 20 fps stepping)
-- **Windows: app windows are platforms** — she walks on top of your app windows,
-  turns at edges (or falls off), and drops when you close the window
-- Idle blinking · grab reaction · gravity fall · landing · closed-eye sleep
-- Interactions: click = bounce, double-click = happy, right-click menu
-  (clapperboard action / sixteen-direction look-around / faster hopping / shy / sleep)
-- **Zero third-party dependencies at runtime** — native AppKit on Mac; Python standard library (tkinter) on Windows
+## Quick start
 
-## Quick Start
+### macOS
 
-**Option A — ready-to-run**: grab `IvenPet.exe` (≈11 MB) from
-[Releases](https://github.com/IvenKooLab/desktop-pet/releases), drop it on your desktop, double-click.
-Existing executables may still contain the older art; rebuild from source for Iven v2.
-
-**Option B — from source**:
+Double-click **`start-mac.command`** in the repository. The first run builds the app and requires Apple's command-line tools:
 
 ```bash
-python pet.py        # Windows + Python 3.8+ (tkinter bundled), nothing else to install
+xcode-select --install
 ```
 
-On macOS, double-click `start-mac.command`. The first build requires Apple command-line tools
-(`xcode-select --install`); the generated `build/IvenPet.app` runs without Python.
-Native transparent windows use RGBA PNG on Mac and color-key GIF on Windows.
-The app runs independently of Codex or ChatGPT, without an account or model API.
-Desktop movement, gravity, dragging and menus work on both platforms; walking on
-other applications' window edges currently remains Windows-only. Linux is not yet supported.
+Afterwards, open `build/IvenPet.app` directly. Python is not required.
 
-Right-click the pet for the menu; drag her anywhere; double-click her for a reaction.
-Close her via right-click menu → 退出 (Exit).
+### Windows
 
-
-## Build
+Install Python 3.8+ with tkinter, then run from the project directory:
 
 ```bash
-tools\build_exe.bat   # Windows: requires PyInstaller
-zsh tools/build_macos.sh  # macOS: builds build/IvenPet.app
+python pet.py
 ```
 
-## Repository layout
+Packaged versions are also available on the [releases page](https://github.com/IvenKooLab/desktop-pet/releases). Run or rebuild the current source for the latest actions.
 
-- `pet.py`: Windows runtime, interactions and platform physics
-- `native/macos/IvenPet.swift`: native macOS transparent desktop pet
-- `frames3d/`: shipped PNG/GIF frames and animation timeline
-- `assets/iven-v2/`: approved artwork and validation records
-- `tools/export_iven_v2.py`: rebuild shipped frames from the approved atlas
-- `tools/make_readme_previews.py`: rebuild the preview GIFs
+## Interactions
+
+| Input | Response |
+| :--- | :--- |
+| Click | Bounce; wake up when sleeping |
+| Double-click | Happy reaction |
+| Drag | Move the pet; release to fall naturally |
+| Right-click | Pick actions, toggle autoplay, sleep or quit |
+| Control + click (Mac) | Open the menu |
+| Pin in place (Mac) | Stop roaming while in-place actions continue |
+
+Manual sleep lasts until you click to wake her. Mac roaming follows the desktop floor; walking on application window tops and speech bubbles currently require Windows. Linux is not supported yet.
+
+## Build from source
+
+```bash
+# Windows: install PyInstaller first
+pip install pyinstaller
+tools\build_exe.bat
+
+# macOS
+zsh tools/build_macos.sh
+```
+
+No third-party Python packages are needed at runtime. See the [maintenance guide](docs/IVEN_V2_MIGRATION.md) for asset export, preview generation and validation.
+
+## Credits
+
+Thanks to [dsh-pet](https://github.com/PC2005-cloud/dsh-pet) for animation-chain and everyday-action inspiration.
 
 ## License
 
-[MIT](LICENSE) · Character art generated with AI, copyright IvenKooLab
+[MIT](LICENSE) · AI-generated Iven character artwork belongs to IvenKooLab.

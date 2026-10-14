@@ -5,6 +5,7 @@ from PIL import Image, ImageDraw
 
 ROOT = Path(__file__).resolve().parents[1]
 GROUPS = {
+    'little-breaks': [('STRETCH', 1), ('DOZE', 1), ('RUBIK', 1)],
     'idle-look': [('IDLE', 2), ('SPIN', 1)],
     'reactions': [('GREET', 1), ('BOUNCE', 1), ('CHEER', 1)],
     'action-cycle': [('IDLE', 2), ('WAITING', 1), ('IDLE', 2), ('WORK', 1),

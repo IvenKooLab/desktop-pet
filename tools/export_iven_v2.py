@@ -71,6 +71,35 @@ def export(source, destinations):
         canvas = Image.new("RGB",(200,200),(255,0,255))
         canvas.paste(sprite.convert("RGB"),(7,0),mask)
         encoded[name] = canvas
+    # Additional actions share one scale and baseline; no per-pose resizing.
+    extra_dir = ROOT / "assets/iven-v2/actions"
+    spec = json.loads((extra_dir / "little-breaks.json").read_text())
+    extra_source = extra_dir / spec["source"]
+    if hashlib.sha256(extra_source.read_bytes()).hexdigest() != spec["sha256"]:
+        raise ValueError("Additional action source does not match its checked manifest")
+    extra = Image.open(extra_source).convert("RGBA")
+    factor = spec["scale"]
+    for row, action in enumerate(spec["actions"]):
+        names = []
+        for column in range(6):
+            name = action["name"].lower() + "_" + str(column)
+            names.append(name)
+            x0,x1 = spec["columns"][column:column+2]
+            y0,y1 = spec["rows"][row:row+2]
+            cell = extra.crop((x0,y0,x1,y1))
+            sprite = cell.resize((round(cell.width*factor),round(cell.height*factor)),Image.Resampling.LANCZOS)
+            canvas = Image.new("RGBA",(200,200),(0,0,0,0))
+            center = spec["centers"][column]-x0
+            canvas.alpha_composite(sprite,(round(100-center*factor),round(193-spec["baselines"][row]*factor)))
+            transparent[name] = canvas
+            gif = Image.new("RGB",(200,200),(255,0,255))
+            gif.paste(canvas.convert("RGB"),(0,0),canvas.getchannel("A").point(lambda a:255 if a>=128 else 0))
+            encoded[name] = gif
+        if action["name"] in ("STRETCH","DOZE"):
+            # The established idle pose brackets the new performance.
+            names = ["idle_0"] + names[1:-1] + ["idle_0"]
+        manifest["clips"][action["name"]] = {"frames":names,"durations":action["durations"]}
+    manifest["additional_source_sha256"] = spec["sha256"]
     for destination in destinations:
         destination.mkdir(parents=True,exist_ok=True)
         for name,image in encoded.items():
