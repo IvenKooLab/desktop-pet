@@ -23,6 +23,7 @@ import time
 import tkinter as tk
 from animation_assets import load_clips, timed_frame
 from desktop_platform import configure_transparency, frame_path, clear_legacy_color_key
+from host_bridge import HostBridge
 
 try:                    # Windows：枚举窗口顶边当平台
     import ctypes
@@ -171,6 +172,33 @@ def _texts(lang):
     }
 
 
+def _bridge_texts(lang):
+    """宿主桥接提醒文案（5 语言，键同 host_bridge.Notice.kind）。"""
+    table = {
+        "zh": {"waiting": "等你确认：{label}", "waiting_plain": "等你确认～",
+               "turn_end": "本轮回复结束", "done": "任务完成！",
+               "failed": "出问题了：{label}", "failed_plain": "出问题了…",
+               "tool_fail": "工具出错，再试一次"},
+        "zh-Hant": {"waiting": "等你確認：{label}", "waiting_plain": "等你確認～",
+                    "turn_end": "本輪回覆結束", "done": "任務完成！",
+                    "failed": "出問題了：{label}", "failed_plain": "出問題了…",
+                    "tool_fail": "工具出錯，再試一次"},
+        "en": {"waiting": "Waiting for you: {label}", "waiting_plain": "Waiting for you~",
+               "turn_end": "Turn finished", "done": "Task done!",
+               "failed": "Something failed: {label}", "failed_plain": "Something failed…",
+               "tool_fail": "Tool error, retrying"},
+        "ko": {"waiting": "확인 기다려요: {label}", "waiting_plain": "확인 기다려요~",
+               "turn_end": "이번 턴 끝", "done": "과제 완료!",
+               "failed": "문제가 생겼어요: {label}", "failed_plain": "문제가 생겼어요…",
+               "tool_fail": "도구 오류, 재시도 중"},
+        "ja": {"waiting": "確認待ち：{label}", "waiting_plain": "確認待ち～",
+               "turn_end": "このターン終了", "done": "タスク完了！",
+               "failed": "問題が起きた：{label}", "failed_plain": "問題が起きた…",
+               "tool_fail": "ツールエラー、再試行"},
+    }
+    return table.get(lang, table["zh"])
+
+
 def _detect_lang():
     """系统 UI 语言检测：中/日/韩 → 对应语言，其余 → 英文。"""
     try:
@@ -182,6 +210,7 @@ def _detect_lang():
 
 FRAMES_DIR, LANG = _load_profile()
 _T = _texts(LANG)
+_BT = _bridge_texts(LANG)
 LINES = _T["lines"]
 GRAB_LINES = _T["grab"]
 LAND_LINES = _T["land"]
@@ -392,6 +421,15 @@ class Pet:
         self.bubble = None
         self.bubble_job = None
 
+        # 宿主桥接（可选能力；无收件箱时 poll 静默空转，桌宠完全独立）
+        self.host = (HostBridge()
+                     if os.environ.get("PET_BRIDGE", "1") != "0" else None)
+        self._bridge_on = self.host is not None
+        self._host_poll_cd = 10          # 首轮 ~0.5s 后开始轮询
+        self._host_hold = 0              # 手动点播的宿主抑制窗口（tick）
+        self._sleep_queue = []           # 睡眠期间的重要提醒，醒来补播
+        self._host_label_shown = None
+
         self.root.geometry(f"+{int(self.x)}+{int(self.y)}")
         self._bind()
         # 双层主循环：逻辑固定步长 + 高频渲染插值，见 _loop/_render
@@ -443,6 +481,14 @@ class Pet:
         auto = tk.BooleanVar(value=self.autoplay)
         menu.add_checkbutton(label="自动轮播 / Auto play", variable=auto,
                              command=lambda: setattr(self, "autoplay", auto.get()))
+        if self.host is not None:
+            def _toggle_bridge():
+                self._bridge_on = bool(bridge.get())
+                if not self._bridge_on and self.state in ("WORK", "WAITING"):
+                    self._set_state("IDLE", random.randint(40, 80))
+            bridge = tk.BooleanVar(value=self._bridge_on)
+            menu.add_checkbutton(label="宿主桥接 / Host bridge", variable=bridge,
+                                 command=_toggle_bridge)
         for state, title in (("STRETCH", "伸懒腰 / Stretch"), ("DOZE", "打瞌睡 / Doze"),
                              ("RUBIK", "玩魔方 / Rubik cube"), ("WAITING", "等待 / Waiting"), ("WORK", "工作 / Working"),
                              ("REVIEW", "检查 / Reviewing"), ("FAILED", "失落 / Sad")):
@@ -476,6 +522,7 @@ class Pet:
         if self._support() is None:
             return
         if "happy_0" in self.frames:                  # 双击：开心反应（MVP 缺帧时跳过）
+            self._manual(60)
             self._set_state("HAPPY", 26)
             self.say(random.choice(_T["wow"]), 1600)
 
@@ -496,9 +543,14 @@ class Pet:
             if self.state == "SLEEP":
                 self.say(_T["wake"], 1500)
                 self._set_state("IDLE", random.randint(60, 120))
+                if self._sleep_queue:                   # 补播睡眠期间的重要提醒
+                    pending = self._sleep_queue[-1]
+                    self._sleep_queue = []
+                    self.root.after(700, lambda: self._host_notice(pending))
             elif self.state not in ("CHEER", "SPIN", "BOUNCE", "HAPPY", "SHY"):
                 grounded = self._support() is not None
                 if grounded and "bounce_0" in self.frames:
+                    self._manual(50)
                     self._set_state("BOUNCE", 16)
                 elif self.state == "GRAB":
                     # 无弹跳帧的素材（MVP）：点了也要离开 GRAB，防卡死
@@ -536,7 +588,9 @@ class Pet:
     def _menu_clip(self, state):
         self._touch()
         if self._support() is not None:
-            self._set_state(state, (sum(self.clips[state][1]) + 49) // 50)
+            ticks = (sum(self.clips[state][1]) + 49) // 50
+            self._manual(ticks + 30)
+            self._set_state(state, ticks)
 
     def _front_frame(self):
         """正面立绘帧名（转身过渡用）：优先 idle_0（正视图），无则 spin_0。"""
@@ -561,13 +615,16 @@ class Pet:
         if self._support() is None:
             return
         self.dir = random.choice((-1, 1))
-        self._set_state("RUN", random.randint(120, 220))
+        ticks = random.randint(120, 220)
+        self._manual(ticks + 30)
+        self._set_state("RUN", ticks)
         self.say(_T["dash"], 1500)
 
     def _to_shy(self):
         self._touch()
         if self._support() is None:
             return
+        self._manual(60)
         self._set_state("SHY", 30)
         self.say(_T["shy"], 1800)
 
@@ -583,6 +640,7 @@ class Pet:
         self._touch()
         if self._support() is None:
             return
+        self._manual(60)
         self._set_state("CHEER", 26)
         self.say(random.choice(CHEER_LINES), 1800)
 
@@ -590,9 +648,92 @@ class Pet:
         self._touch()
         if self._support() is None:
             return
+        self._manual(60)
         self._set_state("SPIN", 32)                   # 4 帧 × 2 圈
         self.say(("看看周围～" if LANG.startswith("zh") else "Looking around~")
                  if "SPIN" in self.clips else _T["spin"], 1500)
+
+    # ---------- 宿主桥接 ----------
+    def _manual(self, ticks):
+        """手动点播后暂时压住宿主接管，播完再还回去。"""
+        self._host_hold = self.tick_n + ticks
+
+    def _host_busy(self):
+        """宿主提醒不得打断的情形：拖拽中/下落中/刚操作/手动点播窗口。"""
+        return (self.drag_off is not None
+                or self.state in ("GRAB", "FALL", "LAND")
+                or self.tick_n - self.last_input < 30
+                or self._host_hold > self.tick_n)
+
+    def _host_poll(self):
+        if self.host is None or not self._bridge_on:
+            return
+        try:
+            for notice in self.host.poll():
+                if os.environ.get("IVEN_BRIDGE_DEBUG"):
+                    print(f"[bridge] notice={notice.kind} label={notice.label} "
+                          f"mode={self.host.mode}", flush=True)
+                self._host_notice(notice)
+        except Exception:
+            pass                                  # 桥接异常不影响桌宠本体
+
+    def _host_notice(self, n):
+        """一次性提醒 → 动作/气泡。睡眠不唤醒，重要提醒入队。"""
+        if self.state == "SLEEP":
+            if n.kind in ("permission.required", "turn.failed", "task.completed") \
+                    and len(self._sleep_queue) < 3:
+                self._sleep_queue.append(n)
+            return
+        if self._host_busy():
+            return
+        if n.kind == "permission.required":
+            if "WAITING" in self.clips:
+                self._set_state("WAITING", 10 ** 9)
+                self.say(_BT["waiting"].format(label=n.label) if n.label
+                         else _BT["waiting_plain"], 3000)
+        elif n.kind == "tool.failed":
+            if self.host and self.host.mode == "working" and "FAILED" in self.clips:
+                self._set_state("FAILED", (sum(self.clips["FAILED"][1]) + 49) // 50)
+        elif n.kind == "turn.failed":
+            if "FAILED" in self.clips:
+                self._set_state("FAILED", (sum(self.clips["FAILED"][1]) + 49) // 50)
+            self.say(_BT["failed"].format(label=n.label) if n.label
+                     else _BT["failed_plain"], 3000)
+        elif n.kind == "task.completed":
+            pick = "CHEER" if "CHEER" in self.clips else (
+                "HAPPY" if "HAPPY" in self.clips else None)
+            if pick:
+                ticks = (sum(self.clips[pick][1]) + 49) // 50 + 20
+                self._manual(ticks + 30)
+                self._set_state(pick, ticks)
+            self.say(_BT["done"], 2400)
+        elif n.kind == "turn.ended":
+            # Stop 语义：只是"本轮回复结束"，绝不宣称任务成功
+            if self.state in ("WORK", "WAITING"):
+                self._set_state("IDLE", random.randint(40, 80))
+                self.say(_BT["turn_end"], 1800)
+
+    def _host_assert(self):
+        """边界断言：宿主持续状态（waiting > working）优先于普通轮播。"""
+        if self.host is None or not self._bridge_on:
+            return
+        if self.host.mode is None:
+            if self.state in ("WORK", "WAITING"):
+                self._set_state("IDLE", random.randint(40, 80))
+            self._host_label_shown = None
+            return
+        if (self.state in ("SLEEP", "GRAB", "FALL", "LAND")
+                or self.drag_off is not None or self._host_hold > self.tick_n):
+            return
+        target = "WAITING" if self.host.mode == "waiting" else "WORK"
+        if target not in self.clips:
+            return
+        if self.state != target:
+            self._set_state(target, 10 ** 9)
+            label = self.host.label
+            if target == "WORK" and label and label != self._host_label_shown:
+                self._host_label_shown = label
+                self.say(label, 2200)
 
     # ---------- 主循环 ----------
     def _loop(self):
@@ -651,6 +792,13 @@ class Pet:
         if self._plat_cd <= 0:
             self.plats = enum_window_platforms((self.hwnd,))
             self._plat_cd = 10
+
+        # 宿主桥接：0.5s 轮询收件箱，随后在边界上维持/退出持续状态
+        self._host_poll_cd -= 1
+        if self._host_poll_cd <= 0:
+            self._host_poll_cd = 10
+            self._host_poll()
+        self._host_assert()
 
         # 站立类状态：吸附/跟随脚下的平台；平台消失 → 掉落
         if self.state not in ("FALL", "GRAB"):
@@ -825,8 +973,9 @@ class Pet:
     def run(self):
         self.last_input = self.tick_n
         self.root.update_idletasks()
-        print("[start] Iven Pet standalone | platform=%s | Tk=%s | background=%s | frames=%s" %
-              (sys.platform, self.root.tk.call("info", "patchlevel"), self.background, len(self.frames)), flush=True)
+        print("[start] Iven Pet standalone | platform=%s | Tk=%s | background=%s | frames=%s | bridge=%s" %
+              (sys.platform, self.root.tk.call("info", "patchlevel"), self.background, len(self.frames),
+               str(self.host.dir) if self.host else "off"), flush=True)
         self.root.after(800, lambda: print("[window] mapped=%s | canvas=%s | state=%s" %
                         (self.root.winfo_ismapped(), self.canvas.cget("bg"), self.state), flush=True))
         self.root.mainloop()

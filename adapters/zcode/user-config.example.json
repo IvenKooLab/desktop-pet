@@ -1,0 +1,29 @@
+{
+  "_comment": "用户级配置示例：把 events 合并进 ~/.zcode/cli/config.json 的 hooks 字段（保留你已有的其他 hooks，别整文件覆盖）。将 __IVER_REPO__ 替换为本仓库绝对路径。项目级 .zcode/config.json 当前被忽略，别只配项目级。改完需要新开一个 session 才生效（配置在 session 启动时快照）。",
+  "hooks": {
+    "enabled": true,
+    "events": {
+      "SessionStart": [
+        { "hooks": [ { "type": "process", "command": "python3", "args": [ "__IVER_REPO__/adapters/zcode/iven_hook.py" ] } ] }
+      ],
+      "UserPromptSubmit": [
+        { "hooks": [ { "type": "process", "command": "python3", "args": [ "__IVER_REPO__/adapters/zcode/iven_hook.py" ] } ] }
+      ],
+      "PreToolUse": [
+        { "hooks": [ { "type": "process", "command": "python3", "args": [ "__IVER_REPO__/adapters/zcode/iven_hook.py" ] } ] }
+      ],
+      "PermissionRequest": [
+        { "hooks": [ { "type": "process", "command": "python3", "args": [ "__IVER_REPO__/adapters/zcode/iven_hook.py" ] } ] }
+      ],
+      "PostToolUse": [
+        { "hooks": [ { "type": "process", "command": "python3", "args": [ "__IVER_REPO__/adapters/zcode/iven_hook.py" ] } ] }
+      ],
+      "PostToolUseFailure": [
+        { "hooks": [ { "type": "process", "command": "python3", "args": [ "__IVER_REPO__/adapters/zcode/iven_hook.py" ] } ] }
+      ],
+      "Stop": [
+        { "hooks": [ { "type": "process", "command": "python3", "args": [ "__IVER_REPO__/adapters/zcode/iven_hook.py" ] } ] }
+      ]
+    }
+  }
+}

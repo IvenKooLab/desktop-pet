@@ -1,0 +1,16 @@
+{
+  "name": "iven-bridge",
+  "version": "0.1.0",
+  "license": "MIT",
+  "description": "Iven desktop-pet bridge for DeepSeek Harness (dsh): session/event to local inbox",
+  "type": "module",
+  "main": "index.js",
+  "engines": {
+    "node": ">=20"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  }
+}

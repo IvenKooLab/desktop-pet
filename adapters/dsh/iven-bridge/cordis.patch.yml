@@ -1,0 +1,9 @@
+# dsh profile 补丁：把 iven-bridge 挂进任意 profile。
+# 持久安装：符号链接本目录到 profile 的 node_modules/（参照 loci-dsh 的做法），
+# 或 dsh plugin --profile <name> add <本目录绝对路径>。
+# 一次性试验：复制本文件到别处并把 name 改成相对路径（相对补丁文件锚定）。
+- id: iven-bridge
+  name: iven-bridge
+  config:
+    eventsDir: ""
+    summary: false

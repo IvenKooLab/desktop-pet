@@ -50,6 +50,18 @@ python pet.py
 
 [发布页](https://github.com/IvenKooLab/desktop-pet/releases)也提供已打包版本。体验最新动作请从当前源码运行或重新构建。
 
+## 接入编码助手（可选）
+
+桌宠可以感知本地编码助手的工作状态：助手干活时她在旁边打字"陪工"，需要你确认
+权限时她会提醒你，本轮结束、失败、任务完成各有反应（Mac 原生版以小气泡提醒）。
+**纯本地文件通信、无网络，默认只传状态**——不含提示词、回复或工具内容；助手和
+桌宠任何一边没开，都不影响另一边。
+
+目前支持 **ZCode** 与 **DSH（DeepSeek Harness）**，安装方法见
+[`adapters/zcode/`](adapters/zcode/README.md) 与
+[`adapters/dsh/`](adapters/dsh/README.md)。桌宠侧无需配置，右键菜单
+"宿主桥接"可随时开关。协议与实现细节见 [`docs/BRIDGE.md`](docs/BRIDGE.md)。
+
 ## 怎么互动
 
 | 操作 | 效果 |

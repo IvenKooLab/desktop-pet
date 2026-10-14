@@ -93,6 +93,137 @@ struct ActionDeck {
     }
 }
 
+// MARK: - 宿主桥接（收件箱消费者，语义与 host_bridge.py 一致）
+// Stop/turn.ended 只是"本轮结束"，绝不当作任务成功；事件文本只作数据展示。
+struct BridgeNotice { let kind: String; let label: String? }
+
+final class HostBridge {
+    static let kinds: Set<String> = ["session.started","turn.started","tool.started",
+        "permission.required","tool.finished","tool.failed","turn.ended","turn.failed",
+        "task.completed","interrupted","session.ended"]
+    static let staleAfter = 120.0
+    static let eventMaxAge = 180.0
+    static let maxPerPoll = 64
+    static let maxBacklog = 500
+
+    let dir: URL
+    private var clock: () -> TimeInterval
+    private var sessions: [String: (phase: String, label: String?)] = [:]
+    private var seen: [String: TimeInterval] = [:]
+    private var lastEventTs: TimeInterval?
+    private(set) var mode: String?        // nil | "working" | "waiting"
+    private(set) var label: String?
+
+    init(directory: URL? = nil, clock: @escaping () -> TimeInterval = { Date().timeIntervalSince1970 }) {
+        if let directory { dir = directory }
+        else if let env = ProcessInfo.processInfo.environment["IVEN_BRIDGE_DIR"] { dir = URL(fileURLWithPath: env) }
+        else { dir = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".iven-pet/events") }
+        self.clock = clock
+    }
+
+    private static func parseTimestamp(_ text: Any?) -> TimeInterval? {
+        guard let s = text as? String else { return nil }
+        let iso = ISO8601DateFormatter()
+        iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let d = iso.date(from: s) { return d.timeIntervalSince1970 }
+        let plain = ISO8601DateFormatter()
+        if let d = plain.date(from: s) { return d.timeIntervalSince1970 }
+        return nil
+    }
+
+    static func cleanText(_ value: Any?, limit: Int) -> String? {
+        guard let s = value as? String else { return nil }
+        let cleaned = String(s.map { c in (c >= " " && c != "\u{7f}") ? c : " " }.prefix(limit)).trimmingCharacters(in: .whitespaces)
+        return cleaned.isEmpty ? nil : cleaned
+    }
+
+    func poll() -> [BridgeNotice] {
+        var notices: [BridgeNotice] = []
+        let now = clock()
+        guard let names0 = try? FileManager.default.contentsOfDirectory(atPath: dir.path) else { return [] }
+        var names = names0.filter { $0.hasSuffix(".json") }.sorted()
+        if names.count > HostBridge.maxBacklog {
+            names.removeFirst(names.count - HostBridge.maxBacklog)
+        }
+        var consumed: [(URL, [String: Any], TimeInterval)] = []
+        for name in names.prefix(HostBridge.maxPerPoll) {
+            let url = dir.appendingPathComponent(name)
+            guard let data = try? Data(contentsOf: url),
+                  let obj = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+                  obj["version"] as? Int == 1,
+                  let kind = obj["kind"] as? String, HostBridge.kinds.contains(kind),
+                  let eid = obj["event_id"] as? String,
+                  let ts = HostBridge.parseTimestamp(obj["timestamp"]),
+                  abs(now - ts) < HostBridge.eventMaxAge else { try? FileManager.default.removeItem(at: url); continue }
+            if seen[eid] != nil { try? FileManager.default.removeItem(at: url); continue }
+            seen[eid] = ts
+            consumed.append((url, obj, ts))
+        }
+        for (url, obj, ts) in consumed {
+            apply(obj, ts: ts, notices: &notices)
+            lastEventTs = max(lastEventTs ?? 0, ts)
+            try? FileManager.default.removeItem(at: url)
+        }
+        if seen.count > 4096 {
+            let keep = seen.values.sorted().suffix(2048).min() ?? 0
+            seen = seen.filter { $0.value >= keep }
+        }
+        if let last = lastEventTs, now - last > HostBridge.staleAfter {
+            sessions.removeAll()          // 断线回退：静默恢复普通轮播
+            lastEventTs = nil
+        }
+        recomputeMode()
+        return notices
+    }
+
+    private func apply(_ obj: [String: Any], ts: TimeInterval, notices: inout [BridgeNotice]) {
+        let kind = obj["kind"] as! String
+        let sid = (obj["session_id"] as? String ?? "unknown").prefix(64).description
+        if sessions[sid] == nil {
+            if kind == "session.ended" { return }
+            sessions[sid] = (phase: "idle", label: nil)
+            if kind != "session.started" { notices.append(BridgeNotice(kind: "session.started", label: nil)) }
+        }
+        var sess = sessions[sid]!
+        let label = HostBridge.cleanText(obj["task_label"], limit: 80)
+        if let label { sess.label = label; self.label = label }
+        switch kind {
+        case "turn.started", "tool.started":
+            sess.phase = "working"
+        case "permission.required":
+            sess.phase = "waiting"
+            notices.append(BridgeNotice(kind: "permission.required",
+                                        label: sess.label ?? HostBridge.cleanText(obj["tool_name"], limit: 48)))
+        case "tool.failed":
+            notices.append(BridgeNotice(kind: "tool.failed", label: sess.label))
+        case "turn.ended":
+            sess.phase = "idle"
+            notices.append(BridgeNotice(kind: "turn.ended", label: sess.label))
+        case "turn.failed":
+            sess.phase = "idle"
+            notices.append(BridgeNotice(kind: "turn.failed", label: sess.label))
+        case "task.completed":
+            sess.phase = "idle"
+            notices.append(BridgeNotice(kind: "task.completed", label: sess.label))
+        case "interrupted", "session.ended":
+            sessions.removeValue(forKey: sid)
+            return
+        default: break                    // session.started / tool.finished 无可见变化
+        }
+        sessions[sid] = sess
+    }
+
+    private func recomputeMode() {
+        let phases = sessions.values.map { $0.phase }
+        if phases.contains("waiting") { mode = "waiting" }
+        else if phases.contains("working") { mode = "working" }
+        else {
+            mode = nil
+            label = sessions.values.compactMap { $0.label }.first
+        }
+    }
+}
+
 final class PetController: NSObject, NSApplicationDelegate {
     var panel: PetPanel!
     var view: PetView!
@@ -112,8 +243,21 @@ final class PetController: NSObject, NSApplicationDelegate {
     private var speed: CGFloat = 50
     private var deck = ActionDeck()
     private var autoplay = UserDefaults.standard.object(forKey:"Autoplay") as? Bool ?? true
+    // 宿主桥接
+    private var bridge = HostBridge()
+    private var bridgeFrame = 0
+    private var manualUntil: TimeInterval = 0        // 手动点播的宿主抑制窗口
+    private var sleepQueue: [BridgeNotice] = []      // 睡眠期间的重要提醒
+    private var labelShown: String?
+    private var bubbleLayer: CATextLayer?
+    private var bubbleHideAt: TimeInterval = 0
+    private let bridgeZh = (Locale.current.languageCode == "zh")
 
     private func advance() {
+        if let hostMode = bridge.mode, hostAvailable(hostMode), !hostSuppressed() {
+            play(hostMode == "waiting" ? "WAITING" : "WORK", mode: "HOST", seconds: 0)
+            return
+        }
         if mode != "IDLE" || !autoplay {
             play("IDLE",mode:"IDLE",seconds:Double.random(in:3...6))
             return
@@ -126,6 +270,105 @@ final class PetController: NSObject, NSApplicationDelegate {
         } else {
             play(action,mode:"ACTION",seconds:Double(clips[action]!.total)/1000)
         }
+    }
+
+    // ---------- 宿主桥接 ----------
+    private func hostAvailable(_ hostMode: String) -> Bool {
+        clips[hostMode == "waiting" ? "WAITING" : "WORK"] != nil
+    }
+    private func hostSuppressed() -> Bool {
+        let now = ProcessInfo.processInfo.systemUptime
+        return pressed || mode == "DRAG" || mode == "FALL" || mode == "SLEEP" || now < manualUntil
+    }
+    private func hostTick() {
+        bridgeFrame += 1
+        if bridgeFrame >= 60 {                       // 每秒轮询一次收件箱
+            bridgeFrame = 0
+            for notice in bridge.poll() { handleNotice(notice) }
+        }
+        hostAssert()
+    }
+    private func hostAssert() {
+        if bridge.mode == nil {
+            if mode == "HOST" { play("IDLE",mode:"IDLE",seconds:3) }
+            labelShown = nil
+            return
+        }
+        guard hostAvailable(bridge.mode!), !hostSuppressed() else { return }
+        let target = bridge.mode == "waiting" ? "WAITING" : "WORK"
+        if clipName != target || mode != "HOST" {
+            play(target, mode: "HOST", seconds: 0)
+            if target == "WORK", let l = bridge.label, l != labelShown {
+                labelShown = l
+                showBubble(l, seconds: 2.2)
+            }
+        }
+    }
+    private func handleNotice(_ n: BridgeNotice) {
+        if mode == "SLEEP" {
+            if ["permission.required","turn.failed","task.completed"].contains(n.kind),
+               sleepQueue.count < 3 { sleepQueue.append(n) }
+            return
+        }
+        guard !hostSuppressed() else { return }
+        switch n.kind {
+        case "permission.required":
+            if clips["WAITING"] != nil {
+                play("WAITING", mode: "HOST", seconds: 0)
+                showBubble(n.label.map { bridgeZh ? "等你确认：\($0)" : "Waiting: \($0)" }
+                           ?? (bridgeZh ? "等你确认～" : "Waiting for you~"), seconds: 3.0)
+            }
+        case "tool.failed":
+            if bridge.mode == "working", let clip = clips["FAILED"] {
+                play("FAILED", mode: "ACTION", seconds: Double(clip.total)/1000)
+            }
+        case "turn.failed":
+            if let clip = clips["FAILED"] { play("FAILED", mode: "ACTION", seconds: Double(clip.total)/1000) }
+            showBubble(n.label.map { bridgeZh ? "出问题了：\($0)" : "Failed: \($0)" }
+                       ?? (bridgeZh ? "出问题了…" : "Something failed…"), seconds: 3.0)
+        case "task.completed":
+            let pick = clips["CHEER"] != nil ? "CHEER" : (clips["HAPPY"] != nil ? "HAPPY" : nil)
+            if let pick {
+                manualUntil = ProcessInfo.processInfo.systemUptime + Double(clips[pick]!.total)/1000 + 1.5
+                play(pick, mode: "ACTION", seconds: Double(clips[pick]!.total)/1000 + 1.0)
+            }
+            showBubble(bridgeZh ? "任务完成！" : "Task done!", seconds: 2.4)
+        case "turn.ended":
+            if mode == "HOST" {
+                play("IDLE", mode: "IDLE", seconds: 3)
+                showBubble(bridgeZh ? "本轮回复结束" : "Turn finished", seconds: 1.8)
+            }
+        default: break
+        }
+    }
+    private func flushSleepQueue() {
+        guard mode != "SLEEP", !sleepQueue.isEmpty else { return }
+        let pending = sleepQueue.removeLast()
+        sleepQueue.removeAll()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) { [weak self] in
+            self?.handleNotice(pending)
+        }
+    }
+    private func showBubble(_ text: String, seconds: Double) {
+        if bubbleLayer == nil {
+            let layer = CATextLayer()
+            layer.contentsScale = 2
+            layer.cornerRadius = 8
+            layer.masksToBounds = true
+            layer.backgroundColor = NSColor(calibratedWhite: 1, alpha: 0.94).cgColor
+            layer.foregroundColor = NSColor.darkGray.cgColor
+            layer.alignmentMode = .center
+            layer.fontSize = 12
+            layer.font = NSFont.systemFont(ofSize: 12)
+            view.layer?.addSublayer(layer)
+            bubbleLayer = layer
+        }
+        let trimmed = String(text.prefix(64))
+        bubbleLayer?.string = trimmed
+        let width = min(196, max(92, CGFloat(trimmed.count) * 7 + 18))
+        bubbleLayer?.frame = CGRect(x: (200-width)/2, y: 158, width: width, height: 30)
+        bubbleLayer?.isHidden = false
+        bubbleHideAt = ProcessInfo.processInfo.systemUptime + seconds
     }
 
     init(directory: URL) throws {
@@ -175,7 +418,7 @@ final class PetController: NSObject, NSApplicationDelegate {
         previous = ProcessInfo.processInfo.systemUptime
         timer = Timer(timeInterval:1.0/60.0,target:self,selector:#selector(tick),userInfo:nil,repeats:true)
         RunLoop.main.add(timer!, forMode:.common)
-        print("[start] native AppKit | transparent CALayer | \(images.count) PNG frames | drag uses Cocoa screen coordinates")
+        print("[start] native AppKit | transparent CALayer | \(images.count) PNG frames | drag uses Cocoa screen coordinates | bridge=\(bridge.dir.path)")
         fflush(stdout)
     }
 
@@ -196,6 +439,8 @@ final class PetController: NSObject, NSApplicationDelegate {
         let now = ProcessInfo.processInfo.systemUptime
         let dt = min(0.05,max(0,now-previous)) * playbackSpeed
         previous = now
+        hostTick()
+        if let bubble = bubbleLayer, !bubble.isHidden, now >= bubbleHideAt { bubble.isHidden = true }
         if !pressed {
             var origin = panel.frame.origin
             let screen = screenFrame()
@@ -240,6 +485,7 @@ final class PetController: NSObject, NSApplicationDelegate {
     func perform(_ action: String) {
         pressed = false
         if action == "QUIT" { NSApp.terminate(nil); return }
+        if mode == "SLEEP" && action != "SLEEP" { flushSleepQueue() }
         if action == "AUTOPLAY" {
             autoplay.toggle()
             UserDefaults.standard.set(autoplay,forKey:"Autoplay")
@@ -256,10 +502,12 @@ final class PetController: NSObject, NSApplicationDelegate {
         if action == "RUN" {
             direction = Bool.random() ? 1 : -1
             speed = 90
+            manualUntil = ProcessInfo.processInfo.systemUptime + 7
             play(direction > 0 ? "RUN_r" : "RUN_l",mode:"WALK",seconds:6)
         } else if action == "SLEEP" { play("SLEEP",mode:"SLEEP",seconds:0) }
         else if action == "IDLE" { play("IDLE",mode:"IDLE",seconds:6) }
         else if let clip = clips[action] {
+            manualUntil = ProcessInfo.processInfo.systemUptime + Double(clip.total)/1000 + 1.0
             play(action,mode:"ACTION",seconds:Double(clip.total)/1000)
         }
     }
@@ -307,7 +555,51 @@ if CommandLine.arguments.contains("--self-test") {
     precondition(Set(cycle) == pool, "Each available action appears once per cycle")
     for _ in 0..<20 { precondition(!deck.next(available:pool,pinned:true).hasPrefix("WALK_")) }
     precondition(deck.next(available:[],pinned:true) == "IDLE")
-    print("PASS: upward/downward screen-coordinate drag and timed frame boundaries/wrap")
+    // 宿主桥接归约器：主场景重放（与 tests/test_host_bridge.py 同语义）
+    do {
+        let tmp = FileManager.default.temporaryDirectory
+            .appendingPathComponent("iven-selftest-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tmp) }
+        let epoch = 1_800_000_000.0
+        var tick = epoch
+        let bridge = HostBridge(directory: tmp, clock: { tick })
+        func emit(_ kind: String, session: String = "s1", label: String? = nil) throws {
+            let iso = ISO8601DateFormatter()
+            let text = """
+            {"version":1,"event_id":"\(kind)-\(session)-\(tick)","source":"test","session_id":"\(session)","turn_id":null,"timestamp":"\(iso.string(from: Date(timeIntervalSince1970: tick)))","kind":"\(kind)","task_label":\(label.map { "\"\($0)\"" } ?? "null"),"summary":null,"tool_name":null,"severity":"info"}
+            """
+            try text.write(to: tmp.appendingPathComponent("\(tick)-\(kind).json"), atomically: true, encoding: .utf8)
+        }
+        try emit("session.started"); try emit("turn.started", label: "运行测试")
+        _ = bridge.poll()
+        precondition(bridge.mode == "working" && bridge.label == "运行测试", "turn.started → working + label")
+        try emit("permission.required")
+        let ns = bridge.poll()
+        precondition(bridge.mode == "waiting" && ns.contains { $0.kind == "permission.required" }, "permission → waiting + notice")
+        tick += 2
+        try emit("tool.started"); try emit("tool.finished")
+        _ = bridge.poll()
+        precondition(bridge.mode == "working", "approve → back to working")
+        try emit("turn.ended")
+        let ns2 = bridge.poll()
+        precondition(ns2.contains { $0.kind == "turn.ended" } && !ns2.contains { $0.kind == "task.completed" }, "Stop is not success")
+        precondition(bridge.mode == nil, "turn end → back to normal rotation")
+        try emit("turn.started", session: "a"); try emit("turn.started", session: "b")
+        _ = bridge.poll()
+        try emit("turn.ended", session: "a")
+        _ = bridge.poll()
+        precondition(bridge.mode == "working", "parallel sessions stay working until all end")
+        tick += HostBridge.staleAfter + 1
+        _ = bridge.poll()
+        precondition(bridge.mode == nil, "disconnect falls back silently")
+        let leftovers = (try? FileManager.default.contentsOfDirectory(atPath: tmp.path)) ?? ["<unreadable>"]
+        precondition(leftovers.isEmpty, "inbox consumed cleanly")
+    } catch {
+        fputs("bridge self-test threw: \(error)\n", stderr)
+        exit(1)
+    }
+    print("PASS: upward/downward screen-coordinate drag, timed frame boundaries/wrap, host-bridge reduction")
     exit(0)
 }
 

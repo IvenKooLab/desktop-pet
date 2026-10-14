@@ -50,6 +50,21 @@ python pet.py
 
 Packaged versions are also available on the [releases page](https://github.com/IvenKooLab/desktop-pet/releases). Run or rebuild the current source for the latest actions.
 
+## Coding-agent bridge (optional)
+
+The pet can sense what your local coding agent is doing: she "works" beside you while
+the agent runs tools, reminds you when a permission is waiting, and reacts to turn
+ends, failures and completed tasks (the native Mac app shows small bubble notices).
+Communication is a **local file inbox only — no network — and state-only by default**:
+no prompts, replies or tool contents ever leave the host. Either side can be closed
+without affecting the other.
+
+Currently supported: **ZCode** and **DSH (DeepSeek Harness)** — see
+[`adapters/zcode/`](adapters/zcode/README.md) and
+[`adapters/dsh/`](adapters/dsh/README.md) for installation. No pet-side setup is
+needed; toggle "宿主桥接 / Host bridge" in the right-click menu anytime. Protocol
+and implementation details live in [`docs/BRIDGE.md`](docs/BRIDGE.md).
+
 ## Interactions
 
 | Input | Response |
