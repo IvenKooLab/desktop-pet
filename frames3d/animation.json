@@ -214,6 +214,82 @@
         260
       ]
     },
+    "WAITING": {
+      "frames": [
+        "waiting_0",
+        "waiting_1",
+        "waiting_2",
+        "waiting_3",
+        "waiting_4",
+        "waiting_5"
+      ],
+      "durations": [
+        150,
+        150,
+        150,
+        150,
+        150,
+        260
+      ]
+    },
+    "WORK": {
+      "frames": [
+        "work_0",
+        "work_1",
+        "work_2",
+        "work_3",
+        "work_4",
+        "work_5"
+      ],
+      "durations": [
+        120,
+        120,
+        120,
+        120,
+        120,
+        220
+      ]
+    },
+    "REVIEW": {
+      "frames": [
+        "review_0",
+        "review_1",
+        "review_2",
+        "review_3",
+        "review_4",
+        "review_5"
+      ],
+      "durations": [
+        150,
+        150,
+        150,
+        150,
+        150,
+        280
+      ]
+    },
+    "FAILED": {
+      "frames": [
+        "failed_0",
+        "failed_1",
+        "failed_2",
+        "failed_3",
+        "failed_4",
+        "failed_5",
+        "failed_6",
+        "failed_7"
+      ],
+      "durations": [
+        140,
+        140,
+        140,
+        140,
+        140,
+        140,
+        140,
+        240
+      ]
+    },
     "SLEEP": {
       "frames": [
         "sleep_0"

@@ -3,17 +3,32 @@
 **Default artwork updated on 2026-10-13:** Iven v2 preserves the approved original 3D fleece-toy identity, with consistent proportions, cleaned chroma edges and full per-frame timing. Built-in and Studio assets share the same export. See [migration, rebuild and rollback notes](docs/IVEN_V2_MIGRATION.md).
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Platform](https://img.shields.io/badge/platform-Windows-blue)](#)
+[![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows-blue)](#)
 [![Runtime](https://img.shields.io/badge/runtime-zero%20dependency-green)](#)
 
 A standalone macOS/Windows desktop pet built from **AI-generated 3D character sheets**.
-She walks along your taskbar, stands on top of your application windows,
-climbs down when you close them — and does a little clapperboard cheer when you double-click her.
+She hops along your desktop and automatically performs expressive actions.
+On Windows, she can also stand on application windows and fall when they close.
 
 English | [简体中文](README.zh-CN.md)
 
 > Part of the **IvenKooLab** IP lab series. Want to turn *your* character into a
 > desktop pet? Follow [docs/SOP-IP角色桌宠化.md](docs/SOP-IP角色桌宠化.md) (Chinese, with checklist).
+
+
+## Animated previews
+
+| Idle & look around | Wave, bounce & clapperboard | Action sequence |
+| :---: | :---: | :---: |
+| ![Idle and look around](docs/previews/idle-look.gif) | ![Reactions](docs/previews/reactions.gif) | ![Action sequence](docs/previews/action-cycle.gif) |
+
+These GIFs use shipped PNG frames and their timing, on a preview backdrop; they are not desktop recordings. The sequence demonstrates waiting, working, reviewing and sadness between idle clips. Runtime order is randomized.
+
+**Automatic playback is on by default.** A shuffled action pool plays each action once per cycle, with 3–6 seconds of idle between actions. Pause it from the right-click menu. Manual sleep stays asleep until a click wakes her; dragging suspends scheduling. A pinned Mac pet continues in-place actions without roaming. All nine source animations and sixteen gaze directions retain the approved Iven v2 proportions.
+
+Animation-chain and preview ideas are inspired by [dsh-pet](https://github.com/PC2005-cloud/dsh-pet); character artwork remains this project's own Iven v2.
+
+Rebuild previews: `python tools/make_readme_previews.py` (Pillow is needed only for generation).
 
 ## Features
 
@@ -21,12 +36,12 @@ English | [简体中文](README.zh-CN.md)
   shared scale and per-frame timing, with a front-facing turn-around pause
 - **~60 fps rendering** — fixed 50 ms logic steps + wall-clock animation phase
   and sub-pixel position interpolation (no more 20 fps stepping)
-- **Windows are platforms** — she walks on top of your app windows,
+- **Windows: app windows are platforms** — she walks on top of your app windows,
   turns at edges (or falls off), and drops when you close the window
 - Idle blinking · grab reaction · gravity fall · landing · closed-eye sleep
 - Interactions: click = bounce, double-click = happy, right-click menu
   (clapperboard action / sixteen-direction look-around / faster hopping / shy / sleep)
-- **Zero third-party dependencies at runtime** — pure Python standard library (tkinter)
+- **Zero third-party dependencies at runtime** — native AppKit on Mac; Python standard library (tkinter) on Windows
 
 ## Quick Start
 
@@ -40,7 +55,8 @@ Existing executables may still contain the older art; rebuild from source for Iv
 python pet.py        # Windows + Python 3.8+ (tkinter bundled), nothing else to install
 ```
 
-On macOS, double-click `start-mac.command`, or run `python3 pet.py` with Tk 8.6+.
+On macOS, double-click `start-mac.command`. The first build requires Apple command-line tools
+(`xcode-select --install`); the generated `build/IvenPet.app` runs without Python.
 Native transparent windows use RGBA PNG on Mac and color-key GIF on Windows.
 The app runs independently of Codex or ChatGPT, without an account or model API.
 Desktop movement, gravity, dragging and menus work on both platforms; walking on
@@ -48,9 +64,6 @@ other applications' window edges currently remains Windows-only. Linux is not ye
 
 Right-click the pet for the menu; drag her anywhere; double-click her for a reaction.
 Close her via right-click menu → 退出 (Exit).
-
-
-![Iven Pet Studio](docs/images/studio.png)
 
 
 ![Iven Pet Studio · 桌宠制作器](docs/images/studio.png)

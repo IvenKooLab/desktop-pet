@@ -12,6 +12,27 @@ from animation_assets import load_clips, timed_frame
 
 
 class AnimationTests(unittest.TestCase):
+    def test_autoplay_covers_actions_and_pause_keeps_idle(self):
+        tree = ast.parse((ROOT / "pet.py").read_text())
+        pet_class = next(n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == "Pet")
+        namespace = {"random": __import__("random")}
+        exec(compile(ast.Module(body=[pet_class], type_ignores=[]), "pet.py", "exec"), namespace)
+        pet = namespace["Pet"].__new__(namespace["Pet"])
+        pet.clips = load_clips(ROOT / "frames3d")
+        pet.autoplay, pet._action_deck, pet._last_auto_action = True, [], None
+        cycle = []
+        for _ in range(9):
+            pet._next_auto_action()
+            cycle.append(pet.state)
+            self.assertGreater(pet.state_left, 0)
+        self.assertEqual(set(cycle), {"GREET", "BOUNCE", "CHEER", "SPIN", "WAITING", "WORK", "REVIEW", "FAILED", "WALK"})
+        pet.autoplay = False
+        pet._next_auto_action()
+        self.assertEqual(pet.state, "IDLE")
+        pet.autoplay = True
+        pet._next_auto_action()
+        self.assertNotEqual(pet.state, cycle[-1])
+
     def test_timeline_boundaries_and_wrap(self):
         names,durations = ("a","b","c"),(280,110,320)
         expected = [(0,"a"),(279,"a"),(280,"b"),(389,"b"),

@@ -77,6 +77,20 @@ final class PetView: NSView {
     }
 }
 
+struct ActionDeck {
+    private var remaining: [String] = []
+    private var last = ""
+    mutating func next(available: Set<String>, pinned: Bool) -> String {
+        let candidates = ["GREET", "BOUNCE", "CHEER", "SPIN", "WAITING", "WORK", "REVIEW", "FAILED"]
+            .filter { available.contains($0) } + (pinned ? [] : ["WALK_r", "WALK_l"].filter { available.contains($0) })
+        remaining = remaining.filter { candidates.contains($0) }
+        if remaining.isEmpty { remaining = candidates.shuffled() }
+        if remaining.count > 1 && remaining.last == last { remaining.swapAt(0, remaining.count-1) }
+        last = remaining.popLast() ?? "IDLE"
+        return last
+    }
+}
+
 final class PetController: NSObject, NSApplicationDelegate {
     var panel: PetPanel!
     var view: PetView!
@@ -94,6 +108,23 @@ final class PetController: NSObject, NSApplicationDelegate {
     private var shown = ""
     private var direction: CGFloat = 1
     private var speed: CGFloat = 50
+    private var deck = ActionDeck()
+    private var autoplay = UserDefaults.standard.object(forKey:"Autoplay") as? Bool ?? true
+
+    private func advance() {
+        if mode != "IDLE" || !autoplay {
+            play("IDLE",mode:"IDLE",seconds:Double.random(in:3...6))
+            return
+        }
+        let action = deck.next(available:Set(clips.keys),pinned:pinned)
+        if action.hasPrefix("WALK_") {
+            direction = action == "WALK_r" ? 1 : -1
+            speed = 50
+            play(action,mode:"WALK",seconds:Double.random(in:3...5))
+        } else {
+            play(action,mode:"ACTION",seconds:Double(clips[action]!.total)/1000)
+        }
+    }
 
     init(directory: URL) throws {
         let manifest = try JSONDecoder().decode(Manifest.self, from: Data(contentsOf: directory.appendingPathComponent("animation.json")))
@@ -168,7 +199,7 @@ final class PetController: NSObject, NSApplicationDelegate {
             let screen = screenFrame()
             let floor = screen.minY - 7 // PNG foot baseline 193 in a 200-point window.
             if pinned {
-                if deadline > 0 && now >= deadline { play("IDLE",mode:"IDLE",seconds:6) }
+                if deadline > 0 && now >= deadline { advance() }
             } else if mode == "FALL" {
                 velocity += CGFloat(dt)*1200
                 origin.y -= velocity*CGFloat(dt)
@@ -192,11 +223,7 @@ final class PetController: NSObject, NSApplicationDelegate {
                         }
                     }
                     if deadline > 0 && now >= deadline {
-                        if mode == "IDLE" && Bool.random() {
-                            direction = Bool.random() ? 1 : -1
-                            speed = 50
-                            play(direction > 0 ? "WALK_r" : "WALK_l",mode:"WALK",seconds:5)
-                        } else { play("IDLE",mode:"IDLE",seconds:Double.random(in:4...9)) }
+                        advance()
                     }
                 }
             }
@@ -211,6 +238,12 @@ final class PetController: NSObject, NSApplicationDelegate {
     func perform(_ action: String) {
         pressed = false
         if action == "QUIT" { NSApp.terminate(nil); return }
+        if action == "AUTOPLAY" {
+            autoplay.toggle()
+            UserDefaults.standard.set(autoplay,forKey:"Autoplay")
+            if mode != "SLEEP" && mode != "FALL" { play("IDLE",mode:"IDLE",seconds:4) }
+            return
+        }
         if action == "PIN" {
             pinned.toggle()
             UserDefaults.standard.set(pinned,forKey:"Pinned")
@@ -240,7 +273,12 @@ final class PetController: NSObject, NSApplicationDelegate {
         pin.representedObject = "PIN"
         pin.state = pinned ? .on : .off
         menu.addItem(pin)
-        for (title,action) in [("挥手打招呼","GREET"),("弹跳","BOUNCE"),("开心","HAPPY"),
+        let auto = NSMenuItem(title:"自动轮播动作",action:#selector(menuAction),keyEquivalent:"")
+        auto.target = self
+        auto.representedObject = "AUTOPLAY"
+        auto.state = autoplay ? .on : .off
+        menu.addItem(auto)
+        for (title,action) in [("等待","WAITING"),("工作","WORK"),("检查","REVIEW"),("失落","FAILED"),("挥手打招呼","GREET"),("弹跳","BOUNCE"),("开心","HAPPY"),
                                ("打板","CHEER"),("观察四周","SPIN"),("小跳快走","RUN"),
                                ("害羞","SHY"),("睡觉","SLEEP"),("唤醒","IDLE"),("退出独立版","QUIT")] {
             let item = NSMenuItem(title:title,action:#selector(menuAction),keyEquivalent:"")
@@ -261,6 +299,12 @@ if CommandLine.arguments.contains("--self-test") {
     precondition(down == NSPoint(x:200,y:0), "Downward drag delta must not flip")
     let clip = Clip(frames:["a","b","c"],durations:[280,110,320])
     precondition(clip.frame(at:280)=="b" && clip.frame(at:390)=="c" && clip.frame(at:710)=="a")
+    var deck = ActionDeck()
+    let pool: Set<String> = ["GREET", "BOUNCE", "WALK_r", "WALK_l"]
+    let cycle = (0..<4).map { _ in deck.next(available:pool,pinned:false) }
+    precondition(Set(cycle) == pool, "Each available action appears once per cycle")
+    for _ in 0..<20 { precondition(!deck.next(available:pool,pinned:true).hasPrefix("WALK_")) }
+    precondition(deck.next(available:[],pinned:true) == "IDLE")
     print("PASS: upward/downward screen-coordinate drag and timed frame boundaries/wrap")
     exit(0)
 }

@@ -16,7 +16,6 @@ Windows 使用色键 GIF；时间轴来自 animation.json，观察四周不等�
     python pet.py
 """
 import os
-import os
 import random
 import socket
 import sys
@@ -419,6 +418,9 @@ class Pet:
         self.dir = random.choice((-1, 1))
         self.tick_n = 0
         self.state_left = 0
+        self.autoplay = True
+        self._action_deck = []
+        self._last_auto_action = None
         self.first_land = True
         self.last_input = 0
         self.drag_off = None
@@ -474,6 +476,13 @@ class Pet:
             menu.add_command(label=_T["menu_run"], command=self._to_run)
         if "shy_0" in self.frames:
             menu.add_command(label=_T["menu_shy"], command=self._to_shy)
+        auto = tk.BooleanVar(value=self.autoplay)
+        menu.add_checkbutton(label="自动轮播 / Auto play", variable=auto,
+                             command=lambda: setattr(self, "autoplay", auto.get()))
+        for state, title in (("WAITING", "等待 / Waiting"), ("WORK", "工作 / Working"),
+                             ("REVIEW", "检查 / Reviewing"), ("FAILED", "失落 / Sad")):
+            if state in self.clips:
+                menu.add_command(label=title, command=lambda s=state: self._menu_clip(s))
         menu.add_command(label=_T["menu_sleep"], command=self._to_sleep)
         menu.add_separator()
         menu.add_command(label=_T["menu_exit"], command=self.root.destroy)
@@ -521,14 +530,14 @@ class Pet:
         if moved < 6:                                   # 点击（非拖拽）→ 弹跳
             if self.state == "SLEEP":
                 self.say(_T["wake"], 1500)
-                self._set_state("IDLE", random.randint(60, 200))
+                self._set_state("IDLE", random.randint(60, 120))
             elif self.state not in ("CHEER", "SPIN", "BOUNCE", "HAPPY", "SHY"):
                 grounded = self._support() is not None
                 if grounded and "bounce_0" in self.frames:
                     self._set_state("BOUNCE", 16)
                 elif self.state == "GRAB":
                     # 无弹跳帧的素材（MVP）：点了也要离开 GRAB，防卡死
-                    self._set_state("IDLE", random.randint(60, 200)) if grounded \
+                    self._set_state("IDLE", random.randint(60, 120)) if grounded \
                         else self._to_fall()
                 self.say(random.choice(LINES))
         elif self.state == "GRAB":
@@ -540,9 +549,33 @@ class Pet:
     def _set_state(self, s, duration=0):
         self.state, self.state_left = s, duration
 
+    def _next_auto_action(self):
+        if not self.autoplay:
+            self._set_state("IDLE", 80)
+            return
+        if not self._action_deck:
+            self._action_deck = [s for s in ("GREET", "BOUNCE", "CHEER", "SPIN",
+                                "WAITING", "WORK", "REVIEW", "FAILED") if s in self.clips]
+            self._action_deck += ["WALK"]
+            random.shuffle(self._action_deck)
+            if len(self._action_deck) > 1 and self._action_deck[-1] == self._last_auto_action:
+                self._action_deck[0], self._action_deck[-1] = self._action_deck[-1], self._action_deck[0]
+        state = self._action_deck.pop()
+        self._last_auto_action = state
+        if state == "WALK":
+            self.dir = random.choice((-1, 1))
+            self._set_state("WALK", random.randint(60, 100))
+        else:
+            self._set_state(state, (sum(self.clips[state][1]) + 49) // 50)
+
+    def _menu_clip(self, state):
+        self._touch()
+        if self._support() is not None:
+            self._set_state(state, (sum(self.clips[state][1]) + 49) // 50)
+
     def _front_frame(self):
-        """正面立绘帧名（转身过渡用）：优先 spin_0（正视图），无则 idle_0。"""
-        for n in ("spin_0", "idle_0"):
+        """正面立绘帧名（转身过渡用）：优先 idle_0（正视图），无则 spin_0。"""
+        for n in ("idle_0", "spin_0"):
             if n in self.frames:
                 return n
         return None
@@ -675,10 +708,7 @@ class Pet:
                     self._idle_fx_frame = random.choice(pool)
                     self._idle_fx = 6                    # 300ms
             if self.state_left <= 0:
-                self._to_walk() if random.random() < 0.6 else \
-                    self._set_state("IDLE", random.randint(60, 200))
-            if self.tick_n - self.last_input > 1200:    # 60 秒无交互
-                self._to_sleep()
+                self._next_auto_action()
 
         elif self.state in ("WALK", "RUN"):
             s = self._support()
@@ -708,7 +738,7 @@ class Pet:
                     nx = self.x
                 self.x = nx
                 if self.state_left <= 0:
-                    self._set_state("IDLE", random.randint(60, 200))
+                    self._set_state("IDLE", random.randint(60, 120))
                 if random.random() < 0.004:
                     self.say(random.choice(LINES))
 
@@ -741,17 +771,22 @@ class Pet:
                         self._set_state("GREET", 30)
                         self.say(_T["greet"], 1800)
                     else:
-                        self._set_state("IDLE", random.randint(60, 200))
+                        self._set_state("IDLE", random.randint(60, 120))
                         self.say(_T["greet"], 1800)
                 else:
-                    self._set_state("IDLE", random.randint(60, 200))
+                    self._set_state("IDLE", random.randint(60, 120))
                     if random.random() < 0.5:
                         self.say(random.choice(LAND_LINES), 1200)
 
         elif self.state == "GREET":
             self._play_clip("GREET", ["greet_0"], 1500)
             if self.state_left <= 0:
-                self._set_state("IDLE", random.randint(60, 200))
+                self._set_state("IDLE", random.randint(60, 120))
+
+        elif self.state in ("WAITING", "WORK", "REVIEW", "FAILED"):
+            self._play_clip(self.state, [], 1)
+            if self.state_left <= 0:
+                self._set_state("IDLE", random.randint(60, 120))
 
         elif self.state == "SLEEP":
             self._play_clip("SLEEP", ["sleep_0", "sleep_1"], 2000)
@@ -761,22 +796,22 @@ class Pet:
         elif self.state == "BOUNCE":
             self._play_clip("BOUNCE", ["bounce_0", "bounce_1"], 200)
             if self.state_left <= 0:
-                self._set_state("IDLE", random.randint(60, 200))
+                self._set_state("IDLE", random.randint(60, 120))
 
         elif self.state == "HAPPY":
             self._play_clip("HAPPY", ["happy_0", "happy_1"], 300)
             if self.state_left <= 0:
-                self._set_state("IDLE", random.randint(60, 200))
+                self._set_state("IDLE", random.randint(60, 120))
 
         elif self.state == "SHY":
             self._play_clip("SHY", ["shy_0"], 1500)
             if self.state_left <= 0:
-                self._set_state("IDLE", random.randint(60, 200))
+                self._set_state("IDLE", random.randint(60, 120))
 
         elif self.state == "CHEER":
             self._play_clip("CHEER", ["cheer_0", "cheer_1"], 350)
             if self.state_left <= 0:
-                self._set_state("IDLE", random.randint(60, 200))
+                self._set_state("IDLE", random.randint(60, 120))
 
         elif self.state == "SPIN":
             if "SPIN" in self.clips:
@@ -784,7 +819,7 @@ class Pet:
             else:
                 self._set_anim(("spin",))
             if self.state_left <= 0:
-                self._set_state("IDLE", random.randint(60, 200))
+                self._set_state("IDLE", random.randint(60, 120))
 
     # ---------- 动画 ----------
     def _play_clip(self, state, legacy_names, period_ms):

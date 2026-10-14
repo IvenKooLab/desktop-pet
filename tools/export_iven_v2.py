@@ -48,7 +48,8 @@ def export(source, destinations):
     mapping = {"IDLE":"idle", "WALK_r":"right", "WALK_l":"left",
                "RUN_r":"right", "RUN_l":"left", "GREET":"wave",
                "BOUNCE":"jump", "HAPPY":"wave", "SHY":"waiting",
-               "CHEER":"work", "GRAB":"waiting"}
+               "CHEER":"work", "GRAB":"waiting",
+               "WAITING":"waiting", "WORK":"work", "REVIEW":"review", "FAILED":"failed"}
     clips = {state:{"frames":rows[row],"durations":durations[row]}
              for state,row in mapping.items()}
     for state in ("RUN_r","RUN_l"):
