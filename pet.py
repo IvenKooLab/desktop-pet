@@ -32,45 +32,10 @@ except (ImportError, AttributeError):   # 非 Windows
     ctypes = None
 
 BASE = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
-# 角色数据（characters/）放 exe 同级目录：_MEIPASS 是只读临时解压目录
-DATA_DIR = (os.path.dirname(os.path.abspath(sys.executable))
-            if getattr(sys, "frozen", False)
-            else os.path.dirname(os.path.abspath(__file__)))
-
-
 def _load_profile():
-    """Studio 写的 pet_settings.json + 角色 meta.json → (帧目录, 台词表)。
-
-    优先级：PET_FRAMES_DIR 环境变量 > settings.character > 内置 frames3d。
-    台词表来自 characters/<name>/meta.json 的 lines（空则用内置）。
-    """
-    frames_dir = os.path.join(BASE, "frames3d")
-    lines = []
-    try:
-        import json
-        conf = json.loads(open(os.path.join(DATA_DIR, "pet_settings.json"),
-                               encoding="utf-8").read())
-        ch = conf.get("character") or ""
-        if ch:
-            cand = os.path.join(DATA_DIR, "characters", ch, "frames3d")
-            if os.path.isfile(os.path.join(cand, "idle_0.gif")):
-                frames_dir = cand
-            meta_p = os.path.join(DATA_DIR, "characters", ch, "meta.json")
-            meta = json.loads(open(meta_p, encoding="utf-8").read())
-            if isinstance(meta.get("lines"), list) and meta["lines"]:
-                lines = [str(l) for l in meta["lines"] if str(l).strip()]
-    except Exception:
-        pass
-    frames_dir = os.environ.get("PET_FRAMES_DIR") or frames_dir
-    lang = "zh"
-    try:
-        import json as _j
-        conf = _j.loads(open(os.path.join(DATA_DIR, "pet_settings.json"),
-                             encoding="utf-8").read())
-        lang = conf.get("language") or _detect_lang()
-    except Exception:
-        lang = _detect_lang()
-    return frames_dir, lines, lang
+    """Use the bundled Iven artwork; environment override supports maintenance rollback."""
+    frames_dir = os.environ.get("PET_FRAMES_DIR") or os.path.join(BASE, "frames3d")
+    return frames_dir, _detect_lang()
 
 
 def _texts(lang):
@@ -215,9 +180,9 @@ def _detect_lang():
         return "zh"
 
 
-FRAMES_DIR, _CUSTOM_LINES, LANG = _load_profile()
+FRAMES_DIR, LANG = _load_profile()
 _T = _texts(LANG)
-LINES = _CUSTOM_LINES or _T["lines"]
+LINES = _T["lines"]
 GRAB_LINES = _T["grab"]
 LAND_LINES = _T["land"]
 CHEER_LINES = _T["cheer"]
@@ -279,8 +244,6 @@ LINES = [
     "我现在是 3D 手办了哦。",
     "你的窗口，都是我的路。",
 ]
-if _CUSTOM_LINES:
-    LINES = _CUSTOM_LINES        # Studio 台词库覆盖（角色 meta.json）
 GRAB_LINES = ["哇！", "放手！", "别提我！"]
 LAND_LINES = ["着陆成功。", "一点不疼。", "再来。"]
 CHEER_LINES = ["Action——！", "咔，一条过！"]

@@ -87,9 +87,9 @@ def main():
     actual_sha = hashlib.sha256(args.source.read_bytes()).hexdigest()
     if validation.get("ok") is not True or validation.get("sha256") != actual_sha:
         raise ValueError("Source atlas must match its successful validation.json report")
-    targets = [ROOT/"frames3d",ROOT/"characters/iven-pet/frames3d"]
+    targets = [ROOT/"frames3d"]
     for target in targets:
-        archive = ROOT/"assets/legacy-pre-iven-v2"/("builtin" if target==targets[0] else "studio")
+        archive = ROOT/"assets/legacy-pre-iven-v2/builtin"
         if not (target/"animation.json").exists():
             archive.mkdir(parents=True,exist_ok=True)
             for image in target.glob("*.gif"):

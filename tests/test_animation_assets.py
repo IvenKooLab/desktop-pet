@@ -55,17 +55,15 @@ class AnimationTests(unittest.TestCase):
             (folder/"animation.json").write_text(json.dumps(manifest))
             self.assertEqual(set(load_clips(folder)),{"IDLE"})
 
-    def test_default_and_studio_have_identical_complete_clips(self):
+    def test_default_has_complete_clips(self):
         default=load_clips(ROOT/"frames3d")
-        studio=load_clips(ROOT/"characters/iven-pet/frames3d")
-        self.assertEqual(default,studio)
         self.assertEqual(len(default["IDLE"][0]),6)
         self.assertEqual(len(default["WALK_r"][0]),8)
         self.assertEqual(len(default["SPIN"][0]),16)
         for names,_ in default.values():
             for name in names:
-                self.assertEqual((ROOT/"frames3d"/(name+".gif")).read_bytes(),
-                                 (ROOT/"characters/iven-pet/frames3d"/(name+".gif")).read_bytes())
+                self.assertTrue((ROOT/"frames3d"/(name+".gif")).is_file())
+                self.assertTrue((ROOT/"frames3d"/(name+".png")).is_file())
 
     def test_pet_clip_player_and_legacy_fallback(self):
         # Load actual Pet methods without starting Tk or binding its single-instance port.
