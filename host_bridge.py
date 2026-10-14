@@ -51,7 +51,7 @@ def default_dir():
 
 def write_event(directory, source, kind, session_id="unknown", turn_id=None,
                 task_label=None, summary=None, tool_name=None, severity="info",
-                timestamp=None):
+                timestamp=None, tool_call_id=None):
     """适配器侧：统一事件原子写入收件箱。失败静默（宿主 Hook 绝不因此报错）。"""
     try:
         directory = Path(directory)
@@ -69,6 +69,7 @@ def write_event(directory, source, kind, session_id="unknown", turn_id=None,
             "task_label": (str(task_label)[:MAX_LABEL] if task_label else None),
             "summary": (str(summary)[:MAX_SUMMARY] if summary else None),
             "tool_name": (str(tool_name)[:48] if tool_name else None),
+            "tool_call_id": (str(tool_call_id)[:64] if tool_call_id else None),
             "severity": severity if severity in ("info", "warn", "error")
             else "info",
         }

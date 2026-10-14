@@ -32,6 +32,7 @@ Iven 桌宠（Mac 原生 Swift / Windows Tk）轮询消费 → 状态动作 + �
   "task_label": "运行测试",
   "summary": "需要确认后继续",
   "tool_name": "Bash",
+  "tool_call_id": "toolu_01ABC",
   "severity": "info"
 }
 ```
@@ -39,9 +40,12 @@ Iven 桌宠（Mac 原生 Swift / Windows Tk）轮询消费 → 状态动作 + �
 - `kind` 全集：`session.started` / `turn.started` / `tool.started` /
   `permission.required` / `tool.finished` / `tool.failed` / `turn.ended` /
   `turn.failed` / `task.completed` / `interrupted` / `session.ended`。
+- `tool_call_id`：工具并发时必须带的调用 ID（各宿主的 tool_use_id /
+  toolCallID 等），不能只按工具名累加；消费端按 `event_id` 去重，调用 ID
+  供并发归并与第二阶段使用。
 - **默认只传状态**：适配器不填 `task_label`/`summary`，用户显式开启
-  （ZCode：`IVEN_BRIDGE_SUMMARY=1`；DSH：插件配置 `summary: true`）才附带，
-  且各自截断（80/160 字）并清洗控制字符。
+  （ZCode/Claude/Cursor：`IVEN_BRIDGE_SUMMARY=1`；DSH：插件配置
+  `summary: true`）才附带，且各自截断（80/160 字）并清洗控制字符。
 - 消费端约束：事件文本**只作数据展示，绝不当作指令执行**（提示注入防线）；
   未知字段忽略；`version`≠1 或 `kind` 不认识 → 丢弃。
 
@@ -114,7 +118,54 @@ goal 自动续跑轮次（`user/message` 的 `source.kind === 'goal'`）只算�
   （与 loci-dsh 同做法），或 `dsh plugin --profile <name> add <路径>`。
 - `apply()` 里所有订阅包在 `ctx.effect(() => … return dispose)` 内。
 
-### 第二批（Qwen Code / Kimi Code / Qoder / CodeBuddy / TRAE CN）
+### Codex（`adapters/codex/`）
+
+- 入口：`codex app-server` stdio JSON-RPC（行分隔 JSON，通知带
+  `emittedAtMs`）。**已实测 codex-cli 0.162.1**：initialize/initialized/
+  thread/list 与通知均正常；`thread/list` 读本机共享线程历史。
+- **仅本客户端会话**：适配器监听自己 spawn 的 app-server 实例；桌面 App
+  的 `~/.codex/ipc/ipc.sock` 对该握手无响应（内部 IPC），不读它冒充实时
+  集成。`turn/start`（发任务）与读取线程正文属第二阶段。
+- turn/completed 的 completed/interrupted/failed 分别映射 turn.ended /
+  interrupted / turn.failed；approval 类方法名宽容匹配。
+
+### Claude Code（`adapters/claude-code/`）
+
+- 入口：官方 Hooks，`command` 单字符串形式（与 ZCode 的 command+args
+  不同）。用户级 `~/.claude/settings.json`、项目级 `.claude/settings.json`
+  / `.local.json`、插件 `hooks/hooks.json` 三处任选，合并不覆盖。
+- 事件含 Notification（等权限/输入空闲，统一按"等你"处理）与 SessionEnd；
+  实际版本缺失的事件自动跳过（显式降级）。不读 `transcript_path`。
+- 本机未安装，验收以 `tests/test_host_hooks.py` fixture 重放为准。
+
+### Cursor（`adapters/cursor/`）
+
+- 入口：项目 `.cursor/hooks.json` / 用户 `~/.cursor/hooks.json`，事件命名
+  是 Cursor 自己的驼峰式（sessionStart / beforeSubmitPrompt /
+  afterAgentResponse / stop…），不能贴 Claude 的配置。
+- `stop.status` completed/aborted/error → turn.ended / interrupted /
+  turn.failed；`afterAgentResponse` 摘要开关开启后可显示；
+  **不接 afterAgentThought**（内部推理不当摘要）。用户级与项目级脚本
+  工作目录不同，相对路径按来源处理（示例统一绝对路径）。
+- 本机未安装，验收以 fixture 重放为准。
+
+### OpenCode（`adapters/opencode/`）
+
+- 入口：Server HTTP API 的 `GET /event` SSE（纯标准库监听器），连接用户
+  指定服务（`--base`/`OPENCODE_BASE_URL`，token `OPENCODE_TOKEN`）。
+- 断线退避重连（1/2/5/10/15s 封顶），重连按事件 id/组合键去重不重播；
+  监测转发所有会话，第二阶段发任务才让用户选 session。
+- 本机未安装，以本地 mock SSE 重放测试（`tests/test_opencode_adapter.py`）；
+  实机接入前按目标版本 `/doc` OpenAPI 核验字段。
+
+### 能力声明
+
+每家 README 与 `adapters/README.md` 矩阵统一声明 `read_state` /
+`read_summary` / `send_prompt`：未核实或不支持即 ❌。**"旁听用户正在用的
+会话"与"客户端自建会话"分开标注**（当前仅 Codex 属后者）；接不上时桌宠
+显示未连接是正确行为，不从进程存在推断工作状态，不悄悄新建会话冒充旁听。
+
+### 国内第二批（Qwen Code / Kimi Code / Qoder / CodeBuddy / TRAE CN）
 
 均按各自官方 Hooks 接"状态/摘要接入"，映射到同一协议；各自的安装形态、
 字段口径与"仅监测 vs 可驱动"的边界在接入前按当期文档重新核验，不在本仓

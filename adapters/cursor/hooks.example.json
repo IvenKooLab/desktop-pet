@@ -1,0 +1,29 @@
+{
+  "_comment": "Cursor Hooks 示例：合并进项目 .cursor/hooks.json 或用户 ~/.cursor/hooks.json。用户级与项目级脚本的【工作目录不同】，command 里的相对路径按来源处理——最稳妥统一写绝对路径。将 __IVER_REPO__ 替换为本仓库绝对路径。开启摘要：宿主环境设 IVEN_BRIDGE_SUMMARY=1。",
+  "hooks": {
+    "sessionStart": [
+      { "type": "command", "command": "python3 __IVER_REPO__/adapters/cursor/cursor_hook.py" }
+    ],
+    "sessionEnd": [
+      { "type": "command", "command": "python3 __IVER_REPO__/adapters/cursor/cursor_hook.py" }
+    ],
+    "beforeSubmitPrompt": [
+      { "type": "command", "command": "python3 __IVER_REPO__/adapters/cursor/cursor_hook.py" }
+    ],
+    "preToolUse": [
+      { "type": "command", "command": "python3 __IVER_REPO__/adapters/cursor/cursor_hook.py" }
+    ],
+    "postToolUse": [
+      { "type": "command", "command": "python3 __IVER_REPO__/adapters/cursor/cursor_hook.py" }
+    ],
+    "postToolUseFailure": [
+      { "type": "command", "command": "python3 __IVER_REPO__/adapters/cursor/cursor_hook.py" }
+    ],
+    "afterAgentResponse": [
+      { "type": "command", "command": "python3 __IVER_REPO__/adapters/cursor/cursor_hook.py" }
+    ],
+    "stop": [
+      { "type": "command", "command": "python3 __IVER_REPO__/adapters/cursor/cursor_hook.py" }
+    ]
+  }
+}

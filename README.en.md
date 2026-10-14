@@ -59,11 +59,12 @@ Communication is a **local file inbox only — no network — and state-only by 
 no prompts, replies or tool contents ever leave the host. Either side can be closed
 without affecting the other.
 
-Currently supported: **ZCode** and **DSH (DeepSeek Harness)** — see
-[`adapters/zcode/`](adapters/zcode/README.md) and
-[`adapters/dsh/`](adapters/dsh/README.md) for installation. No pet-side setup is
-needed; toggle "宿主桥接 / Host bridge" in the right-click menu anytime. Protocol
-and implementation details live in [`docs/BRIDGE.md`](docs/BRIDGE.md).
+Currently supported: **ZCode, DSH (DeepSeek Harness), Codex, Claude Code,
+Cursor and OpenCode** — see the capability matrix in
+[`adapters/`](adapters/README.md) for per-host status, and each adapter
+folder for installation. No pet-side setup is
+needed; toggle "宿主桥接 / Host bridge" in the right-click menu anytime.
+Protocol and implementation details live in [`docs/BRIDGE.md`](docs/BRIDGE.md).
 
 ## Interactions
 
