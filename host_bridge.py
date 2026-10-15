@@ -142,6 +142,7 @@ class HostBridge:
         self.dir = Path(directory) if directory else default_dir()
         self.enabled = enabled
         self._clock = clock
+        self.selected_source = None
         self.mode = None
         self.label = None
         self.source = None
@@ -160,7 +161,10 @@ class HostBridge:
         now = self._clock()
         events = self._load(now)
         for ev in events:
-            self._apply(ev, notices)
+            event_notices = []
+            self._apply(ev, event_notices)
+            if self.selected_source is None or ev.get("source") == self.selected_source:
+                notices.extend(event_notices)
         self._gc(now)
         self._recompute_mode()
         return notices
@@ -282,14 +286,16 @@ class HostBridge:
                 sess.phase = "idle"
 
     def _recompute_mode(self):
-        active = [s for s in self.sessions.values() if s.phase in ("working", "waiting")]
+        eligible = [s for s in self.sessions.values()
+                    if self.selected_source is None or s.source == self.selected_source]
+        active = [s for s in eligible if s.phase in ("working", "waiting")]
         if active:
             current = max(active, key=lambda s: (s.phase == "waiting", s.last_seen, s.order))
             self.mode, self.label = current.phase, current.label
             self.source, self.detail = current.source, current.tool
         else:
             self.mode = None
-            current = max(self.sessions.values(), key=lambda s: (s.last_seen,s.order), default=None)
+            current = max(eligible, key=lambda s: (s.last_seen,s.order), default=None)
             self.label = current.label if current else None
             self.source = current.source if current else None
             self.detail = None
@@ -298,3 +304,15 @@ class HostBridge:
     def active_sources(self):
         return sorted({s.source for s in self.sessions.values()
                        if s.phase in ("working", "waiting") and s.source})
+
+    def select_source(self, source=None):
+        self.selected_source = source
+        self._recompute_mode()
+
+    def source_status(self, source):
+        sessions = [s for s in self.sessions.values() if s.source == source]
+        if any(s.phase == "waiting" for s in sessions):
+            return "等你确认"
+        if any(s.phase == "working" for s in sessions):
+            return "工作中"
+        return "空闲（已收到事件）" if sessions else "未收到事件"

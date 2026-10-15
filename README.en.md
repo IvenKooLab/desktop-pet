@@ -54,7 +54,9 @@ Packaged versions are also available on the [releases page](https://github.com/I
 
 A persistent card shows the coding app, working or approval status, and the current task and latest tool. After a reply ends, its available summary stays briefly before the card closes. Task and reply text require the local summary option; status remains visible without it.
 
-A small nameplate beside the pet identifies the active harness, such as “Following · ZCode”. `+1` means another harness is active. Approval requests take priority, then the most recently active task. Idle shows “Last”; no source shows “Standalone”.
+Use **跟踪 Harness** (Track Harness) in the right-click menu to view each source’s received event state and select automatic tracking or one source. States distinguish working, approval needed, idle, and no events received; an open app is not proof of a connected adapter. Automatic mode observes all sources, prioritizing approval requests and then recent activity. Selecting one source prevents other sources from interrupting its display.
+
+A small nameplate beside the pet identifies the active harness, such as “Following · ZCode”. In automatic mode, `+1` means another harness is active. Approval requests take priority, then the most recently active task. Idle shows “Last”; no source shows “Standalone”.
 
 The pet can sense what your local coding agent is doing: she "works" beside you while
 the agent runs tools, reminds you when a permission is waiting, and reacts to turn

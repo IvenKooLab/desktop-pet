@@ -53,6 +53,27 @@ class BridgeCase(unittest.TestCase):
         out = self.bridge.poll()
         return [n.kind for n in out] if kinds_only else out
 
+    def test_source_selection_keeps_all_sources_observed(self):
+        def event(source, kind):
+            self.clock.advance(1)
+            write_event(self.dir, source, kind, "shared", timestamp=iso(self.clock()))
+        event("dsh", "turn.started")
+        event("zcode", "permission.required")
+        self.bridge.poll()
+        self.assertEqual(self.bridge.source, "zcode")
+        self.bridge.select_source("dsh")
+        self.assertEqual((self.bridge.source, self.bridge.mode), ("dsh", "working"))
+        self.assertEqual(self.bridge.source_status("zcode"), "等你确认")
+        self.assertEqual(self.bridge.source_status("codex"), "未收到事件")
+        event("zcode", "turn.ended")
+        self.assertEqual(self.bridge.poll(), [])
+        self.assertEqual(self.bridge.source, "dsh")
+        self.bridge.select_source("codex")
+        self.assertIsNone(self.bridge.mode)
+        self.assertIsNone(self.bridge.source)
+        self.bridge.select_source()
+        self.assertEqual(self.bridge.source, "dsh")
+
     # ---------- 归约主场景 ----------
     def test_working_card_stays_and_updates_tool(self):
         from bridge_display import status_card

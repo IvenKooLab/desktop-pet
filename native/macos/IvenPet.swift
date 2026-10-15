@@ -119,6 +119,13 @@ final class HostBridge {
     private var seen: [String: TimeInterval] = [:]
     private var lastEventTs: TimeInterval?
     private var eventOrder = 0
+    var selectedSource: String? { didSet { recomputeMode() } }
+    func sourceStatus(_ source: String) -> String {
+        let matching = sessions.values.filter { $0.source == source }
+        if matching.contains(where: { $0.phase == "waiting" }) { return "等你确认" }
+        if matching.contains(where: { $0.phase == "working" }) { return "工作中" }
+        return matching.isEmpty ? "未收到事件" : "空闲（已收到事件）"
+    }
     private(set) var mode: String?        // nil | "working" | "waiting"
     private(set) var label: String?
     private(set) var source: String?
@@ -173,7 +180,9 @@ final class HostBridge {
             consumed.append((url, obj, ts))
         }
         for (url, obj, ts) in consumed {
-            apply(obj, ts: ts, notices: &notices)
+            var eventNotices: [BridgeNotice] = []
+            apply(obj, ts: ts, notices: &eventNotices)
+            if selectedSource == nil || obj["source"] as? String == selectedSource { notices += eventNotices }
             lastEventTs = max(lastEventTs ?? 0, ts)
             try? FileManager.default.removeItem(at: url)
         }
@@ -242,11 +251,12 @@ final class HostBridge {
     }
 
     private func recomputeMode() {
-        let active = sessions.values.filter { $0.phase == "waiting" || $0.phase == "working" }
+        let eligible = sessions.values.filter { selectedSource == nil || $0.source == selectedSource }
+        let active = eligible.filter { $0.phase == "waiting" || $0.phase == "working" }
         let chosen = active.sorted {
             if ($0.phase == "waiting") != ($1.phase == "waiting") { return $0.phase == "waiting" }
             return $0.lastSeen == $1.lastSeen ? $0.order > $1.order : $0.lastSeen > $1.lastSeen
-        }.first ?? sessions.values.max { $0.lastSeen == $1.lastSeen ? $0.order < $1.order : $0.lastSeen < $1.lastSeen }
+        }.first ?? eligible.max { $0.lastSeen == $1.lastSeen ? $0.order < $1.order : $0.lastSeen < $1.lastSeen }
         mode = active.isEmpty ? nil : chosen?.phase
         label = chosen?.label
         source = chosen?.source
@@ -432,7 +442,7 @@ final class PetController: NSObject, NSApplicationDelegate {
         if let source = bridge.source {
             text = (bridge.mode == nil ? (bridgeZh ? "最近 · " : "Last · ") : (bridgeZh ? "跟随 · " : "Following · "))+hostName()
             let others = max(0,bridge.activeSources.count-1)
-            if bridge.mode != nil && others > 0 { text += "  +\(others)" }
+            if bridge.mode != nil && bridge.selectedSource == nil && others > 0 { text += "  +\(others)" }
             let colors: [String:NSColor] = ["zcode":.systemPurple,"dsh":.systemBlue,"codex":.systemTeal,
                                            "claude-code":.systemOrange,"cursor":.darkGray,"opencode":.systemIndigo]
             color = colors[source] ?? .systemGray
@@ -660,6 +670,14 @@ final class PetController: NSObject, NSApplicationDelegate {
     }
     func perform(_ action: String) {
         pressed = false
+        if action.hasPrefix("TRACK:") {
+            let source = String(action.dropFirst(6))
+            bridge.selectedSource = source.isEmpty ? nil : source
+            sleepQueue.removeAll()
+            bubblePanel?.orderOut(nil); bubbleKey = ""; bubbleIsHost = false; bubbleHideAt = 0
+            hostAssert()
+            return
+        }
         if action == "QUIT" { NSApp.terminate(nil); return }
         if mode == "SLEEP" && action != "SLEEP" { flushSleepQueue() }
         if action == "AUTOPLAY" {
@@ -694,6 +712,22 @@ final class PetController: NSObject, NSApplicationDelegate {
         heading.isEnabled = false
         menu.addItem(heading)
         menu.addItem(.separator())
+        let tracking = NSMenuItem(title:"跟踪 Harness",action:nil,keyEquivalent:"")
+        let sources = NSMenu()
+        for (source,name) in [("","自动 · 全部已接入"),("dsh","DSH"),("zcode","ZCode"),("codex","Codex"),("claude-code","Claude Code"),("cursor","Cursor"),("opencode","OpenCode")] {
+            let title = source.isEmpty ? name : name+" · "+bridge.sourceStatus(source)
+            let item = NSMenuItem(title:title,action:#selector(menuAction),keyEquivalent:"")
+            item.target = self
+            item.representedObject = "TRACK:"+source
+            item.state = (bridge.selectedSource ?? "") == source ? .on : .off
+            sources.addItem(item)
+        }
+        sources.addItem(.separator())
+        let hint = NSMenuItem(title:"自动：等待确认优先，其次最近活动",action:nil,keyEquivalent:"")
+        hint.isEnabled = false
+        sources.addItem(hint)
+        tracking.submenu = sources
+        menu.addItem(tracking)
         let pin = NSMenuItem(title:"固定在当前位置",action:#selector(menuAction),keyEquivalent:"")
         pin.target = self
         pin.representedObject = "PIN"
@@ -793,6 +827,14 @@ if CommandLine.arguments.contains("--self-test") {
         try emit("permission.required",session:"same",source:"zcode")
         _ = bridge.poll()
         precondition(bridge.source == "zcode", "Badge follows the waiting harness")
+        bridge.selectedSource = "dsh"
+        precondition(bridge.source == "dsh" && bridge.mode == "working", "Explicit source overrides other waiting hosts")
+        precondition(bridge.sourceStatus("zcode") == "等你确认" && bridge.sourceStatus("codex") == "未收到事件", "Menu shows actual received state")
+        try emit("turn.ended",session:"same",source:"zcode")
+        precondition(bridge.poll().isEmpty && bridge.source == "dsh", "Other hosts cannot interrupt selected source")
+        bridge.selectedSource = "codex"
+        precondition(bridge.mode == nil && bridge.source == nil, "Unconnected selection cannot inherit another host")
+        bridge.selectedSource = nil
         try emit("session.ended",session:"same",source:"zcode")
         _ = bridge.poll()
         precondition(bridge.source == "dsh", "Closing one harness does not clear another")

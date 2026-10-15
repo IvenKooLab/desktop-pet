@@ -38,7 +38,7 @@ def following_badge(bridge, zh=True):
     if bridge.mode:
         others = max(0,len(bridge.active_sources)-1)
         text = ("跟随 · " if zh else "Following · ")+name
-        if others:
+        if others and not bridge.selected_source:
             text += "  +"+str(others)
     else:
         text = ("最近 · " if zh else "Last · ")+name

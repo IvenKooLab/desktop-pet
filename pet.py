@@ -498,6 +498,25 @@ class Pet:
             bridge = tk.BooleanVar(value=self._bridge_on)
             menu.add_checkbutton(label="宿主桥接 / Host bridge", variable=bridge,
                                  command=_toggle_bridge)
+        if self.host is not None:
+            tracking = tk.Menu(menu, tearoff=0)
+            choice = tk.StringVar(value="")
+            def select_source():
+                self.host.select_source(choice.get() or None)
+                self._sleep_queue.clear()
+                self._hide_bubble()
+            def refresh_sources():
+                from bridge_display import SOURCES
+                tracking.delete(0, "end")
+                tracking.add_radiobutton(label="自动 · 全部已接入", variable=choice,
+                                         value="", command=select_source)
+                for source, name in SOURCES.items():
+                    tracking.add_radiobutton(label=name+" · "+self.host.source_status(source),
+                                             variable=choice, value=source, command=select_source)
+                tracking.add_separator()
+                tracking.add_command(label="自动：等待确认优先，其次最近活动", state="disabled")
+            tracking.configure(postcommand=refresh_sources)
+            menu.add_cascade(label="跟踪 Harness", menu=tracking)
         for state, title in (("STRETCH", "伸懒腰 / Stretch"), ("DOZE", "打瞌睡 / Doze"),
                              ("RUBIK", "玩魔方 / Rubik cube"), ("WAITING", "等待 / Waiting"), ("WORK", "工作 / Working"),
                              ("REVIEW", "检查 / Reviewing"), ("FAILED", "失落 / Sad")):
