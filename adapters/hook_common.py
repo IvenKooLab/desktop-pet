@@ -23,7 +23,16 @@ STDIN_CAP = 65536
 
 
 def summary_enabled():
-    return os.environ.get(SUMMARY_ENV, "") not in ("", "0", "false")
+    """摘要开关：环境变量，或本机标记文件 ~/.iven-pet/summary。
+
+    GUI 应用派生的 Hook 进程继承不到 shell 环境变量，标记文件是
+    Mac/Windows 上最可靠的开法：`touch ~/.iven-pet/summary` 即开。
+    """
+    from pathlib import Path
+    import os
+    if os.environ.get(SUMMARY_ENV, "") not in ("", "0", "false"):
+        return True
+    return (Path.home() / ".iven-pet" / "summary").is_file()
 
 
 def clean(value, limit):

@@ -17,7 +17,9 @@ ADAPTERS = {
 class HostHookCase(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
-        self.env = dict(os.environ, IVEN_BRIDGE_DIR=self.tmp.name)
+        # HOME 隔离：summary 开关文件等本机状态不得影响测试
+        self.env = dict(os.environ, IVEN_BRIDGE_DIR=self.tmp.name,
+                        HOME=self.tmp.name)
         self.env.pop("IVEN_BRIDGE_SUMMARY", None)
 
     def tearDown(self):
