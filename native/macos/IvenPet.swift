@@ -303,7 +303,24 @@ final class PetController: NSObject, NSApplicationDelegate {
     private var bubbleKey = ""
     private var bubbleIsHost = false
     private var bubbleHideAt: TimeInterval = 0
-    private let bridgeZh = (Locale.current.language.languageCode?.identifier == "zh")
+    private var uiLanguage = UserDefaults.standard.string(forKey:"UILanguage") ?? "system"
+    private var bridgeZh: Bool {
+        uiLanguage == "zh" || (uiLanguage == "system" && Locale.current.language.languageCode?.identifier == "zh")
+    }
+    private func menuText(_ title: String) -> String {
+        if bridgeZh { return title }
+        let english = ["Iven Pet · 独立桌宠":"Iven Pet · Desktop companion",
+            "跟踪 Harness":"Track Harness", "自动 · 全部已接入":"Automatic · All connected",
+            "工作中":"Working", "等你确认":"Needs approval", "未收到事件":"No events received",
+            "空闲（已收到事件）":"Idle (events received)", "自动：确认优先 → 最近活动":"Auto: approvals → recent activity",
+            "固定在当前位置":"Pin in place", "自动轮播动作":"Automatic animations",
+            "伸懒腰":"Stretch", "打瞌睡":"Doze", "玩魔方":"Rubik’s cube", "等待":"Wait",
+            "工作":"Work", "检查":"Review", "失落":"Sad", "挥手打招呼":"Wave hello",
+            "弹跳":"Bounce", "开心":"Happy", "打板":"Clapperboard", "观察四周":"Look around",
+            "小跳快走":"Quick walk", "害羞":"Shy", "睡觉":"Sleep", "唤醒":"Wake up",
+            "退出独立版":"Quit Iven Pet", "语言 / Language":"Language / 语言", "打开 GitHub 仓库":"Open GitHub repository"]
+        return english[title] ?? title
+    }
 
     private func advance() {
         if let hostMode = bridge.mode, hostAvailable(hostMode), !hostSuppressed() {
@@ -674,6 +691,19 @@ final class PetController: NSObject, NSApplicationDelegate {
     }
     func perform(_ action: String) {
         pressed = false
+        if action == "GITHUB" {
+            NSWorkspace.shared.open(URL(string:"https://github.com/IvenKooLab/desktop-pet")!)
+            return
+        }
+        if action.hasPrefix("LANG:") {
+            let language = String(action.dropFirst(5))
+            guard ["system","zh","en"].contains(language) else { return }
+            uiLanguage = language
+            UserDefaults.standard.set(language,forKey:"UILanguage")
+            bubblePanel?.orderOut(nil); bubbleKey = ""; bubbleIsHost = false; bubbleHideAt = 0
+            followKey = ""; hostAssert(); updateFollowingBadge()
+            return
+        }
         if action.hasPrefix("TRACK:") {
             let source = String(action.dropFirst(6))
             bridge.selectedSource = source.isEmpty ? nil : source
@@ -712,16 +742,16 @@ final class PetController: NSObject, NSApplicationDelegate {
     @objc private func menuAction(_ item: NSMenuItem) { perform(item.representedObject as! String) }
     func contextMenu() -> NSMenu {
         let menu = NSMenu()
-        let heading = NSMenuItem(title:"Iven Pet · 独立桌宠",action:nil,keyEquivalent:"")
+        let heading = NSMenuItem(title:menuText("Iven Pet · 独立桌宠"),action:nil,keyEquivalent:"")
         heading.isEnabled = false
         menu.addItem(heading)
         menu.addItem(.separator())
-        let tracking = NSMenuItem(title:"跟踪 Harness",action:nil,keyEquivalent:"")
+        let tracking = NSMenuItem(title:menuText("跟踪 Harness"),action:nil,keyEquivalent:"")
         let sources = NSMenu()
         sources.minimumWidth = 320
         for (source,name) in [("","自动 · 全部已接入"),("dsh","DSH"),("zcode","ZCode"),("codex","Codex"),("claude-code","Claude Code"),("cursor","Cursor"),("opencode","OpenCode")] {
-            let title = source.isEmpty ? name : name+" · "+bridge.sourceStatus(source)
-            let item = NSMenuItem(title:title,action:#selector(menuAction),keyEquivalent:"")
+            let title = source.isEmpty ? menuText(name) : name+" · "+menuText(bridge.sourceStatus(source))
+            let item = NSMenuItem(title:menuText(title),action:#selector(menuAction),keyEquivalent:"")
             item.target = self
             item.representedObject = "TRACK:"+source
             item.state = (bridge.selectedSource ?? "") == source ? .on : .off
@@ -731,29 +761,44 @@ final class PetController: NSObject, NSApplicationDelegate {
             sources.addItem(item)
         }
         sources.addItem(.separator())
-        let hint = NSMenuItem(title:"自动：确认优先 → 最近活动",action:nil,keyEquivalent:"")
+        let hint = NSMenuItem(title:menuText("自动：确认优先 → 最近活动"),action:nil,keyEquivalent:"")
         hint.isEnabled = false
         sources.addItem(hint)
         tracking.submenu = sources
         menu.addItem(tracking)
-        let pin = NSMenuItem(title:"固定在当前位置",action:#selector(menuAction),keyEquivalent:"")
+        let pin = NSMenuItem(title:menuText("固定在当前位置"),action:#selector(menuAction),keyEquivalent:"")
         pin.target = self
         pin.representedObject = "PIN"
         pin.state = pinned ? .on : .off
         menu.addItem(pin)
-        let auto = NSMenuItem(title:"自动轮播动作",action:#selector(menuAction),keyEquivalent:"")
+        let auto = NSMenuItem(title:menuText("自动轮播动作"),action:#selector(menuAction),keyEquivalent:"")
         auto.target = self
         auto.representedObject = "AUTOPLAY"
         auto.state = autoplay ? .on : .off
         menu.addItem(auto)
         for (title,action) in [("伸懒腰","STRETCH"),("打瞌睡","DOZE"),("玩魔方","RUBIK"),("等待","WAITING"),("工作","WORK"),("检查","REVIEW"),("失落","FAILED"),("挥手打招呼","GREET"),("弹跳","BOUNCE"),("开心","HAPPY"),
                                ("打板","CHEER"),("观察四周","SPIN"),("小跳快走","RUN"),
-                               ("害羞","SHY"),("睡觉","SLEEP"),("唤醒","IDLE"),("退出独立版","QUIT")] {
-            let item = NSMenuItem(title:title,action:#selector(menuAction),keyEquivalent:"")
+                               ("害羞","SHY"),("睡觉","SLEEP"),("唤醒","IDLE")] {
+            let item = NSMenuItem(title:menuText(title),action:#selector(menuAction),keyEquivalent:"")
             item.target = self
             item.representedObject = action
             menu.addItem(item)
         }
+        menu.addItem(.separator())
+        let languageItem = NSMenuItem(title:menuText("语言 / Language"),action:nil,keyEquivalent:"")
+        let languages = NSMenu()
+        for (code,name) in [("system",bridgeZh ? "跟随系统" : "System default"),("zh","简体中文"),("en","English")] {
+            let item = NSMenuItem(title:name,action:#selector(menuAction),keyEquivalent:"")
+            item.target = self; item.representedObject = "LANG:"+code
+            item.state = uiLanguage == code ? .on : .off
+            languages.addItem(item)
+        }
+        languageItem.submenu = languages; menu.addItem(languageItem)
+        let github = NSMenuItem(title:menuText("打开 GitHub 仓库"),action:#selector(menuAction),keyEquivalent:"")
+        github.target = self; github.representedObject = "GITHUB"; menu.addItem(github)
+        menu.addItem(.separator())
+        let quit = NSMenuItem(title:menuText("退出独立版"),action:#selector(menuAction),keyEquivalent:"")
+        quit.target = self; quit.representedObject = "QUIT"; menu.addItem(quit)
         return menu
     }
 }

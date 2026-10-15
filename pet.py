@@ -21,6 +21,8 @@ import socket
 import sys
 import time
 import tkinter as tk
+import webbrowser
+from language_preferences import load_language, save_language
 from animation_assets import load_clips, timed_frame
 from desktop_platform import configure_transparency, frame_path, clear_legacy_color_key
 from host_bridge import HostBridge
@@ -37,7 +39,8 @@ BASE = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
 def _load_profile():
     """Use the bundled Iven artwork; environment override supports maintenance rollback."""
     frames_dir = os.environ.get("PET_FRAMES_DIR") or os.path.join(BASE, "frames3d")
-    return frames_dir, _detect_lang()
+    language = load_language()
+    return frames_dir, (_detect_lang() if language == "system" else language)
 
 
 def _texts(lang):
@@ -466,14 +469,34 @@ class Pet:
         return None
 
     # ---------- 输入 ----------
+    def _set_language(self, language):
+        global LANG, _T, _BT, LINES, GRAB_LINES, LAND_LINES, CHEER_LINES, SLEEP_LINE
+        save_language(language)
+        self._ui_language = language
+        LANG = _detect_lang() if language == "system" else language
+        _T, _BT = _texts(LANG), _bridge_texts(LANG)
+        LINES, GRAB_LINES, LAND_LINES = _T["lines"], _T["grab"], _T["land"]
+        CHEER_LINES, SLEEP_LINE = _T["cheer"], _T["sleep"]
+        self._hide_bubble()
+        self._follow_key = None
+        self._bind()
+
+    @staticmethod
+    def _menu_text(chinese, english):
+        return chinese if LANG.startswith("zh") else english
+
     def _bind(self):
+        old_menu = getattr(self, "_context_menu", None)
+        if old_menu is not None:
+            self.root.after_idle(old_menu.destroy)
         c = self.canvas
         c.bind("<Button-1>", self._press)
         c.bind("<Double-Button-1>", self._double)
         c.bind("<B1-Motion>", self._drag)
         c.bind("<ButtonRelease-1>", self._release)
         menu = tk.Menu(self.root, tearoff=0)
-        menu.add_command(label="Iven Pet · 独立桌宠", state="disabled")
+        self._context_menu = menu
+        menu.add_command(label=self._menu_text("Iven Pet · 独立桌宠", "Iven Pet · Desktop companion"), state="disabled")
         menu.add_separator()
         menu.add_command(label=_T["menu_speak"], command=lambda: self.say(random.choice(LINES)))
         if {"cheer_0", "cheer_1"} <= self.frames.keys():
@@ -488,7 +511,7 @@ class Pet:
         if "shy_0" in self.frames:
             menu.add_command(label=_T["menu_shy"], command=self._to_shy)
         auto = tk.BooleanVar(value=self.autoplay)
-        menu.add_checkbutton(label="自动轮播 / Auto play", variable=auto,
+        menu.add_checkbutton(label=self._menu_text("自动轮播动作", "Automatic animations"), variable=auto,
                              command=lambda: setattr(self, "autoplay", auto.get()))
         if self.host is not None:
             def _toggle_bridge():
@@ -496,11 +519,11 @@ class Pet:
                 if not self._bridge_on and self.state in ("WORK", "WAITING"):
                     self._set_state("IDLE", random.randint(40, 80))
             bridge = tk.BooleanVar(value=self._bridge_on)
-            menu.add_checkbutton(label="宿主桥接 / Host bridge", variable=bridge,
+            menu.add_checkbutton(label=self._menu_text("宿主桥接", "Host bridge"), variable=bridge,
                                  command=_toggle_bridge)
         if self.host is not None:
             tracking = tk.Menu(menu, tearoff=0)
-            choice = tk.StringVar(value="")
+            choice = tk.StringVar(value=self.host.selected_source or "")
             def select_source():
                 self.host.select_source(choice.get() or None)
                 self._sleep_queue.clear()
@@ -508,22 +531,36 @@ class Pet:
             def refresh_sources():
                 from bridge_display import SOURCES
                 tracking.delete(0, "end")
-                tracking.add_radiobutton(label="自动 · 全部已接入", variable=choice,
+                tracking.add_radiobutton(label=self._menu_text("自动 · 全部已接入", "Automatic · All connected"), variable=choice,
                                          value="", command=select_source)
                 for source, name in SOURCES.items():
-                    tracking.add_radiobutton(label=name+" · "+self.host.source_status(source),
+                    status = self.host.source_status(source)
+                    if not LANG.startswith("zh"):
+                        status = {"工作中":"Working", "等你确认":"Needs approval",
+                                  "未收到事件":"No events received", "空闲（已收到事件）":"Idle (events received)"}.get(status, status)
+                    tracking.add_radiobutton(label=name+" · "+status,
                                              variable=choice, value=source, command=select_source)
                 tracking.add_separator()
-                tracking.add_command(label="自动：确认优先 → 最近活动", state="disabled")
+                tracking.add_command(label=self._menu_text("自动：确认优先 → 最近活动", "Auto: approvals → recent activity"), state="disabled")
             tracking.configure(postcommand=refresh_sources)
-            menu.add_cascade(label="跟踪 Harness", menu=tracking)
+            menu.add_cascade(label=self._menu_text("跟踪 Harness", "Track Harness"), menu=tracking)
         for state, title in (("STRETCH", "伸懒腰 / Stretch"), ("DOZE", "打瞌睡 / Doze"),
                              ("RUBIK", "玩魔方 / Rubik cube"), ("WAITING", "等待 / Waiting"), ("WORK", "工作 / Working"),
                              ("REVIEW", "检查 / Reviewing"), ("FAILED", "失落 / Sad")):
             if state in self.clips:
-                menu.add_command(label=title, command=lambda s=state: self._menu_clip(s))
+                menu.add_command(label=title.split(" / ")[0 if LANG.startswith("zh") else 1], command=lambda s=state: self._menu_clip(s))
         menu.add_command(label=_T["menu_sleep"], command=self._to_sleep)
         menu.add_separator()
+        languages = tk.Menu(menu, tearoff=0)
+        preference = getattr(self, "_ui_language", load_language())
+        language_choice = tk.StringVar(value=preference)
+        for code, name in (("system", self._menu_text("跟随系统", "System default")),
+                           ("zh", "简体中文"), ("en", "English")):
+            languages.add_radiobutton(label=name, value=code, variable=language_choice,
+                                      command=lambda: self._set_language(language_choice.get()))
+        menu.add_cascade(label=self._menu_text("语言 / Language", "Language / 语言"), menu=languages)
+        menu.add_command(label=self._menu_text("打开 GitHub 仓库", "Open GitHub repository"),
+                         command=lambda: webbrowser.open("https://github.com/IvenKooLab/desktop-pet"))
         menu.add_command(label=_T["menu_exit"], command=self.root.destroy)
         c.bind("<Button-3>", lambda e: menu.tk_popup(e.x_root, e.y_root))
         if sys.platform == "darwin":

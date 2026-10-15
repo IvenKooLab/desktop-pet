@@ -92,6 +92,8 @@ See [docs/BRIDGE.md](docs/BRIDGE.md) for the protocol and developer notes.
 | Drag | Move the pet; release to fall naturally |
 | Right-click | Pick actions, toggle autoplay, choose a tracked source, sleep or quit |
 | Control + click (Mac) | Open the menu |
+| Language / 语言 | System default, Simplified Chinese or English; applies immediately and remembers the choice |
+| Open GitHub repository | Open the project in your default browser |
 | Pin in place (Mac) | Stop roaming while in-place actions continue |
 
 Manual sleep lasts until you click to wake her. Mac roaming follows the desktop floor; walking on application window tops and random dialogue bubbles currently require Windows. Mac supports coding-agent status bubbles. Linux is not supported yet.
