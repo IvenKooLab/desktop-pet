@@ -9,7 +9,7 @@
 | --- | --- | :-: | :-: | :-: | --- | --- |
 | [ZCode](zcode/README.md) | 官方 Hooks（process 执行器） | ✅ | 开关后 ✅ | ❌ | 接口按官方文档 | fixture 重放（`tests/test_zcode_adapter.py`）；**真实新 session 验收待用户执行** |
 | [DSH](dsh/README.md) | cordis 宿主插件（session/event） | ✅ | 开关后 ✅ | ❌（SDK 属二阶段） | 事件语义按 dsh-pet 与本地 dsh 源码 | 映射自测（`dsh/self-test.mjs`）+ Python 归约重放；真实任务待用户执行 |
-| [Codex](codex/README.md) | App Server stdio JSON-RPC | ✅（仅本客户端会话） | ❌ | ❌ | **codex-cli 0.162.1 实测握手/thread-list** | mock 重放 + 实连 `--list`；桌面实例旁听未验证（ipc.sock 为内部 IPC） |
+| [Codex](codex/README.md) | App Server stdio JSON-RPC | ✅（仅本客户端会话） | ❌ | ❌ | **codex-cli 0.162.1 实测握手/thread-list** | mock 重放 + 实连 `--list`；**当前不支持跟随正在使用的 Codex 桌面会话**（ipc.sock 为内部 IPC） |
 | [Claude Code](claude-code/README.md) | Hooks（command 形式） | ✅ | 开关后 ✅ | ❌ | 按官方文档 | fixture 重放（`tests/test_host_hooks.py`）；本机未装，实机待用户验收 |
 | [Cursor](cursor/README.md) | Hooks（项目/用户 hooks.json） | ✅ | 开关后 ✅ | ❌ | 按官方文档 | fixture 重放；本机未装，实机待用户验收 |
 | [OpenCode](opencode/README.md) | Server HTTP SSE 监听 | ✅ | ❌ | ❌ | 按官方文档 | mock SSE 重放（`tests/test_opencode_adapter.py`）；本机未装 |

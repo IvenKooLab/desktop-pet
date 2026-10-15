@@ -50,27 +50,38 @@ python pet.py
 
 Packaged versions are also available on the [releases page](https://github.com/IvenKooLab/desktop-pet/releases). Run or rebuild the current source for the latest actions.
 
-## Coding-agent bridge (optional)
+## Company while you work
 
-A persistent card shows the coding app, working or approval status, and the current task and latest tool. After a reply ends, its available summary stays briefly before the card closes. Task and reply text require the local summary option; status remains visible without it.
+Iven runs as an independent desktop pet. Optional adapters let her follow a local coding agent: a status card stays visible while it works, approval requests remain visible, and turn endings or failures receive a reaction. With summaries enabled, the card can also show task labels or reply summaries provided by the adapter. Available text varies by source; this is not full conversation access for every agent.
 
-Use **跟踪 Harness** (Track Harness) in the right-click menu to view each source’s received event state and select automatic tracking or one source. States distinguish working, approval needed, idle, and no events received; an open app is not proof of a connected adapter. Automatic mode observes all sources, prioritizing approval requests and then recent activity. Selecting one source prevents other sources from interrupting its display.
+### Choose a source
 
-A small nameplate beside the pet identifies the active harness, such as “Following · ZCode”. In automatic mode, `+1` means another harness is active. Approval requests take priority, then the most recently active task. Idle shows “Last”; no source shows “Standalone”.
+Right-click → **跟踪 Harness** (Track Harness):
 
-The pet can sense what your local coding agent is doing: she "works" beside you while
-the agent runs tools, reminds you when a permission is waiting, and reacts to turn
-ends, failures and completed tasks (the native Mac app shows small bubble notices).
-Communication is a **local file inbox only — no network — and state-only by default**:
-no prompts, replies or tool contents ever leave the host. Either side can be closed
-without affecting the other.
+- **Automatic · all connected sources:** receive events from every configured adapter, prioritizing approval requests and then the most recently active session.
+- **One source:** show only that source’s status and notices, without interruptions from other agents.
+- **Per-source state:** working, approval needed, idle, or no events received. Opening an agent app or selecting its name does not establish a connection; install its adapter first.
 
-Currently supported: **ZCode, DSH (DeepSeek Harness), Codex, Claude Code,
-Cursor and OpenCode** — see the capability matrix in
-[`adapters/`](adapters/README.md) for per-host status, and each adapter
-folder for installation. No pet-side setup is
-needed; toggle "宿主桥接 / Host bridge" in the right-click menu anytime.
-Protocol and implementation details live in [`docs/BRIDGE.md`](docs/BRIDGE.md).
+A small nameplate identifies the source currently followed. In automatic mode, `+1` indicates another active source. A selected source without events is labeled accordingly, such as “Codex · No events”. One pet receives multiple sources, while the card displays one session at a time. Menu and label wording follows the app’s available language support.
+
+### Integration availability
+
+| Source | Connection | Current scope |
+| :--- | :--- | :--- |
+| [ZCode](adapters/zcode/README.md) | Hooks | Work, tool activity, approvals and turn endings; optional task labels and reply summaries |
+| [DSH / DeepSeek Harness](adapters/dsh/README.md) | Host plugin | Session and tool events, approvals and goal results; optional task labels |
+| [Claude Code](adapters/claude-code/README.md) | Hooks | Adapter and event replay tests provided; validation in the actual client is still needed |
+| [Cursor](adapters/cursor/README.md) | Hooks | Adapter and event replay tests provided; validation in the actual client is still needed |
+| [OpenCode](adapters/opencode/README.md) | Server event stream | State adapter and mock server tests provided; validation in the actual client is still needed |
+| [Codex](adapters/codex/README.md) | Separate App Server client | **Cannot currently follow your active Codex desktop session.** Verification covers a separate client’s handshake, thread listing and simulated events; this is not a ready-to-use desktop integration |
+
+Install each adapter separately using the links above. See the [capability matrix](adapters/README.md) for details. Iven is separate from the built-in pets in ChatGPT / Codex and runs without either app.
+
+### Local communication and optional text
+
+Adapters send events through a local file inbox; the pet needs no additional model calls. State and tool names are sent by default. Task labels and reply summaries require a separate opt-in and are truncated; when enabled, that text is also written to local event files and shown on your desktop. The pet does not approve permissions, send tasks or control the agent. Closing either side does not prevent the other from working normally.
+
+See [docs/BRIDGE.md](docs/BRIDGE.md) for the protocol and developer notes.
 
 ## Interactions
 
@@ -79,11 +90,11 @@ Protocol and implementation details live in [`docs/BRIDGE.md`](docs/BRIDGE.md).
 | Click | Bounce; wake up when sleeping |
 | Double-click | Happy reaction |
 | Drag | Move the pet; release to fall naturally |
-| Right-click | Pick actions, toggle autoplay, sleep or quit |
+| Right-click | Pick actions, toggle autoplay, choose a tracked source, sleep or quit |
 | Control + click (Mac) | Open the menu |
 | Pin in place (Mac) | Stop roaming while in-place actions continue |
 
-Manual sleep lasts until you click to wake her. Mac roaming follows the desktop floor; walking on application window tops and speech bubbles currently require Windows. Linux is not supported yet.
+Manual sleep lasts until you click to wake her. Mac roaming follows the desktop floor; walking on application window tops and random dialogue bubbles currently require Windows. Mac supports coding-agent status bubbles. Linux is not supported yet.
 
 ## Build from source
 
