@@ -439,6 +439,10 @@ final class PetController: NSObject, NSApplicationDelegate {
         }
         var text = bridgeZh ? "独立模式" : "Standalone"
         var color = NSColor.systemGray
+        if bridge.source == nil, let selected = bridge.selectedSource {
+            let names = ["dsh":"DSH","zcode":"ZCode","codex":"Codex","claude-code":"Claude Code","cursor":"Cursor","opencode":"OpenCode"]
+            text = (names[selected] ?? selected)+(bridgeZh ? " · 未收到事件" : " · No events")
+        }
         if let source = bridge.source {
             text = (bridge.mode == nil ? (bridgeZh ? "最近 · " : "Last · ") : (bridgeZh ? "跟随 · " : "Following · "))+hostName()
             let others = max(0,bridge.activeSources.count-1)

@@ -30,6 +30,9 @@ def status_card(bridge, zh=True):
 
 
 def following_badge(bridge, zh=True):
+    if bridge is not None and bridge.enabled and bridge.selected_source and not bridge.source:
+        name = SOURCES.get(bridge.selected_source, bridge.selected_source)
+        return (name+(" · 未收到事件" if zh else " · No events"), "#8b8792")
     if bridge is None or not bridge.enabled or not bridge.source:
         return ("独立模式" if zh else "Standalone", "#8b8792")
     name = SOURCES.get(bridge.source, bridge.source)

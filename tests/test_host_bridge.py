@@ -71,6 +71,8 @@ class BridgeCase(unittest.TestCase):
         self.bridge.select_source("codex")
         self.assertIsNone(self.bridge.mode)
         self.assertIsNone(self.bridge.source)
+        from bridge_display import following_badge
+        self.assertEqual(following_badge(self.bridge)[0], "Codex · 未收到事件")
         self.bridge.select_source()
         self.assertEqual(self.bridge.source, "dsh")
 
