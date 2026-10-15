@@ -32,7 +32,7 @@ from pathlib import Path
 PROTOCOL_VERSION = 1
 KINDS = frozenset(("session.started", "turn.started", "tool.started",
                    "permission.required", "tool.finished", "tool.failed",
-                   "turn.ended", "turn.failed", "task.completed",
+                   "turn.ended", "turn.failed", "task.completed", "task.updated",
                    "interrupted", "session.ended"))
 # 会触发动作/气泡的一次性通知；其余只改持续状态
 IMPORTANT = frozenset(("permission.required", "turn.failed", "task.completed"))
@@ -41,8 +41,8 @@ MAX_SUMMARY = 160       # summary 截断（适配器默认不传，用户开启�
 MAX_EVENTS_PER_POLL = 64    # 单轮最多消费，防止风暴
 MAX_BACKLOG = 500           # 收件箱超过则丢弃最旧（过期清理兜底）
 EVENT_MAX_AGE = 180.0       # 事件时间戳超过即过期（宿主休眠后的陈旧事件）
-STALE_AFTER = 120.0         # 无新事件多久判离线
-SESSION_QUIET = 45.0        # 单个会话 working/waiting 静默多久退回 idle
+STALE_AFTER = 1200.0         # 无新事件多久判离线（无心跳时的保守回退）
+SESSION_QUIET = 900.0        # 长任务保持状态，不再 45 秒误判空闲
                             # （宿主 Stop 未触发/回合未结束时不把桌宠钉死）
 
 
@@ -107,23 +107,27 @@ def _clean_text(value, limit):
 class Notice:
     """一次性提醒（重要级可打断当前动作/入睡眠队列）。"""
 
-    __slots__ = ("kind", "label")
+    __slots__ = ("kind", "label", "source")
 
-    def __init__(self, kind, label=None):
+    def __init__(self, kind, label=None, source=None):
         self.kind = kind
         self.label = label
+        self.source = source
 
     def __repr__(self):
         return f"Notice({self.kind!r}, {self.label!r})"
 
 
 class _Session:
-    __slots__ = ("last_seen", "phase", "label")
+    __slots__ = ("last_seen", "phase", "label", "source", "tool", "summary")
 
     def __init__(self, ts):
         self.last_seen = ts
         self.phase = "idle"        # idle | working | waiting
         self.label = None
+        self.source = None
+        self.tool = None
+        self.summary = None
 
 
 class HostBridge:
@@ -139,6 +143,8 @@ class HostBridge:
         self._clock = clock
         self.mode = None
         self.label = None
+        self.source = None
+        self.detail = None
         self.sessions = {}          # session_id -> _Session
         self._seen = {}             # event_id -> epoch（有界去重）
         self._last_event_ts = None
@@ -172,6 +178,9 @@ class HostBridge:
             try:
                 raw = json.loads((self.dir / name).read_text(encoding="utf-8"))
             except (OSError, ValueError):
+                self._discard(name)
+                continue
+            if not isinstance(raw, dict):
                 self._discard(name)
                 continue
             ts = _parse_ts(raw.get("timestamp"))
@@ -211,7 +220,16 @@ class HostBridge:
             if kind != "session.started":
                 notices.append(Notice("session.started"))
         sess.last_seen = ev["_ts"]
+        sess.source = _clean_text(ev.get("source"), 32) or sess.source
         label = _clean_text(ev.get("task_label"), MAX_LABEL)
+        summary = _clean_text(ev.get("summary"), MAX_SUMMARY)
+        tool = _clean_text(ev.get("tool_name"), 48)
+        if kind == "turn.started":
+            sess.label, sess.tool, sess.summary = None, None, None
+        if tool:
+            sess.tool = tool
+        if summary:
+            sess.summary = summary
         if label:
             sess.label = label
             self.label = label
@@ -230,14 +248,14 @@ class HostBridge:
                 notices.append(Notice("tool.failed", sess.label))
         elif kind == "turn.ended":
             sess.phase = "idle"
-            notices.append(Notice("turn.ended", sess.label))
+            notices.append(Notice("turn.ended", summary or sess.summary or sess.label, sess.source))
         elif kind == "turn.failed":
             sess.phase = "idle"
             notices.append(Notice("turn.failed", sess.label
                                   or _clean_text(ev.get("summary"), MAX_SUMMARY)))
         elif kind == "task.completed":
             sess.phase = "idle"
-            notices.append(Notice("task.completed", sess.label))
+            notices.append(Notice("task.completed", summary or sess.summary or sess.label, sess.source))
         elif kind in ("interrupted", "session.ended"):
             self.sessions.pop(sid, None)
         # session.started / tool.finished：无可见状态变化
@@ -260,12 +278,14 @@ class HostBridge:
                 sess.phase = "idle"
 
     def _recompute_mode(self):
-        phases = [s.phase for s in self.sessions.values()]
-        if "waiting" in phases:
-            self.mode = "waiting"
-        elif "working" in phases:
-            self.mode = "working"
+        active = [s for s in self.sessions.values() if s.phase in ("working", "waiting")]
+        if active:
+            current = max(active, key=lambda s: (s.phase == "waiting", s.last_seen))
+            self.mode, self.label = current.phase, current.label
+            self.source, self.detail = current.source, current.tool
         else:
             self.mode = None
-            self.label = next((s.label for s in self.sessions.values()
-                               if s.label), None)
+            current = max(self.sessions.values(), key=lambda s: s.last_seen, default=None)
+            self.label = current.label if current else None
+            self.source = current.source if current else None
+            self.detail = None

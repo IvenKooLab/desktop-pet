@@ -41,7 +41,7 @@ def build_event(payload):
         if name == "beforeSubmitPrompt":
             label = clean(first_key(payload, "prompt", "userPrompt"), 80)
         elif name == "afterAgentResponse":
-            summary_text = clean(first_key(payload, "response",
+            summary_text = clean(first_key(payload, "text", "response",
                                            "agentResponse"), 160)
     if name == "stop":
         status = (first_key(payload, "status", "stopStatus") or "").lower()

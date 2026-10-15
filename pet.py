@@ -24,6 +24,7 @@ import tkinter as tk
 from animation_assets import load_clips, timed_frame
 from desktop_platform import configure_transparency, frame_path, clear_legacy_color_key
 from host_bridge import HostBridge
+from bridge_display import status_card
 
 try:                    # Windows：枚举窗口顶边当平台
     import ctypes
@@ -420,6 +421,10 @@ class Pet:
         self.press_pos = None
         self.bubble = None
         self.bubble_job = None
+        self._bubble_key = None
+        self._bubble_persistent = False
+        self._bubble_deadline = 0
+        self._bubble_position = None
 
         # 宿主桥接（可选能力；无收件箱时 poll 静默空转，桌宠完全独立）
         self.host = (HostBridge()
@@ -690,8 +695,9 @@ class Pet:
         if n.kind == "permission.required":
             if "WAITING" in self.clips:
                 self._set_state("WAITING", 10 ** 9)
-                self.say(_BT["waiting"].format(label=n.label) if n.label
-                         else _BT["waiting_plain"], 3000)
+                card = status_card(self.host, LANG.startswith("zh")) if self.host else None
+                if card:
+                    self.say(card[1], 0, title=card[0], tone=card[2])
         elif n.kind == "tool.failed":
             if self.host and self.host.mode == "working" and "FAILED" in self.clips:
                 self._set_state("FAILED", (sum(self.clips["FAILED"][1]) + 49) // 50)
@@ -699,7 +705,7 @@ class Pet:
             if "FAILED" in self.clips:
                 self._set_state("FAILED", (sum(self.clips["FAILED"][1]) + 49) // 50)
             self.say(_BT["failed"].format(label=n.label) if n.label
-                     else _BT["failed_plain"], 3000)
+                     else _BT["failed_plain"], 6000, title=_BT["failed_plain"], tone="error")
         elif n.kind == "task.completed":
             pick = "CHEER" if "CHEER" in self.clips else (
                 "HAPPY" if "HAPPY" in self.clips else None)
@@ -707,13 +713,13 @@ class Pet:
                 ticks = (sum(self.clips[pick][1]) + 49) // 50 + 20
                 self._manual(ticks + 30)
                 self._set_state(pick, ticks)
-            self.say(_BT["done"], 2400)
+            self.say(n.label or _BT["done"], 7000, title=_BT["done"], tone="done")
         elif n.kind == "turn.ended":
             # Stop 语义：只是"本轮回复结束"，绝不宣称任务成功
             if self.state in ("WORK", "WAITING") or self._host_dwell:
                 self._host_dwell = False
                 self._set_state("IDLE", random.randint(40, 80))
-                self.say(_BT["turn_end"], 1800)
+            self.say(n.label or _BT["turn_end"], 7000, title=_BT["turn_end"], tone="done")
 
     def _host_assert(self):
         """边界断言：等待确认 > 宿主工作 > 普通轮播。
@@ -728,10 +734,18 @@ class Pet:
                 self._host_dwell = False
                 self._set_state("IDLE", random.randint(40, 80))
             self._host_label_shown = None
+            if self._bubble_persistent:
+                self._hide_bubble()
             return
         if (self.state in ("SLEEP", "GRAB", "FALL", "LAND")
                 or self.drag_off is not None or self._host_hold > self.tick_n):
+            if self._bubble_persistent:
+                self._hide_bubble()
             return
+        if self._bubble_persistent or self._bubble_deadline <= time.monotonic():
+            card = status_card(self.host, LANG.startswith("zh"))
+            if card:
+                self.say(card[1], 0, title=card[0], tone=card[2])
         if self.host.mode == "waiting":
             if "WAITING" in self.clips and self.state != "WAITING":
                 self._host_dwell = False
@@ -748,10 +762,6 @@ class Pet:
     def _enter_work(self):
         self._host_dwell = False
         self._set_state("WORK", (sum(self.clips["WORK"][1]) + 49) // 50)
-        label = self.host.label
-        if label and label != self._host_label_shown:
-            self._host_label_shown = label
-            self.say(label, 2200)
 
     # ---------- 主循环 ----------
     def _loop(self):
@@ -777,6 +787,7 @@ class Pet:
             self.canvas.itemconfig(self.sprite,
                                    image=self.frames.get(name, self.frames[self._fallback]))
         self.root.geometry(f"+{int(rx)}+{int(ry)}")
+        self._place_bubble()
 
     def _frame_at(self, now, alpha):
         """当前应显示的帧名。alpha=当前逻辑步内进度 0~1（SPIN 用其连续取面）。"""
@@ -988,20 +999,64 @@ class Pet:
             self._anim_t0 = time.monotonic()
 
     # ---------- 台词气泡 ----------
-    def say(self, text, ms=2600):
+    def _hide_bubble(self):
         if self.bubble_job:
             self.root.after_cancel(self.bubble_job)
+            self.bubble_job = None
         if self.bubble:
             self.bubble.destroy()
+            self.bubble = None
+        self._bubble_key = None
+        self._bubble_persistent = False
+        self._bubble_deadline = 0
+        self._bubble_position = None
+
+    def _place_bubble(self):
+        if not self.bubble:
+            return
+        width, height = self.bubble.winfo_reqwidth(), self.bubble.winfo_reqheight()
+        x = max(8, min(self.sw-width-8, int(self.x+SIZE/2-width/2)))
+        y = max(8, int(self.y+52-height))
+        position = (x,y)
+        if position != self._bubble_position:
+            self.bubble.geometry(f"+{x}+{y}")
+            self._bubble_position = position
+
+    def say(self, text, ms=2600, title=None, tone="info"):
+        # Status cards persist until the reducer changes state, independent of animation.
+        title = title or "Iven"
+        text = str(text)[:160]
+        key = (title,text,tone,ms == 0)
+        if key == self._bubble_key and self.bubble:
+            return
+        self._hide_bubble()
         b = tk.Toplevel(self.root)
         b.overrideredirect(True)
         b.attributes("-topmost", True)
-        b.geometry(f"+{max(10, int(self.x) - 40)}+{max(10, int(self.y) - 56)}")
-        tk.Label(b, text=text, font=("Microsoft YaHei UI", 10),
-                 bg="#FFF9C4", fg="#333", padx=10, pady=6,
-                 highlightthickness=1, highlightbackground="#E0C94B").pack()
+        b.configure(bg=self.background)
+        if sys.platform == "win32":
+            b.attributes("-transparentcolor", self.background)
+        canvas = tk.Canvas(b,width=286,height=110,bg=self.background,bd=0,highlightthickness=0)
+        canvas.pack()
+        font = ("Segoe UI", 10)
+        body = canvas.create_text(18,39,text=text,font=font,fill="#302d38",width=250,anchor="nw")
+        bounds = canvas.bbox(body)
+        height = max(76,(bounds[3] if bounds else 57)+18)
+        canvas.configure(height=height)
+        r,w,h = 14,285,height-1
+        points = [r,1,w-r,1,w,1,w,r,w,h-r,w,h,w-r,h,r,h,1,h,1,h-r,1,r,1,1]
+        background = canvas.create_polygon(points,smooth=True,splinesteps=24,fill="#fcfbfe",outline="#d5cfe0",width=1)
+        canvas.tag_lower(background)
+        color = "#d89525" if tone == "waiting" else "#419c70" if tone == "done" else "#c95c61" if tone == "error" else "#8970ba"
+        canvas.create_oval(16,19,22,25,fill=color,outline="")
+        canvas.create_text(29,15,text=title,font=("Segoe UI",9,"bold"),fill="#655775",anchor="nw",width=240)
         self.bubble = b
-        self.bubble_job = self.root.after(ms, b.destroy)
+        self._bubble_key = key
+        self._bubble_persistent = ms == 0
+        self._bubble_deadline = time.monotonic()+ms/1000 if ms else 0
+        b.update_idletasks()
+        self._place_bubble()
+        self.bubble_job = self.root.after(ms,self._hide_bubble) if ms else None
 
     def run(self):
         self.last_input = self.tick_n

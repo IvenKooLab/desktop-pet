@@ -25,6 +25,12 @@ func draggedOrigin(start: NSPoint, pointerStart: NSPoint, pointer: NSPoint) -> N
             y: start.y + pointer.y - pointerStart.y)
 }
 
+func statusCardPlacement(pet: NSRect, screen: NSRect, card: NSSize) -> (pet: NSPoint, bubble: NSPoint) {
+    let origin = NSPoint(x:pet.minX,y:min(pet.minY,screen.maxY-card.height-156))
+    let x = min(screen.maxX-card.width-8,max(screen.minX+8,pet.midX-card.width/2))
+    return (origin,NSPoint(x:x,y:max(screen.minY+8,origin.y+148)))
+}
+
 final class PetPanel: NSPanel {
     override var canBecomeKey: Bool { false }
     override var canBecomeMain: Bool { false }
@@ -100,20 +106,22 @@ struct BridgeNotice { let kind: String; let label: String? }
 final class HostBridge {
     static let kinds: Set<String> = ["session.started","turn.started","tool.started",
         "permission.required","tool.finished","tool.failed","turn.ended","turn.failed",
-        "task.completed","interrupted","session.ended"]
-    static let staleAfter = 120.0
+        "task.completed","task.updated","interrupted","session.ended"]
+    static let staleAfter = 1200.0
     static let eventMaxAge = 180.0
-    static let sessionQuiet = 45.0   // 单会话 working/waiting 静默多久退回 idle
+    static let sessionQuiet = 900.0   // 单会话 working/waiting 静默多久退回 idle
     static let maxPerPoll = 64
     static let maxBacklog = 500
 
     let dir: URL
     private var clock: () -> TimeInterval
-    private var sessions: [String: (phase: String, label: String?, lastSeen: TimeInterval)] = [:]
+    private var sessions: [String: (phase: String, label: String?, lastSeen: TimeInterval, source: String?, tool: String?, summary: String?)] = [:]
     private var seen: [String: TimeInterval] = [:]
     private var lastEventTs: TimeInterval?
     private(set) var mode: String?        // nil | "working" | "waiting"
     private(set) var label: String?
+    private(set) var source: String?
+    private(set) var detail: String?
 
     init(directory: URL? = nil, clock: @escaping () -> TimeInterval = { Date().timeIntervalSince1970 }) {
         if let directory { dir = directory }
@@ -188,11 +196,15 @@ final class HostBridge {
         let sid = (obj["session_id"] as? String ?? "unknown").prefix(64).description
         if sessions[sid] == nil {
             if kind == "session.ended" { return }
-            sessions[sid] = (phase: "idle", label: nil, lastSeen: ts)
+            sessions[sid] = (phase: "idle", label: nil, lastSeen: ts, source: nil, tool: nil, summary: nil)
             if kind != "session.started" { notices.append(BridgeNotice(kind: "session.started", label: nil)) }
         }
         var sess = sessions[sid]!
         sess.lastSeen = ts
+        sess.source = HostBridge.cleanText(obj["source"], limit: 32) ?? sess.source
+        if kind == "turn.started" { sess.label = nil; sess.tool = nil; sess.summary = nil }
+        if let tool = HostBridge.cleanText(obj["tool_name"], limit: 48) { sess.tool = tool }
+        if let summary = HostBridge.cleanText(obj["summary"], limit: 160) { sess.summary = summary }
         let label = HostBridge.cleanText(obj["task_label"], limit: 80)
         if let label { sess.label = label; self.label = label }
         switch kind {
@@ -209,13 +221,13 @@ final class HostBridge {
             notices.append(BridgeNotice(kind: "tool.failed", label: sess.label))
         case "turn.ended":
             sess.phase = "idle"
-            notices.append(BridgeNotice(kind: "turn.ended", label: sess.label))
+            notices.append(BridgeNotice(kind: "turn.ended", label: sess.summary ?? sess.label))
         case "turn.failed":
             sess.phase = "idle"
             notices.append(BridgeNotice(kind: "turn.failed", label: sess.label))
         case "task.completed":
             sess.phase = "idle"
-            notices.append(BridgeNotice(kind: "task.completed", label: sess.label))
+            notices.append(BridgeNotice(kind: "task.completed", label: sess.summary ?? sess.label))
         case "interrupted", "session.ended":
             sessions.removeValue(forKey: sid)
             return
@@ -225,14 +237,17 @@ final class HostBridge {
     }
 
     private func recomputeMode() {
-        let phases = sessions.values.map { $0.phase }
-        if phases.contains("waiting") { mode = "waiting" }
-        else if phases.contains("working") { mode = "working" }
-        else {
-            mode = nil
-            label = sessions.values.compactMap { $0.label }.first
-        }
+        let active = sessions.values.filter { $0.phase == "waiting" || $0.phase == "working" }
+        let chosen = active.sorted {
+            if ($0.phase == "waiting") != ($1.phase == "waiting") { return $0.phase == "waiting" }
+            return $0.lastSeen > $1.lastSeen
+        }.first ?? sessions.values.max { $0.lastSeen < $1.lastSeen }
+        mode = active.isEmpty ? nil : chosen?.phase
+        label = chosen?.label
+        source = chosen?.source
+        detail = active.isEmpty ? nil : chosen?.tool
     }
+
 }
 
 final class PetController: NSObject, NSApplicationDelegate {
@@ -260,9 +275,16 @@ final class PetController: NSObject, NSApplicationDelegate {
     private var manualUntil: TimeInterval = 0        // 手动点播的宿主抑制窗口
     private var sleepQueue: [BridgeNotice] = []      // 睡眠期间的重要提醒
     private var labelShown: String?
-    private var bubbleLayer: CATextLayer?
+    private var bubblePanel: NSPanel?
+    private var bubbleTitle: NSTextField?
+    private var bubbleBody: NSTextField?
+    private var bubbleCard: CALayer?
+    private var bubbleDot: CALayer?
+    private var bubbleTail: CAShapeLayer?
+    private var bubbleKey = ""
+    private var bubbleIsHost = false
     private var bubbleHideAt: TimeInterval = 0
-    private let bridgeZh = (Locale.current.languageCode == "zh")
+    private let bridgeZh = (Locale.current.language.languageCode?.identifier == "zh")
 
     private func advance() {
         if let hostMode = bridge.mode, hostAvailable(hostMode), !hostSuppressed() {
@@ -310,9 +332,14 @@ final class PetController: NSObject, NSApplicationDelegate {
         if bridge.mode == nil {
             if mode == "HOST" { play("IDLE",mode:"IDLE",seconds:3) }
             labelShown = nil
+            if bubbleIsHost { bubblePanel?.orderOut(nil); bubbleKey = ""; bubbleIsHost = false }
             return
         }
-        guard hostAvailable(bridge.mode!), !hostSuppressed() else { return }
+        guard hostAvailable(bridge.mode!), !hostSuppressed() else {
+            if bubbleIsHost { bubblePanel?.orderOut(nil); bubbleKey = "" }
+            return
+        }
+        updateHostBubble()
         if mode == "HOST" {
             // 已在宿主模式：打板/喘气节奏交给 advance()，只在切等待时立即接管
             if bridge.mode == "waiting" && clipName != "WAITING" {
@@ -324,10 +351,7 @@ final class PetController: NSObject, NSApplicationDelegate {
             play("WAITING", mode: "HOST", seconds: 0)
         } else {
             play("WORK", mode: "HOST", seconds: Double(clips["WORK"]!.total)/1000)
-            if let l = bridge.label, l != labelShown {
-                labelShown = l
-                showBubble(l, seconds: 2.2)
-            }
+
         }
     }
     private func handleNotice(_ n: BridgeNotice) {
@@ -341,8 +365,7 @@ final class PetController: NSObject, NSApplicationDelegate {
         case "permission.required":
             if clips["WAITING"] != nil {
                 play("WAITING", mode: "HOST", seconds: 0)
-                showBubble(n.label.map { bridgeZh ? "等你确认：\($0)" : "Waiting: \($0)" }
-                           ?? (bridgeZh ? "等你确认～" : "Waiting for you~"), seconds: 3.0)
+                updateHostBubble()
             }
         case "tool.failed":
             if bridge.mode == "working", let clip = clips["FAILED"] {
@@ -351,19 +374,18 @@ final class PetController: NSObject, NSApplicationDelegate {
         case "turn.failed":
             if let clip = clips["FAILED"] { play("FAILED", mode: "ACTION", seconds: Double(clip.total)/1000) }
             showBubble(n.label.map { bridgeZh ? "出问题了：\($0)" : "Failed: \($0)" }
-                       ?? (bridgeZh ? "出问题了…" : "Something failed…"), seconds: 3.0)
+                       ?? (bridgeZh ? "出问题了…" : "Something failed…"), seconds: 6, title: hostName()+" · "+(bridgeZh ? "遇到问题" : "Needs attention"), tone: "error")
         case "task.completed":
             let pick = clips["CHEER"] != nil ? "CHEER" : (clips["HAPPY"] != nil ? "HAPPY" : nil)
             if let pick {
                 manualUntil = ProcessInfo.processInfo.systemUptime + Double(clips[pick]!.total)/1000 + 1.5
                 play(pick, mode: "ACTION", seconds: Double(clips[pick]!.total)/1000 + 1.0)
             }
-            showBubble(bridgeZh ? "任务完成！" : "Task done!", seconds: 2.4)
+            showBubble(n.label ?? (bridgeZh ? "任务已完成" : "Task completed"), seconds: 7, title: hostName()+" · "+(bridgeZh ? "任务完成" : "Completed"), tone: "done")
         case "turn.ended":
-            if mode == "HOST" {
-                play("IDLE", mode: "IDLE", seconds: 3)
-                showBubble(bridgeZh ? "本轮回复结束" : "Turn finished", seconds: 1.8)
-            }
+            if mode == "HOST" { play("IDLE", mode: "IDLE", seconds: 3) }
+            showBubble(n.label ?? (bridgeZh ? "已回复，随时继续" : "Ready when you are"), seconds: 7,
+                       title: hostName()+" · "+(bridgeZh ? "本轮回复结束" : "Reply finished"), tone: "done")
         default: break
         }
     }
@@ -375,26 +397,93 @@ final class PetController: NSObject, NSApplicationDelegate {
             self?.handleNotice(pending)
         }
     }
-    private func showBubble(_ text: String, seconds: Double) {
-        if bubbleLayer == nil {
-            let layer = CATextLayer()
-            layer.contentsScale = 2
-            layer.cornerRadius = 8
-            layer.masksToBounds = true
-            layer.backgroundColor = NSColor(calibratedWhite: 1, alpha: 0.94).cgColor
-            layer.foregroundColor = NSColor.darkGray.cgColor
-            layer.alignmentMode = .center
-            layer.fontSize = 12
-            layer.font = NSFont.systemFont(ofSize: 12)
-            view.layer?.addSublayer(layer)
-            bubbleLayer = layer
+    private func hostName() -> String {
+        let names = ["zcode":"ZCode", "dsh":"DSH", "claude-code":"Claude Code",
+                     "codex":"Codex", "cursor":"Cursor", "opencode":"OpenCode"]
+        return names[bridge.source ?? ""] ?? bridge.source ?? (bridgeZh ? "编码助手" : "Coding agent")
+    }
+    private func updateHostBubble() {
+        guard let state = bridge.mode else { return }
+        // Let a result/error card finish before resuming persistent status.
+        let now = ProcessInfo.processInfo.systemUptime
+        if !bubbleIsHost && bubbleHideAt > now && bubblePanel?.isVisible == true { return }
+        let title = hostName()+" · "+(state == "waiting" ? (bridgeZh ? "等你确认" : "Needs approval") : (bridgeZh ? "工作中" : "Working"))
+        var lines: [String] = []
+        if let task = bridge.label { lines.append(task) }
+        if let tool = bridge.detail {
+            let parts = tool.components(separatedBy:" · ")
+            let names = ["Read":"读取文件", "read_file":"读取文件", "Bash":"运行命令", "shell":"运行命令",
+                         "run_shell_command":"运行命令", "Edit":"修改文件", "Write":"写入文件", "Grep":"搜索代码", "Glob":"查找文件", "Task":"处理子任务"]
+            let activity = (names[parts[0]] ?? parts[0]) + (parts.count > 1 ? " · "+parts.dropFirst().joined(separator:" · ") : "")
+            lines.append(bridgeZh ? "当前步骤 · "+activity : "Current tool · "+tool)
         }
-        let trimmed = String(text.prefix(64))
-        bubbleLayer?.string = trimmed
-        let width = min(196, max(92, CGFloat(trimmed.count) * 7 + 18))
-        bubbleLayer?.frame = CGRect(x: (200-width)/2, y: 158, width: width, height: 30)
-        bubbleLayer?.isHidden = false
-        bubbleHideAt = ProcessInfo.processInfo.systemUptime + seconds
+        if lines.isEmpty { lines.append(state == "waiting" ? (bridgeZh ? "请在原应用中确认后继续" : "Continue in your coding app") : (bridgeZh ? "正在处理你的任务…" : "Processing your task…")) }
+        showBubble(lines.joined(separator:"\n"),seconds:0,title:title,tone:state,persistent:true)
+    }
+    private func positionBubble() {
+        guard let bubblePanel, bubblePanel.isVisible, let panel else { return }
+        let screen = screenFrame()
+        let width = bubblePanel.frame.width, height = bubblePanel.frame.height
+        let layout = statusCardPlacement(pet:panel.frame,screen:screen,card:NSSize(width:width,height:height))
+        if !pressed { panel.setFrameOrigin(layout.pet) }
+        bubblePanel.setFrameOrigin(layout.bubble)
+        let tailX = min(width-20,max(20,panel.frame.midX-layout.bubble.x))
+        let triangle = CGMutablePath(); triangle.move(to:CGPoint(x:tailX-7,y:9))
+        triangle.addLine(to:CGPoint(x:tailX,y:1)); triangle.addLine(to:CGPoint(x:tailX+7,y:9)); triangle.closeSubpath()
+        bubbleTail?.path = triangle
+    }
+    private func showBubble(_ text: String, seconds: Double, title: String? = nil,
+                            tone: String = "info", persistent: Bool = false) {
+        let heading = title ?? hostName()
+        let body = String(text.prefix(160))
+        let key = heading+"|"+body+"|"+tone
+        if persistent && bubbleIsHost && bubbleKey == key && bubblePanel?.isVisible == true { return }
+        if bubblePanel == nil {
+            let card = NSPanel(contentRect:NSRect(x:0,y:0,width:286,height:100),
+                               styleMask:[.borderless,.nonactivatingPanel],backing:.buffered,defer:false)
+            card.isOpaque = false; card.backgroundColor = .clear; card.hasShadow = true
+            card.level = .floating; card.ignoresMouseEvents = true; card.hidesOnDeactivate = false
+            card.collectionBehavior = [.canJoinAllSpaces,.fullScreenAuxiliary]
+            card.title = "Iven · 任务状态"
+            let content = NSView(); content.wantsLayer = true; content.layer?.backgroundColor = NSColor.clear.cgColor
+            card.contentView = content
+            let background = CALayer(); background.cornerRadius = 14
+            background.backgroundColor = NSColor(calibratedWhite:0.985,alpha:0.98).cgColor
+            background.borderColor = NSColor(calibratedRed:0.79,green:0.77,blue:0.85,alpha:0.8).cgColor
+            background.borderWidth = 0.7; content.layer?.addSublayer(background); bubbleCard = background
+            let tail = CAShapeLayer(); tail.fillColor = background.backgroundColor
+            content.layer?.addSublayer(tail); bubbleTail = tail
+            let dot = CALayer(); dot.cornerRadius = 3; content.layer?.addSublayer(dot); bubbleDot = dot
+            let header = NSTextField(labelWithString:""); header.font = .systemFont(ofSize:11,weight:.semibold)
+            header.textColor = NSColor(calibratedRed:0.39,green:0.34,blue:0.48,alpha:1)
+            content.addSubview(header); bubbleTitle = header
+            let message = NSTextField(wrappingLabelWithString:""); message.font = .systemFont(ofSize:12)
+            message.textColor = NSColor(calibratedWhite:0.19,alpha:1); message.maximumNumberOfLines = 4
+            message.lineBreakMode = .byWordWrapping; content.addSubview(message); bubbleBody = message
+            bubblePanel = card
+        }
+        let font = NSFont.systemFont(ofSize:12)
+        let paragraph = NSMutableParagraphStyle(); paragraph.lineBreakMode = .byWordWrapping; paragraph.lineSpacing = 3
+        let attributes: [NSAttributedString.Key:Any] = [.font:font,.paragraphStyle:paragraph]
+        let measured = (body as NSString).boundingRect(with:NSSize(width:250,height:1000),options:[.usesLineFragmentOrigin,.usesFontLeading],attributes:attributes).height
+        let bodyHeight = min(76,max(18,ceil(measured)+3)), height = bodyHeight+52
+        bubblePanel?.setContentSize(NSSize(width:286,height:height))
+        bubbleCard?.frame = CGRect(x:0,y:8,width:286,height:height-8)
+        let triangle = CGMutablePath(); triangle.move(to:CGPoint(x:136,y:9))
+        triangle.addLine(to:CGPoint(x:143,y:1)); triangle.addLine(to:CGPoint(x:150,y:9)); triangle.closeSubpath()
+        bubbleTail?.path = triangle
+        bubbleTitle?.stringValue = heading
+        bubbleTitle?.frame = CGRect(x:28,y:height-33,width:242,height:17)
+        bubbleBody?.attributedStringValue = NSAttributedString(string:body,attributes:attributes)
+        bubbleBody?.frame = CGRect(x:18,y:19,width:250,height:bodyHeight)
+        bubbleDot?.frame = CGRect(x:16,y:height-26,width:6,height:6)
+        bubbleDot?.backgroundColor = (tone == "waiting" ? NSColor.systemOrange : tone == "done" ? NSColor.systemGreen : tone == "error" ? NSColor.systemRed : NSColor.systemPurple).cgColor
+        bubbleIsHost = persistent; bubbleKey = key
+        bubbleHideAt = persistent ? 0 : ProcessInfo.processInfo.systemUptime+seconds
+        bubblePanel?.orderFrontRegardless(); positionBubble()
+        if ProcessInfo.processInfo.environment["IVEN_BRIDGE_DEBUG"] == "1", !persistent || bubbleKey == key {
+            if let id = bubblePanel?.windowNumber { print("[status-card] window=\(id)"); fflush(stdout) }
+        }
     }
 
     init(directory: URL) throws {
@@ -440,7 +529,8 @@ final class PetController: NSObject, NSApplicationDelegate {
         view.layer?.contentsGravity = .resizeAspect
         panel.contentView = view
         panel.orderFrontRegardless()
-        play("FALL",mode:"FALL",seconds:0)
+        // A pinned pet must start idle; FALL has no deadline and suppresses host UI.
+        play(pinned ? "IDLE" : "FALL",mode:pinned ? "IDLE" : "FALL",seconds:pinned ? 4 : 0)
         previous = ProcessInfo.processInfo.systemUptime
         timer = Timer(timeInterval:1.0/60.0,target:self,selector:#selector(tick),userInfo:nil,repeats:true)
         RunLoop.main.add(timer!, forMode:.common)
@@ -466,7 +556,10 @@ final class PetController: NSObject, NSApplicationDelegate {
         let dt = min(0.05,max(0,now-previous)) * playbackSpeed
         previous = now
         hostTick()
-        if let bubble = bubbleLayer, !bubble.isHidden, now >= bubbleHideAt { bubble.isHidden = true }
+        if bubbleHideAt > 0 && now >= bubbleHideAt {
+            bubblePanel?.orderOut(nil); bubbleHideAt = 0; bubbleKey = ""
+        }
+        positionBubble()
         if !pressed {
             var origin = panel.frame.origin
             let screen = screenFrame()
@@ -567,6 +660,18 @@ final class PetController: NSObject, NSApplicationDelegate {
 }
 
 if CommandLine.arguments.contains("--self-test") {
+    let display = NSRect(x:-800,y:32,width:1440,height:868)
+    for x in [display.minX, display.midX, display.maxX-200] {
+        for y in [display.minY-7,display.maxY-240,display.maxY-100] {
+            for height in [70.0,100.0,128.0] {
+                let size = NSSize(width:286,height:height)
+                let layout = statusCardPlacement(pet:NSRect(x:x,y:y,width:200,height:200),screen:display,card:size)
+                precondition(layout.bubble.y >= layout.pet.y+148, "Status card must remain above the head")
+                precondition(layout.bubble.y+height <= display.maxY-8, "Card must fit below top edge")
+                precondition(layout.bubble.x >= display.minX+8 && layout.bubble.x+286 <= display.maxX-8, "Card fits side edges")
+            }
+        }
+    }
     let start = NSPoint(x:300,y:100)
     let anchor = NSPoint(x:350,y:150)
     let up = draggedOrigin(start:start,pointerStart:anchor,pointer:NSPoint(x:360,y:450))

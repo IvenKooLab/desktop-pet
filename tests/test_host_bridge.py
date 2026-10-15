@@ -54,6 +54,47 @@ class BridgeCase(unittest.TestCase):
         return [n.kind for n in out] if kinds_only else out
 
     # ---------- 归约主场景 ----------
+    def test_working_card_stays_and_updates_tool(self):
+        from bridge_display import status_card
+        self.emit("turn.started", label="修复透明窗口")
+        self.bridge.poll()
+        self.clock.advance(90)
+        self.bridge.poll()
+        self.assertEqual(self.bridge.mode, "working")
+        self.emit("tool.started", tool_name="Read", tool_call_id="a")
+        self.bridge.poll()
+        title,body,tone = status_card(self.bridge)
+        self.assertIn("工作中",title)
+        self.assertIn("修复透明窗口",body)
+        self.assertIn("读取文件",body)
+        self.emit("tool.started", tool_name="Bash", tool_call_id="b")
+        self.bridge.poll()
+        self.assertIn("运行命令",status_card(self.bridge)[1])
+        self.assertNotIn("读取文件",status_card(self.bridge)[1])
+
+    def test_task_updates_and_summary_reach_display(self):
+        from bridge_display import status_card
+        self.emit("turn.started",label="初始任务")
+        self.emit("task.updated",label="验证修复结果")
+        self.bridge.poll()
+        self.assertIn("验证修复结果",status_card(self.bridge)[1])
+        self.emit("turn.ended",summary="已完成修复，三个检查全部通过。")
+        notices = self.bridge.poll()
+        self.assertEqual(notices[-1].label,"已完成修复，三个检查全部通过。")
+        self.assertIsNone(status_card(self.bridge))
+
+    def test_waiting_card_uses_waiting_sessions_task(self):
+        from bridge_display import status_card
+        self.emit("turn.started",session="a",label="A 的任务")
+        self.emit("permission.required",session="a")
+        self.clock.advance(1)
+        self.emit("turn.started",session="b",label="B 的任务")
+        self.bridge.poll()
+        title,body,_ = status_card(self.bridge)
+        self.assertIn("等你确认",title)
+        self.assertIn("A 的任务",body)
+        self.assertNotIn("B 的任务",body)
+
     def test_full_working_session_lifecycle(self):
         """开始→工具×2→等待确认→继续→工具→本轮结束：Stop 不是成功。"""
         self.emit("session.started")
@@ -168,7 +209,7 @@ class BridgeCase(unittest.TestCase):
         self.emit("turn.started")
         self.bridge.poll()
         self.assertEqual(self.bridge.mode, "working")
-        self.clock.advance(121)
+        self.clock.advance(__import__("host_bridge").STALE_AFTER + 1)
         ns = self.notices()
         self.assertEqual(ns, [])                    # 静默回退，不弹提醒
         self.assertIsNone(self.bridge.mode)

@@ -10,7 +10,7 @@
  * 事件文本一律当数据清洗后转发，不执行；不调用任何模型；桌宠离线时写
  * 文件照常成功，绝不阻塞宿主。
  */
-import { mkdirSync, renameSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, renameSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { homedir } from 'node:os'
 
@@ -74,7 +74,7 @@ export function mapEvent(flags, event) {
       return [{ kind: 'permission.required' }]
     case 'todo/write':
       flags.label = currentTaskFromTodo(data.todos)
-      return []
+      return [{ kind: 'task.updated' }]
     case 'turn/end':
       if (flags.closing === 'complete') return [{ kind: 'task.completed' }]
       if (flags.closing === 'blocked') return [{ kind: 'turn.failed' }]
@@ -112,7 +112,7 @@ export function apply(ctx, config) {
   const eventsDir = cfg.eventsDir
     || process.env.IVEN_BRIDGE_DIR
     || join(homedir(), '.iven-pet', 'events')
-  const summary = cfg.summary || !['', '0', 'false'].includes(process.env.IVEN_BRIDGE_SUMMARY ?? '')
+  const summary = () => cfg.summary || !['', '0', 'false'].includes(process.env.IVEN_BRIDGE_SUMMARY ?? '') || existsSync(join(homedir(), '.iven-pet', 'summary'))
   const flagsBySession = new Map()
 
   ctx.effect(() => {
@@ -129,7 +129,7 @@ export function apply(ctx, config) {
           writeInbox(eventsDir, mapped.kind, {
             sessionId,
             toolName: mapped.toolName,
-            label: summary ? flags.label : undefined,
+            label: summary() ? flags.label : undefined,
           })
         }
       } catch (error) {

@@ -52,6 +52,8 @@ Packaged versions are also available on the [releases page](https://github.com/I
 
 ## Coding-agent bridge (optional)
 
+A persistent card shows the coding app, working or approval status, and the current task and latest tool. After a reply ends, its available summary stays briefly before the card closes. Task and reply text require the local summary option; status remains visible without it.
+
 The pet can sense what your local coding agent is doing: she "works" beside you while
 the agent runs tools, reminds you when a permission is waiting, and reacts to turn
 ends, failures and completed tasks (the native Mac app shows small bubble notices).

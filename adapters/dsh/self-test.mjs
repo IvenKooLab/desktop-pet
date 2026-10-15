@@ -39,7 +39,7 @@ check(mapEvent(flags, { type: 'approval/asked' }), ['permission.required'], 'app
 assert.deepEqual(mapEvent(flags, { type: 'todo/write', data: { todos: [
   { content: '已完成项', status: 'completed' },
   { content: '修复登录页', status: 'in_progress' },
-] } }), [], 'todo only updates label')
+] } }), [{ kind: 'task.updated' }], 'todo publishes label update')
 assert.equal(flags.label, '修复登录页', 'label from first in_progress todo')
 
 // 5) 会话 id 兜底与杂项
