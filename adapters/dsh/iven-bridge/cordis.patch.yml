@@ -1,9 +1,16 @@
-# dsh profile 补丁：把 iven-bridge 挂进任意 profile。
-# 持久安装：符号链接本目录到 profile 的 node_modules/（参照 loci-dsh 的做法），
-# 或 dsh plugin --profile <name> add <本目录绝对路径>。
-# 一次性试验：复制本文件到别处并把 name 改成相对路径（相对补丁文件锚定）。
-- id: iven-bridge
-  name: iven-bridge
-  config:
-    eventsDir: ""
-    summary: false
+# iven-bridge bundle: 把 Iven 桌宠桥接插件挂进 profile。
+#
+# 官方安装：dsh plugin --profile <name> add <本目录绝对路径>
+# （写入 profile 的 package.json dependencies + bundles 列表，本文件由
+#   dsh.bundle.patch 自动参与合成。）
+#
+# 需要覆盖默认配置时，在 profile 根 cordis.patch.yml 里加（或用环境变量）：
+#
+#   - id: iven-bridge
+#     name: 'iven-bridge'
+#     config:
+#       eventsDir: ''          # 默认 ~/.iven-pet/events
+#       summary: false         # 或 touch ~/.iven-pet/summary 统一开启
+- insert:
+    - id: iven-bridge
+      name: 'iven-bridge'
