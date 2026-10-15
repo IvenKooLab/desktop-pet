@@ -2,16 +2,16 @@
   "date": "2026-10-15",
   "reference": "frames3d/idle_0.png",
   "approved_atlas_sha256": "24bb6cd882e94c478ba38c7c0193ff7a8d12184a4f7c2cb7cf79527ba4889887",
-  "additional_source_sha256": "51a36f01cf60cfcadc88d9a22d2f5373ec4e60e1437b10d22b9a8853012aa9ab",
+  "additional_source_sha256": "da7df0a3cc5f31e8afa3066f81b30a427d23bbfa3dc69ee2c66959f014f501e5",
   "previous_head_width_range": [
     98,
     103
   ],
   "repaired_head_width_range": [
-    89,
+    90,
     95
   ],
-  "shared_scale": 0.45,
+  "shared_scale": 0.444,
   "per_frame_scaling": false,
   "frames": [
     {
@@ -22,81 +22,74 @@
         145,
         192
       ],
-      "width": 91,
-      "height": 131,
-      "head_width": 91
+      "head_width": 91,
+      "height": 131
     },
     {
       "frame": "stretch_0",
       "bounds": [
-        56,
-        65,
+        55,
+        67,
         146,
         193
       ],
-      "width": 90,
-      "height": 128,
-      "head_width": 90
+      "head_width": 91,
+      "height": 126
     },
     {
       "frame": "stretch_1",
       "bounds": [
         56,
-        65,
+        67,
         146,
         193
       ],
-      "width": 90,
-      "height": 128,
-      "head_width": 90
+      "head_width": 90,
+      "height": 126
     },
     {
       "frame": "stretch_2",
       "bounds": [
-        54,
-        65,
-        143,
+        55,
+        67,
+        146,
         193
       ],
-      "width": 89,
-      "height": 128,
-      "head_width": 89
+      "head_width": 91,
+      "height": 126
     },
     {
       "frame": "stretch_3",
       "bounds": [
         54,
-        64,
+        66,
         147,
         193
       ],
-      "width": 93,
-      "height": 129,
-      "head_width": 93
+      "head_width": 93,
+      "height": 127
     },
     {
       "frame": "stretch_4",
       "bounds": [
         54,
-        65,
+        67,
         145,
         193
       ],
-      "width": 91,
-      "height": 128,
-      "head_width": 91
+      "head_width": 91,
+      "height": 126
     },
     {
       "frame": "stretch_5",
       "bounds": [
-        54,
-        65,
-        145,
+        55,
+        67,
+        146,
         193
       ],
-      "width": 91,
-      "height": 128,
-      "head_width": 91
+      "head_width": 91,
+      "height": 126
     },
     {
       "frame": "idle_0",
@@ -106,9 +99,8 @@
         145,
         192
       ],
-      "width": 91,
-      "height": 131,
-      "head_width": 91
+      "head_width": 91,
+      "height": 131
     },
     {
       "frame": "doze_0",
@@ -116,71 +108,65 @@
         53,
         66,
         146,
-        193
+        192
       ],
-      "width": 93,
-      "height": 127,
-      "head_width": 93
+      "head_width": 93,
+      "height": 126
     },
     {
       "frame": "doze_1",
       "bounds": [
         53,
         66,
-        146,
-        193
+        147,
+        192
       ],
-      "width": 93,
-      "height": 127,
-      "head_width": 93
+      "head_width": 94,
+      "height": 126
     },
     {
       "frame": "doze_2",
       "bounds": [
-        53,
+        54,
         67,
-        146,
-        193
+        147,
+        192
       ],
-      "width": 93,
-      "height": 126,
-      "head_width": 93
+      "head_width": 93,
+      "height": 125
     },
     {
       "frame": "doze_3",
       "bounds": [
         54,
-        67,
+        68,
         147,
-        193
+        192
       ],
-      "width": 93,
-      "height": 126,
-      "head_width": 93
+      "head_width": 93,
+      "height": 124
     },
     {
       "frame": "doze_4",
       "bounds": [
-        53,
-        65,
+        54,
+        66,
         146,
-        193
+        192
       ],
-      "width": 93,
-      "height": 128,
-      "head_width": 93
+      "head_width": 92,
+      "height": 126
     },
     {
       "frame": "doze_5",
       "bounds": [
-        54,
-        66,
-        147,
-        193
+        55,
+        67,
+        148,
+        192
       ],
-      "width": 93,
-      "height": 127,
-      "head_width": 93
+      "head_width": 93,
+      "height": 125
     },
     {
       "frame": "idle_0",
@@ -190,82 +176,78 @@
         145,
         192
       ],
-      "width": 91,
-      "height": 131,
-      "head_width": 91
+      "head_width": 91,
+      "height": 131
     },
     {
       "frame": "rubik_0",
       "bounds": [
         54,
-        65,
-        146,
-        192
+        67,
+        147,
+        193
       ],
-      "width": 92,
-      "height": 127,
-      "head_width": 92
+      "head_width": 93,
+      "height": 126
     },
     {
       "frame": "rubik_1",
       "bounds": [
-        52,
-        64,
-        147,
-        192
+        53,
+        67,
+        148,
+        193
       ],
-      "width": 95,
-      "height": 128,
-      "head_width": 95
+      "head_width": 95,
+      "height": 126
     },
     {
       "frame": "rubik_2",
       "bounds": [
-        54,
-        65,
-        147,
-        192
+        55,
+        67,
+        148,
+        193
       ],
-      "width": 93,
-      "height": 127,
-      "head_width": 93
+      "head_width": 93,
+      "height": 126
     },
     {
       "frame": "rubik_3",
       "bounds": [
         54,
-        64,
+        67,
         147,
         193
       ],
-      "width": 93,
-      "height": 129,
-      "head_width": 93
+      "head_width": 93,
+      "height": 126
     },
     {
       "frame": "rubik_4",
       "bounds": [
-        52,
-        64,
-        146,
-        192
+        53,
+        67,
+        147,
+        193
       ],
-      "width": 94,
-      "height": 128,
-      "head_width": 94
+      "head_width": 94,
+      "height": 126
     },
     {
       "frame": "rubik_5",
       "bounds": [
         54,
-        64,
-        147,
-        192
+        67,
+        148,
+        193
       ],
-      "width": 93,
-      "height": 128,
-      "head_width": 93
+      "head_width": 94,
+      "height": 126
     }
   ],
-  "visual_review": "Compared all 18 supplemental poses against approved idle. Original atlas unchanged. New silhouettes fit the original head-width range; dozing lowers the head intentionally. Foot baseline maintained. PNG and GIF output reviewed on a neutral matte."
+  "visual_review": "Compared all 18 supplemental poses against approved idle. Original atlas unchanged. New silhouettes fit the original head-width range; dozing lowers the head intentionally. Foot baseline maintained. PNG and GIF output reviewed on a neutral matte.",
+  "color_revision": 3,
+  "color_review": "Lifted lavender hair and purple midtones to match the approved idle palette; softened deep violet shadows. Original atlas is unchanged.",
+  "maximum_published_bounds_delta_from_size_approved_revision": 3
 }

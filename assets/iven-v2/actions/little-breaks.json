@@ -1,6 +1,6 @@
 {
   "source": "little-breaks.png",
-  "sha256": "51a36f01cf60cfcadc88d9a22d2f5373ec4e60e1437b10d22b9a8853012aa9ab",
+  "sha256": "da7df0a3cc5f31e8afa3066f81b30a427d23bbfa3dc69ee2c66959f014f501e5",
   "columns": [
     0,
     382,
@@ -25,11 +25,11 @@
     1604
   ],
   "baselines": [
-    295,
-    291,
+    296,
+    293,
     286
   ],
-  "scale": 0.45,
+  "scale": 0.444,
   "actions": [
     {
       "name": "STRETCH",
@@ -67,7 +67,8 @@
   ],
   "inspiration": "https://github.com/PC2005-cloud/dsh-pet",
   "artwork": "Iven v2, generated from shipped idle pose",
-  "revision": 2,
+  "revision": 3,
   "model_reference": "frames3d/idle_0.png; preserve approved v2 head/body proportions",
-  "calibration": "One shared isotropic scale for all 18 supplemental source poses; no per-frame scaling."
+  "calibration": "One shared isotropic scale for all 18 supplemental source poses; no per-frame scaling.",
+  "color_reference": "frames3d/idle_0.png; lighter lavender, softer purple midtones, neutral fleece lighting"
 }
