@@ -119,7 +119,7 @@ class Notice:
 
 
 class _Session:
-    __slots__ = ("last_seen", "phase", "label", "source", "tool", "summary")
+    __slots__ = ("last_seen", "phase", "label", "source", "tool", "summary", "order")
 
     def __init__(self, ts):
         self.last_seen = ts
@@ -128,6 +128,7 @@ class _Session:
         self.source = None
         self.tool = None
         self.summary = None
+        self.order = 0
 
 
 class HostBridge:
@@ -146,6 +147,7 @@ class HostBridge:
         self.source = None
         self.detail = None
         self.sessions = {}          # session_id -> _Session
+        self._order = 0
         self._seen = {}             # event_id -> epoch（有界去重）
         self._last_event_ts = None
 
@@ -211,7 +213,7 @@ class HostBridge:
     # ---------- 归约 ----------
     def _apply(self, ev, notices):
         kind = ev["kind"]
-        sid = ev.get("session_id") or "unknown"
+        sid = (str(ev.get("source") or "unknown"), str(ev.get("session_id") or "unknown"))
         sess = self.sessions.get(sid)
         if sess is None:
             if kind in ("session.ended",):
@@ -219,6 +221,8 @@ class HostBridge:
             sess = self.sessions[sid] = _Session(ev["_ts"])
             if kind != "session.started":
                 notices.append(Notice("session.started"))
+        self._order += 1
+        sess.order = self._order
         sess.last_seen = ev["_ts"]
         sess.source = _clean_text(ev.get("source"), 32) or sess.source
         label = _clean_text(ev.get("task_label"), MAX_LABEL)
@@ -280,12 +284,17 @@ class HostBridge:
     def _recompute_mode(self):
         active = [s for s in self.sessions.values() if s.phase in ("working", "waiting")]
         if active:
-            current = max(active, key=lambda s: (s.phase == "waiting", s.last_seen))
+            current = max(active, key=lambda s: (s.phase == "waiting", s.last_seen, s.order))
             self.mode, self.label = current.phase, current.label
             self.source, self.detail = current.source, current.tool
         else:
             self.mode = None
-            current = max(self.sessions.values(), key=lambda s: s.last_seen, default=None)
+            current = max(self.sessions.values(), key=lambda s: (s.last_seen,s.order), default=None)
             self.label = current.label if current else None
             self.source = current.source if current else None
             self.detail = None
+
+    @property
+    def active_sources(self):
+        return sorted({s.source for s in self.sessions.values()
+                       if s.phase in ("working", "waiting") and s.source})

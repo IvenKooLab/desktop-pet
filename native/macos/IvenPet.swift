@@ -115,13 +115,17 @@ final class HostBridge {
 
     let dir: URL
     private var clock: () -> TimeInterval
-    private var sessions: [String: (phase: String, label: String?, lastSeen: TimeInterval, source: String?, tool: String?, summary: String?)] = [:]
+    private var sessions: [String: (phase: String, label: String?, lastSeen: TimeInterval, source: String?, tool: String?, summary: String?, order: Int)] = [:]
     private var seen: [String: TimeInterval] = [:]
     private var lastEventTs: TimeInterval?
+    private var eventOrder = 0
     private(set) var mode: String?        // nil | "working" | "waiting"
     private(set) var label: String?
     private(set) var source: String?
     private(set) var detail: String?
+    var activeSources: [String] {
+        Array(Set(sessions.values.filter { $0.phase == "working" || $0.phase == "waiting" }.compactMap { $0.source })).sorted()
+    }
 
     init(directory: URL? = nil, clock: @escaping () -> TimeInterval = { Date().timeIntervalSince1970 }) {
         if let directory { dir = directory }
@@ -193,13 +197,14 @@ final class HostBridge {
 
     private func apply(_ obj: [String: Any], ts: TimeInterval, notices: inout [BridgeNotice]) {
         let kind = obj["kind"] as! String
-        let sid = (obj["session_id"] as? String ?? "unknown").prefix(64).description
+        let sid = (HostBridge.cleanText(obj["source"],limit:32) ?? "unknown")+":"+(obj["session_id"] as? String ?? "unknown").prefix(64).description
         if sessions[sid] == nil {
             if kind == "session.ended" { return }
-            sessions[sid] = (phase: "idle", label: nil, lastSeen: ts, source: nil, tool: nil, summary: nil)
+            sessions[sid] = (phase: "idle", label: nil, lastSeen: ts, source: nil, tool: nil, summary: nil, order: 0)
             if kind != "session.started" { notices.append(BridgeNotice(kind: "session.started", label: nil)) }
         }
         var sess = sessions[sid]!
+        eventOrder += 1; sess.order = eventOrder
         sess.lastSeen = ts
         sess.source = HostBridge.cleanText(obj["source"], limit: 32) ?? sess.source
         if kind == "turn.started" { sess.label = nil; sess.tool = nil; sess.summary = nil }
@@ -240,8 +245,8 @@ final class HostBridge {
         let active = sessions.values.filter { $0.phase == "waiting" || $0.phase == "working" }
         let chosen = active.sorted {
             if ($0.phase == "waiting") != ($1.phase == "waiting") { return $0.phase == "waiting" }
-            return $0.lastSeen > $1.lastSeen
-        }.first ?? sessions.values.max { $0.lastSeen < $1.lastSeen }
+            return $0.lastSeen == $1.lastSeen ? $0.order > $1.order : $0.lastSeen > $1.lastSeen
+        }.first ?? sessions.values.max { $0.lastSeen == $1.lastSeen ? $0.order < $1.order : $0.lastSeen < $1.lastSeen }
         mode = active.isEmpty ? nil : chosen?.phase
         label = chosen?.label
         source = chosen?.source
@@ -275,6 +280,10 @@ final class PetController: NSObject, NSApplicationDelegate {
     private var manualUntil: TimeInterval = 0        // 手动点播的宿主抑制窗口
     private var sleepQueue: [BridgeNotice] = []      // 睡眠期间的重要提醒
     private var labelShown: String?
+    private var followPanel: NSPanel?
+    private var followText: NSTextField?
+    private var followDot: CALayer?
+    private var followKey = ""
     private var bubblePanel: NSPanel?
     private var bubbleTitle: NSTextField?
     private var bubbleBody: NSTextField?
@@ -396,6 +405,53 @@ final class PetController: NSObject, NSApplicationDelegate {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) { [weak self] in
             self?.handleNotice(pending)
         }
+    }
+    private func updateFollowingBadge() {
+        guard let panel else { return }
+        if followPanel == nil {
+            let badge = NSPanel(contentRect:NSRect(x:0,y:0,width:160,height:25),
+                                styleMask:[.borderless,.nonactivatingPanel],backing:.buffered,defer:false)
+            badge.isOpaque = false; badge.backgroundColor = .clear; badge.hasShadow = false
+            badge.ignoresMouseEvents = true; badge.level = .floating; badge.hidesOnDeactivate = false
+            badge.collectionBehavior = [.canJoinAllSpaces,.fullScreenAuxiliary]
+            badge.title = "Iven · 当前跟随"
+            let content = NSView(); content.wantsLayer = true
+            content.layer?.cornerRadius = 12
+            content.layer?.backgroundColor = NSColor(calibratedWhite:0.985,alpha:0.95).cgColor
+            content.layer?.borderWidth = 0.6
+            content.layer?.borderColor = NSColor(calibratedWhite:0.8,alpha:0.8).cgColor
+            badge.contentView = content
+            let dot = CALayer(); dot.frame = CGRect(x:10,y:9,width:6,height:6); dot.cornerRadius = 3
+            content.layer?.addSublayer(dot); followDot = dot
+            let field = NSTextField(labelWithString:""); field.font = .systemFont(ofSize:10.5,weight:.medium)
+            field.textColor = NSColor(calibratedWhite:0.28,alpha:1)
+            content.addSubview(field); followText = field; followPanel = badge
+        }
+        var text = bridgeZh ? "独立模式" : "Standalone"
+        var color = NSColor.systemGray
+        if let source = bridge.source {
+            text = (bridge.mode == nil ? (bridgeZh ? "最近 · " : "Last · ") : (bridgeZh ? "跟随 · " : "Following · "))+hostName()
+            let others = max(0,bridge.activeSources.count-1)
+            if bridge.mode != nil && others > 0 { text += "  +\(others)" }
+            let colors: [String:NSColor] = ["zcode":.systemPurple,"dsh":.systemBlue,"codex":.systemTeal,
+                                           "claude-code":.systemOrange,"cursor":.darkGray,"opencode":.systemIndigo]
+            color = colors[source] ?? .systemGray
+        }
+        if followKey != text {
+            followKey = text
+            let width = max(98,min(196,(text as NSString).size(withAttributes:[.font:NSFont.systemFont(ofSize:10.5,weight:.medium)]).width+32))
+            followPanel?.setContentSize(NSSize(width:width,height:25))
+            followText?.stringValue = text
+            followText?.frame = CGRect(x:22,y:4,width:width-29,height:17)
+            followDot?.backgroundColor = color.cgColor
+        }
+        let screen = screenFrame(), width = followPanel!.frame.width
+        // A compact nameplate beside the feet; never covers the face or task card.
+        let preferred = panel.frame.midX+50
+        let x = preferred+width <= screen.maxX-8 ? preferred : panel.frame.midX-50-width
+        followPanel?.setFrameOrigin(NSPoint(x:max(screen.minX+8,min(screen.maxX-width-8,x)),
+                                           y:max(screen.minY+5,min(screen.maxY-30,panel.frame.minY+16))))
+        if followPanel?.isVisible != true { followPanel?.orderFrontRegardless() }
     }
     private func hostName() -> String {
         let names = ["zcode":"ZCode", "dsh":"DSH", "claude-code":"Claude Code",
@@ -595,6 +651,7 @@ final class PetController: NSObject, NSApplicationDelegate {
             }
             panel.setFrameOrigin(origin)
         }
+        updateFollowingBadge()
         let frame = clips[clipName]!.frame(at:Int((now-clipStart)*1000*playbackSpeed))
         if frame != shown {
             shown = frame
@@ -695,12 +752,14 @@ if CommandLine.arguments.contains("--self-test") {
         let epoch = 1_800_000_000.0
         var tick = epoch
         let bridge = HostBridge(directory: tmp, clock: { tick })
-        func emit(_ kind: String, session: String = "s1", label: String? = nil) throws {
+        var emission = 0
+        func emit(_ kind: String, session: String = "s1", label: String? = nil, source: String = "test") throws {
+            emission += 1
             let iso = ISO8601DateFormatter()
             let text = """
-            {"version":1,"event_id":"\(kind)-\(session)-\(tick)","source":"test","session_id":"\(session)","turn_id":null,"timestamp":"\(iso.string(from: Date(timeIntervalSince1970: tick)))","kind":"\(kind)","task_label":\(label.map { "\"\($0)\"" } ?? "null"),"summary":null,"tool_name":null,"severity":"info"}
+            {"version":1,"event_id":"\(source)-\(kind)-\(session)-\(emission)","source":"\(source)","session_id":"\(session)","turn_id":null,"timestamp":"\(iso.string(from: Date(timeIntervalSince1970: tick)))","kind":"\(kind)","task_label":\(label.map { "\"\($0)\"" } ?? "null"),"summary":null,"tool_name":null,"severity":"info"}
             """
-            try text.write(to: tmp.appendingPathComponent("\(tick)-\(kind).json"), atomically: true, encoding: .utf8)
+            try text.write(to: tmp.appendingPathComponent("\(tick)-\(String(format:"%06d",emission))-\(kind).json"), atomically: true, encoding: .utf8)
         }
         try emit("session.started"); try emit("turn.started", label: "运行测试")
         _ = bridge.poll()
@@ -727,6 +786,16 @@ if CommandLine.arguments.contains("--self-test") {
         tick += HostBridge.staleAfter + 1
         _ = bridge.poll()
         precondition(bridge.mode == nil, "disconnect falls back silently")
+        try emit("turn.started",session:"same",source:"zcode")
+        try emit("turn.started",session:"same",source:"dsh")
+        _ = bridge.poll()
+        precondition(bridge.activeSources == ["dsh","zcode"] && bridge.source == "dsh", "Sources must not collide on a shared session id")
+        try emit("permission.required",session:"same",source:"zcode")
+        _ = bridge.poll()
+        precondition(bridge.source == "zcode", "Badge follows the waiting harness")
+        try emit("session.ended",session:"same",source:"zcode")
+        _ = bridge.poll()
+        precondition(bridge.source == "dsh", "Closing one harness does not clear another")
         let leftovers = (try? FileManager.default.contentsOfDirectory(atPath: tmp.path)) ?? ["<unreadable>"]
         precondition(leftovers.isEmpty, "inbox consumed cleanly")
     } catch {

@@ -24,7 +24,7 @@ import tkinter as tk
 from animation_assets import load_clips, timed_frame
 from desktop_platform import configure_transparency, frame_path, clear_legacy_color_key
 from host_bridge import HostBridge
-from bridge_display import status_card
+from bridge_display import status_card, following_badge
 
 try:                    # Windows：枚举窗口顶边当平台
     import ctypes
@@ -421,6 +421,9 @@ class Pet:
         self.press_pos = None
         self.bubble = None
         self.bubble_job = None
+        self._follow_badge = None
+        self._follow_label = None
+        self._follow_key = None
         self._bubble_key = None
         self._bubble_persistent = False
         self._bubble_deadline = 0
@@ -788,6 +791,7 @@ class Pet:
                                    image=self.frames.get(name, self.frames[self._fallback]))
         self.root.geometry(f"+{int(rx)}+{int(ry)}")
         self._place_bubble()
+        self._update_following_badge()
 
     def _frame_at(self, now, alpha):
         """当前应显示的帧名。alpha=当前逻辑步内进度 0~1（SPIN 用其连续取面）。"""
@@ -999,6 +1003,23 @@ class Pet:
             self._anim_t0 = time.monotonic()
 
     # ---------- 台词气泡 ----------
+    def _update_following_badge(self):
+        text,color = following_badge(self.host if self._bridge_on else None, LANG.startswith("zh"))
+        if self._follow_badge is None:
+            badge = tk.Toplevel(self.root); badge.overrideredirect(True); badge.attributes("-topmost",True)
+            self._follow_label = tk.Label(badge,bg="#fcfbfe",font=("Segoe UI",9),padx=9,pady=4,
+                                          highlightthickness=1,highlightbackground="#d5cfe0")
+            self._follow_label.pack(); self._follow_badge = badge
+        if self._follow_key != (text,color):
+            self._follow_key = (text,color)
+            self._follow_label.configure(text="●  "+text,fg=color)
+            self._follow_badge.update_idletasks()
+        width = self._follow_badge.winfo_reqwidth()
+        x = int(self.x+SIZE/2+50)
+        if x+width > self.sw-8: x = int(self.x+SIZE/2-50-width)
+        y = max(5,min(self.sh-32,int(self.y+SIZE-43)))
+        self._follow_badge.geometry(f"+{max(8,x)}+{y}")
+
     def _hide_bubble(self):
         if self.bubble_job:
             self.root.after_cancel(self.bubble_job)

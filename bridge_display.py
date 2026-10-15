@@ -27,3 +27,19 @@ def status_card(bridge, zh=True):
         lines.append(("请在原应用中确认后继续" if bridge.mode == "waiting" else "正在处理你的任务…") if zh else (
             "Continue in your coding app" if bridge.mode == "waiting" else "Processing your task…"))
     return title, "\n".join(lines), bridge.mode
+
+
+def following_badge(bridge, zh=True):
+    if bridge is None or not bridge.enabled or not bridge.source:
+        return ("独立模式" if zh else "Standalone", "#8b8792")
+    name = SOURCES.get(bridge.source, bridge.source)
+    colors = {"zcode":"#8b5cc6", "dsh":"#487dc5", "codex":"#398c79",
+              "claude-code":"#be7657", "cursor":"#555766", "opencode":"#6578ab"}
+    if bridge.mode:
+        others = max(0,len(bridge.active_sources)-1)
+        text = ("跟随 · " if zh else "Following · ")+name
+        if others:
+            text += "  +"+str(others)
+    else:
+        text = ("最近 · " if zh else "Last · ")+name
+    return text, colors.get(bridge.source,"#8b8792")

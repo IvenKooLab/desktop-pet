@@ -95,6 +95,28 @@ class BridgeCase(unittest.TestCase):
         self.assertIn("A 的任务",body)
         self.assertNotIn("B 的任务",body)
 
+    def test_following_badge_distinguishes_hosts_and_colliding_session_ids(self):
+        from bridge_display import following_badge
+        write_event(self.dir,"zcode","turn.started",session_id="same",timestamp=iso(self.clock()))
+        write_event(self.dir,"dsh","turn.started",session_id="same",timestamp=iso(self.clock()))
+        self.bridge.poll()
+        self.assertEqual(len(self.bridge.sessions),2)
+        self.assertEqual(self.bridge.source,"dsh")
+        self.assertIn("DSH",following_badge(self.bridge)[0])
+        self.assertIn("+1",following_badge(self.bridge)[0])
+        write_event(self.dir,"zcode","permission.required",session_id="same",timestamp=iso(self.clock()))
+        self.bridge.poll()
+        self.assertIn("ZCode",following_badge(self.bridge)[0])
+        write_event(self.dir,"zcode","session.ended",session_id="same",timestamp=iso(self.clock()))
+        self.bridge.poll()
+        self.assertEqual(self.bridge.source,"dsh")
+        write_event(self.dir,"dsh","turn.ended",session_id="same",timestamp=iso(self.clock()))
+        self.bridge.poll()
+        self.assertIn("最近",following_badge(self.bridge)[0])
+        self.clock.advance(__import__("host_bridge").STALE_AFTER+1)
+        self.bridge.poll()
+        self.assertEqual(following_badge(self.bridge)[0],"独立模式")
+
     def test_full_working_session_lifecycle(self):
         """开始→工具×2→等待确认→继续→工具→本轮结束：Stop 不是成功。"""
         self.emit("session.started")
