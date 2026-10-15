@@ -714,16 +714,20 @@ final class PetController: NSObject, NSApplicationDelegate {
         menu.addItem(.separator())
         let tracking = NSMenuItem(title:"跟踪 Harness",action:nil,keyEquivalent:"")
         let sources = NSMenu()
+        sources.minimumWidth = 320
         for (source,name) in [("","自动 · 全部已接入"),("dsh","DSH"),("zcode","ZCode"),("codex","Codex"),("claude-code","Claude Code"),("cursor","Cursor"),("opencode","OpenCode")] {
             let title = source.isEmpty ? name : name+" · "+bridge.sourceStatus(source)
             let item = NSMenuItem(title:title,action:#selector(menuAction),keyEquivalent:"")
             item.target = self
             item.representedObject = "TRACK:"+source
             item.state = (bridge.selectedSource ?? "") == source ? .on : .off
+            // Leave room for the checkmark and native menu margins at any font size.
+            let textWidth = (title as NSString).size(withAttributes: [.font: NSFont.menuFont(ofSize: 0)]).width
+            sources.minimumWidth = max(sources.minimumWidth, ceil(textWidth)+72)
             sources.addItem(item)
         }
         sources.addItem(.separator())
-        let hint = NSMenuItem(title:"自动：等待确认优先，其次最近活动",action:nil,keyEquivalent:"")
+        let hint = NSMenuItem(title:"自动：确认优先 → 最近活动",action:nil,keyEquivalent:"")
         hint.isEnabled = false
         sources.addItem(hint)
         tracking.submenu = sources

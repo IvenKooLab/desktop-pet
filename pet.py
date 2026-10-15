@@ -514,7 +514,7 @@ class Pet:
                     tracking.add_radiobutton(label=name+" · "+self.host.source_status(source),
                                              variable=choice, value=source, command=select_source)
                 tracking.add_separator()
-                tracking.add_command(label="自动：等待确认优先，其次最近活动", state="disabled")
+                tracking.add_command(label="自动：确认优先 → 最近活动", state="disabled")
             tracking.configure(postcommand=refresh_sources)
             menu.add_cascade(label="跟踪 Harness", menu=tracking)
         for state, title in (("STRETCH", "伸懒腰 / Stretch"), ("DOZE", "打瞌睡 / Doze"),
