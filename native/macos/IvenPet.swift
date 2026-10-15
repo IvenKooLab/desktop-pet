@@ -103,12 +103,13 @@ final class HostBridge {
         "task.completed","interrupted","session.ended"]
     static let staleAfter = 120.0
     static let eventMaxAge = 180.0
+    static let sessionQuiet = 45.0   // 单会话 working/waiting 静默多久退回 idle
     static let maxPerPoll = 64
     static let maxBacklog = 500
 
     let dir: URL
     private var clock: () -> TimeInterval
-    private var sessions: [String: (phase: String, label: String?)] = [:]
+    private var sessions: [String: (phase: String, label: String?, lastSeen: TimeInterval)] = [:]
     private var seen: [String: TimeInterval] = [:]
     private var lastEventTs: TimeInterval?
     private(set) var mode: String?        // nil | "working" | "waiting"
@@ -171,6 +172,12 @@ final class HostBridge {
         if let last = lastEventTs, now - last > HostBridge.staleAfter {
             sessions.removeAll()          // 断线回退：静默恢复普通轮播
             lastEventTs = nil
+        } else {
+            // 单会话静默退 idle：宿主 Stop 未触发/回合没结束时，别把桌宠钉死
+            for sid in sessions.keys where sessions[sid]!.phase != "idle"
+                && now - sessions[sid]!.lastSeen > HostBridge.sessionQuiet {
+                sessions[sid]!.phase = "idle"
+            }
         }
         recomputeMode()
         return notices
@@ -181,10 +188,11 @@ final class HostBridge {
         let sid = (obj["session_id"] as? String ?? "unknown").prefix(64).description
         if sessions[sid] == nil {
             if kind == "session.ended" { return }
-            sessions[sid] = (phase: "idle", label: nil)
+            sessions[sid] = (phase: "idle", label: nil, lastSeen: ts)
             if kind != "session.started" { notices.append(BridgeNotice(kind: "session.started", label: nil)) }
         }
         var sess = sessions[sid]!
+        sess.lastSeen = ts
         let label = HostBridge.cleanText(obj["task_label"], limit: 80)
         if let label { sess.label = label; self.label = label }
         switch kind {
@@ -194,7 +202,10 @@ final class HostBridge {
             sess.phase = "waiting"
             notices.append(BridgeNotice(kind: "permission.required",
                                         label: sess.label ?? HostBridge.cleanText(obj["tool_name"], limit: 48)))
+        case "tool.finished":
+            if sess.phase == "waiting" { sess.phase = "working" }   // 审批已通过，继续干活
         case "tool.failed":
+            if sess.phase == "waiting" { sess.phase = "working" }
             notices.append(BridgeNotice(kind: "tool.failed", label: sess.label))
         case "turn.ended":
             sess.phase = "idle"
@@ -255,7 +266,14 @@ final class PetController: NSObject, NSApplicationDelegate {
 
     private func advance() {
         if let hostMode = bridge.mode, hostAvailable(hostMode), !hostSuppressed() {
-            play(hostMode == "waiting" ? "WAITING" : "WORK", mode: "HOST", seconds: 0)
+            if hostMode == "waiting" {
+                play("WAITING", mode: "HOST", seconds: 0)
+            } else if clipName == "WORK" && mode == "HOST" {
+                // 工作不无限连打板：打一轮板喘口气，到点再打
+                play("IDLE", mode: "HOST", seconds: Double.random(in: 1.2...2.2))
+            } else {
+                play("WORK", mode: "HOST", seconds: Double(clips["WORK"]!.total)/1000)
+            }
             return
         }
         if mode != "IDLE" || !autoplay {
@@ -295,10 +313,18 @@ final class PetController: NSObject, NSApplicationDelegate {
             return
         }
         guard hostAvailable(bridge.mode!), !hostSuppressed() else { return }
-        let target = bridge.mode == "waiting" ? "WAITING" : "WORK"
-        if clipName != target || mode != "HOST" {
-            play(target, mode: "HOST", seconds: 0)
-            if target == "WORK", let l = bridge.label, l != labelShown {
+        if mode == "HOST" {
+            // 已在宿主模式：打板/喘气节奏交给 advance()，只在切等待时立即接管
+            if bridge.mode == "waiting" && clipName != "WAITING" {
+                play("WAITING", mode: "HOST", seconds: 0)
+            }
+            return
+        }
+        if bridge.mode == "waiting" {
+            play("WAITING", mode: "HOST", seconds: 0)
+        } else {
+            play("WORK", mode: "HOST", seconds: Double(clips["WORK"]!.total)/1000)
+            if let l = bridge.label, l != labelShown {
                 labelShown = l
                 showBubble(l, seconds: 2.2)
             }
@@ -578,9 +604,9 @@ if CommandLine.arguments.contains("--self-test") {
         let ns = bridge.poll()
         precondition(bridge.mode == "waiting" && ns.contains { $0.kind == "permission.required" }, "permission → waiting + notice")
         tick += 2
-        try emit("tool.started"); try emit("tool.finished")
+        try emit("tool.finished")
         _ = bridge.poll()
-        precondition(bridge.mode == "working", "approve → back to working")
+        precondition(bridge.mode == "working", "tool.finished after approval → back to working")
         try emit("turn.ended")
         let ns2 = bridge.poll()
         precondition(ns2.contains { $0.kind == "turn.ended" } && !ns2.contains { $0.kind == "task.completed" }, "Stop is not success")
@@ -590,6 +616,9 @@ if CommandLine.arguments.contains("--self-test") {
         try emit("turn.ended", session: "a")
         _ = bridge.poll()
         precondition(bridge.mode == "working", "parallel sessions stay working until all end")
+        tick += HostBridge.sessionQuiet + 1
+        _ = bridge.poll()
+        precondition(bridge.mode == nil, "quiet session decays to idle (not pinned)")
         tick += HostBridge.staleAfter + 1
         _ = bridge.poll()
         precondition(bridge.mode == nil, "disconnect falls back silently")

@@ -106,6 +106,27 @@ class BridgeCase(unittest.TestCase):
         self.assertIn("tool.failed", ns)
         self.assertEqual(self.bridge.mode, "working")
 
+    def test_tool_finished_restores_working_after_permission(self):
+        """审批通过后的第一个 tool.finished 把 waiting 拉回 working。"""
+        self.emit("turn.started")
+        self.emit("permission.required")
+        self.notices()
+        self.assertEqual(self.bridge.mode, "waiting")
+        self.emit("tool.finished")
+        self.notices()
+        self.assertEqual(self.bridge.mode, "working")
+
+    def test_quiet_session_decays_to_idle(self):
+        """会话静默超 SESSION_QUIET：退 idle 回轮播，但仍在线（未断线清空）。"""
+        from host_bridge import SESSION_QUIET
+        self.emit("turn.started")
+        self.notices()
+        self.assertEqual(self.bridge.mode, "working")
+        self.clock.advance(SESSION_QUIET + 1)
+        self.notices()
+        self.assertIsNone(self.bridge.mode)
+        self.assertTrue(self.bridge.sessions, "session stays registered (still connected)")
+
     def test_parallel_sessions_grouped(self):
         """两个会话并行：一个结束不影响另一个的工作状态。"""
         self.emit("session.started", session="a")

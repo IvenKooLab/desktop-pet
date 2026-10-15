@@ -42,6 +42,8 @@ MAX_EVENTS_PER_POLL = 64    # 单轮最多消费，防止风暴
 MAX_BACKLOG = 500           # 收件箱超过则丢弃最旧（过期清理兜底）
 EVENT_MAX_AGE = 180.0       # 事件时间戳超过即过期（宿主休眠后的陈旧事件）
 STALE_AFTER = 120.0         # 无新事件多久判离线
+SESSION_QUIET = 45.0        # 单个会话 working/waiting 静默多久退回 idle
+                            # （宿主 Stop 未触发/回合未结束时不把桌宠钉死）
 
 
 def default_dir():
@@ -220,8 +222,12 @@ class HostBridge:
             sess.phase = "waiting"
             notices.append(Notice("permission.required", sess.label
                                   or _clean_text(ev.get("tool_name"), 48)))
-        elif kind == "tool.failed":
-            notices.append(Notice("tool.failed", sess.label))
+        elif kind in ("tool.finished", "tool.failed"):
+            # 审批已通过、宿主继续跑：等待结束，回到工作（失败只闪一个片段）
+            if sess.phase == "waiting":
+                sess.phase = "working"
+            if kind == "tool.failed":
+                notices.append(Notice("tool.failed", sess.label))
         elif kind == "turn.ended":
             sess.phase = "idle"
             notices.append(Notice("turn.ended", sess.label))
@@ -247,6 +253,11 @@ class HostBridge:
                 and now - self._last_event_ts > STALE_AFTER):
             self.sessions.clear()
             self._last_event_ts = None
+            return
+        # 单会话静默退 idle：宿主 Stop 未触发/回合没结束时，别把桌宠钉死
+        for sess in self.sessions.values():
+            if sess.phase != "idle" and now - sess.last_seen > SESSION_QUIET:
+                sess.phase = "idle"
 
     def _recompute_mode(self):
         phases = [s.phase for s in self.sessions.values()]

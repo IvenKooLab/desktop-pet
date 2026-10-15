@@ -429,6 +429,7 @@ class Pet:
         self._host_hold = 0              # 手动点播的宿主抑制窗口（tick）
         self._sleep_queue = []           # 睡眠期间的重要提醒，醒来补播
         self._host_label_shown = None
+        self._host_dwell = False         # 工作节奏：打一轮板后的喘气间隙
 
         self.root.geometry(f"+{int(self.x)}+{int(self.y)}")
         self._bind()
@@ -709,31 +710,48 @@ class Pet:
             self.say(_BT["done"], 2400)
         elif n.kind == "turn.ended":
             # Stop 语义：只是"本轮回复结束"，绝不宣称任务成功
-            if self.state in ("WORK", "WAITING"):
+            if self.state in ("WORK", "WAITING") or self._host_dwell:
+                self._host_dwell = False
                 self._set_state("IDLE", random.randint(40, 80))
                 self.say(_BT["turn_end"], 1800)
 
     def _host_assert(self):
-        """边界断言：宿主持续状态（waiting > working）优先于普通轮播。"""
+        """边界断言：等待确认 > 宿主工作 > 普通轮播。
+
+        工作状态不无限连打板：打一轮 WORK 后进 IDLE 喘气（_host_dwell），
+        到点由 IDLE 分支回 WORK；等待保持 WAITING 姿势（由归约器静默退 idle）。
+        """
         if self.host is None or not self._bridge_on:
             return
         if self.host.mode is None:
-            if self.state in ("WORK", "WAITING"):
+            if self.state in ("WORK", "WAITING") or self._host_dwell:
+                self._host_dwell = False
                 self._set_state("IDLE", random.randint(40, 80))
             self._host_label_shown = None
             return
         if (self.state in ("SLEEP", "GRAB", "FALL", "LAND")
                 or self.drag_off is not None or self._host_hold > self.tick_n):
             return
-        target = "WAITING" if self.host.mode == "waiting" else "WORK"
-        if target not in self.clips:
+        if self.host.mode == "waiting":
+            if "WAITING" in self.clips and self.state != "WAITING":
+                self._host_dwell = False
+                self._set_state("WAITING", 10 ** 9)
             return
-        if self.state != target:
-            self._set_state(target, 10 ** 9)
-            label = self.host.label
-            if target == "WORK" and label and label != self._host_label_shown:
-                self._host_label_shown = label
-                self.say(label, 2200)
+        if "WORK" not in self.clips:
+            return
+        if self.state == "WORK":
+            return
+        if self.state == "IDLE" and self._host_dwell:
+            return                             # 喘气中，播完自动回 WORK
+        self._enter_work()
+
+    def _enter_work(self):
+        self._host_dwell = False
+        self._set_state("WORK", (sum(self.clips["WORK"][1]) + 49) // 50)
+        label = self.host.label
+        if label and label != self._host_label_shown:
+            self._host_label_shown = label
+            self.say(label, 2200)
 
     # ---------- 主循环 ----------
     def _loop(self):
@@ -821,7 +839,17 @@ class Pet:
                     self._idle_fx_frame = random.choice(pool)
                     self._idle_fx = 6                    # 300ms
             if self.state_left <= 0:
-                self._next_auto_action()
+                if self._host_dwell:
+                    # 工作喘气结束：宿主仍在干活就再打一轮板，否则回普通轮播
+                    if (self.host and self._bridge_on
+                            and self.host.mode == "working"
+                            and not self._host_busy()):
+                        self._enter_work()
+                    else:
+                        self._host_dwell = False
+                        self._next_auto_action()
+                else:
+                    self._next_auto_action()
 
         elif self.state in ("WALK", "RUN"):
             s = self._support()
@@ -899,7 +927,12 @@ class Pet:
         elif self.state in ("WAITING", "WORK", "REVIEW", "FAILED", "STRETCH", "DOZE", "RUBIK"):
             self._play_clip(self.state, [], 1)
             if self.state_left <= 0:
-                self._set_state("IDLE", random.randint(60, 120))
+                if self.state == "WORK" and self.host and self._bridge_on \
+                        and self.host.mode == "working":
+                    self._host_dwell = True          # 打完一轮板，喘口气再打
+                    self._set_state("IDLE", random.randint(24, 48))
+                else:
+                    self._set_state("IDLE", random.randint(60, 120))
 
         elif self.state == "SLEEP":
             self._play_clip("SLEEP", ["sleep_0", "sleep_1"], 2000)

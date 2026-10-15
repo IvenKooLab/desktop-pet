@@ -67,12 +67,18 @@ Iven 桌宠（Mac 原生 Swift / Windows Tk）轮询消费 → 状态动作 + �
 | session.started | 注册会话，无可见变化 |
 | turn.started / tool.started | WORK（可选任务标签气泡，每 turn 一次） |
 | permission.required | WAITING + 重要提醒（等待用户回宿主批准） |
-| tool.finished | 仍 working（只更新计数，不宣布完成） |
+| tool.finished | 仍 working；若此前在等待则回到 working（审批已通过） |
 | tool.failed | 短暂 FAILED 闪现，宿主可自行恢复 |
 | turn.ended | 本轮结束 → 回普通轮播；显示"本轮回复结束"，**不显示成功** |
 | turn.failed | FAILED + 重要提醒 |
 | task.completed | 明确完成 → CHEER/HAPPY |
 | interrupted / session.ended | 清会话；全空后回普通轮播 |
+
+两个防钉死机制：**单会话静默**——working/waiting 超过 45s 无新事件即静默退
+idle（宿主 Stop 未触发或回合迟迟不结束时，桌宠不会被钉死在一个动作里），
+会话仍注册，来新事件立即恢复；**工作节奏**——WORK 与 CHEER 共用素材
+（打板），持续工作播放为"打一轮板 → 喘口气 → 再打"的交替节奏，而非无限
+连打；WAITING 保持等待姿势直到解决或静默超时。
 
 **Stop / turn.end 只是"准备结束当前轮"**，可能被宿主其他 Hook 阻断，不是任务
 成功证据。DSH 侧只有 `update_goal` 显式 `complete` 才发 `task.completed`；
