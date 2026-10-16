@@ -18,7 +18,40 @@ STATES = [("idle",6,[280,110,110,140,140,320]),
           ("failed",8,[140]*7+[240]), ("waiting",6,[150]*5+[260]),
           ("work",6,[120]*5+[220]), ("review",6,[150]*5+[280])]
 
-def export(source, destinations):
+
+def themed_clips(clips):
+    """Long performances reuse approved frames verbatim, including the original clothing."""
+    def hold(frame, milliseconds):
+        return [(frame, milliseconds)]
+
+    def source(name, speed=1, repeat=1):
+        clip = clips[name]
+        return list(zip(clip["frames"], [round(duration * speed) for duration in clip["durations"]])) * repeat
+
+    def sequence(theme, sources, parts):
+        return {"frames": [frame for frame, _ in parts],
+                "durations": [duration for _, duration in parts],
+                "reused_frames": True, "theme": theme, "source_clips": sources}
+
+    return {
+        "THINKING": sequence("苦思冥想", ["IDLE", "REVIEW", "SPIN"],
+            hold("idle_0", 700) + source("REVIEW", 2) + hold("idle_3", 900)
+            + source("SPIN", 2.2) + source("REVIEW", 2) + hold("idle_0", 900)),
+        "IMPATIENT": sequence("等待不耐烦", ["IDLE", "WAITING", "BOUNCE"],
+            hold("idle_0", 700) + source("WAITING", 1.6) + source("BOUNCE")
+            + source("WAITING", 1.6) + source("BOUNCE")
+            + source("WAITING", 1.6) + hold("idle_0", 900)),
+        "TOKEN_LOW": sequence("额度不足（手动表演）", ["IDLE", "FAILED"],
+            hold("idle_0", 900) + source("FAILED", 1.5, 2) + hold("idle_3", 1500)
+            + source("FAILED", 1.5) + hold("idle_0", 1200)),
+        "RELIEVED": sequence("松口气", ["IDLE", "GREET"],
+            hold("idle_0", 700) + hold("idle_2", 400) + hold("idle_3", 900)
+            + hold("idle_4", 400) + hold("idle_0", 500) + source("GREET", 1.5, 2)
+            + hold("idle_3", 800) + hold("idle_0", 1000)),
+    }
+
+
+def export(source, destinations, manifest_only=False):
     atlas = Image.open(source).convert("RGBA")
     if atlas.size != (1536,2288):
         raise ValueError("Expected the validated v2 1536x2288 atlas")
@@ -100,17 +133,25 @@ def export(source, destinations):
             names = ["idle_0"] + names[1:-1] + ["idle_0"]
         manifest["clips"][action["name"]] = {"frames":names,"durations":action["durations"]}
     manifest["additional_source_sha256"] = spec["sha256"]
+    manifest["clips"].update(themed_clips(manifest["clips"]))
     for destination in destinations:
         destination.mkdir(parents=True,exist_ok=True)
-        for name,image in encoded.items():
-            image.save(destination/(name+".gif"))
-            transparent[name].save(destination/(name+".png"))
+        if manifest_only:
+            for clip in manifest["clips"].values():
+                for name in clip["frames"]:
+                    if not all((destination / (name + suffix)).is_file() for suffix in (".png", ".gif")):
+                        raise ValueError("Manifest-only export requires existing frames: " + name)
+        else:
+            for name,image in encoded.items():
+                image.save(destination/(name+".gif"))
+                transparent[name].save(destination/(name+".png"))
         (destination/"animation.json").write_text(json.dumps(manifest,ensure_ascii=False,indent=2),encoding="utf-8")
     return manifest
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source",type=Path,default=SOURCE)
+    parser.add_argument("--manifest-only", action="store_true", help="Update timelines without rewriting existing PNG/GIF files")
     args = parser.parse_args()
     validation = json.loads((args.source.parent/"validation.json").read_text(encoding="utf-8"))
     actual_sha = hashlib.sha256(args.source.read_bytes()).hexdigest()
@@ -123,7 +164,7 @@ def main():
             archive.mkdir(parents=True,exist_ok=True)
             for image in target.glob("*.gif"):
                 shutil.move(str(image),str(archive/image.name))
-    result = export(args.source,targets)
+    result = export(args.source,targets,manifest_only=args.manifest_only)
     print(json.dumps({"ok":True,"destinations":[str(p) for p in targets],
                       "clips":len(result["clips"]),"source_sha256":result["source_sha256"]},indent=2))
 

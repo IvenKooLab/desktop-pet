@@ -21,6 +21,7 @@ xcrun swiftc -O -sdk "$pet_sdk" -target "$(uname -m)-apple-macosx13.0" \
   -module-cache-path "${TMPDIR:-/private/tmp}/iven-pet-swift-cache" \
   native/macos/IvenPet.swift -o "$pet_app/Contents/MacOS/IvenPet"
 cp frames3d/*.png frames3d/animation.json "$pet_app/Contents/Resources/frames3d/"
+cp animation_behaviors.json "$pet_app/Contents/Resources/"
 cat > "$pet_app/Contents/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">

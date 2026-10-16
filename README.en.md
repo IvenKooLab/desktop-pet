@@ -22,11 +22,19 @@ A stretch, a sleepy nod, then a few turns of a Rubik's cube. All three join auto
 
 - **Desktop roaming:** eight-frame hopping and faster movement, with a brief front-facing pause when turning on Windows.
 - **Expressions and actions:** six-frame blinking idle, waving, five-frame bouncing, happiness, shyness, clapperboard, waiting, working, reviewing, sadness, sixteen gaze directions, closed-eye sleep, stretching, dozing and playing with a Rubik's cube.
-- **Automatic performances:** shuffled action cycles with short rests between actions. Pause playback or pick an action from the right-click menu.
+- **Automatic performances:** longer complete animation segments with short rests, including everyday performances lasting about 11–21 seconds at 75% playback speed. Pause or choose an action from the right-click menu.
+- **Work companion themes:** thinking hard, getting impatient, low token budget and relief. These sequences reuse approved original frames, preserving the character and palette. Work alternates with thinking; approval waits longer than 30 seconds use the impatient theme, and explicit completion triggers relief. Low token budget is a manual performance, not a detected account balance.
 - **Mouse interactions:** click to bounce, double-click for a happy reaction, drag for a grab reaction, then release to fall and land.
 - **Smooth and transparent:** approximately 60fps rendering, consistent proportions and per-frame timing, with native transparent windows on Mac.
 - **Windows as platforms:** walks along the desktop, taskbar and visible app window tops; turns or falls at edges and drops when a supporting window closes or moves. Arrives with a fall, landing and wave, and occasionally speaks through a bubble.
 - **Pin on Mac:** keep her in a chosen spot while in-place animations continue.
+
+## Two display modes
+
+- **Desktop:** the native macOS / Windows pet runs independently of any coding agent.
+- **Inside DSH:** install the [DSH adapter](adapters/dsh/README.md), then use the Iven entry in DSH to bring the pet into its interface, with dragging, action selection and status bubbles. The desktop app’s Display mode menu can also request the switch.
+
+Both views coordinate to avoid showing two copies. Keep the desktop app running; if the DSH page closes or disconnects, desktop display returns within about 30 seconds. Reload DSH when first enabling the frontend plugin. Embedded mode currently targets DSH only; other agents continue to drive the independent desktop pet through their adapters.
 
 ## Quick start
 

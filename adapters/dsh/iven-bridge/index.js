@@ -13,6 +13,7 @@
 import { existsSync, mkdirSync, renameSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { homedir } from 'node:os'
+import { createWebIntegration } from './web.js'
 
 export const name = 'iven-bridge'
 export const inject = []
@@ -114,6 +115,10 @@ export function apply(ctx, config) {
     || join(homedir(), '.iven-pet', 'events')
   const summary = () => cfg.summary || !['', '0', 'false'].includes(process.env.IVEN_BRIDGE_SUMMARY ?? '') || existsSync(join(homedir(), '.iven-pet', 'summary'))
   const flagsBySession = new Map()
+  const web = createWebIntegration(ctx, {
+    eventsDir,
+    summary,
+  })
 
   ctx.effect(() => {
     const dispose = ctx.on('session/event', (session, event) => {
@@ -126,6 +131,7 @@ export function apply(ctx, config) {
           writeInbox(eventsDir, 'session.started', { sessionId })
         }
         for (const mapped of mapEvent(flags, event)) {
+          web.record(sessionId, mapped, summary() ? flags.label : undefined)
           writeInbox(eventsDir, mapped.kind, {
             sessionId,
             toolName: mapped.toolName,

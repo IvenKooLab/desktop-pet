@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "idle_seconds": [3, 5],
+  "walk_cycles": [5, 8],
+  "actions": {
+    "GREET": {"cycles": [4, 6]},
+    "BOUNCE": {"cycles": [4, 6]},
+    "HAPPY": {"cycles": [4, 6]},
+    "SHY": {"cycles": [4, 6]},
+    "CHEER": {"cycles": [4, 6]},
+    "SPIN": {"cycles": [2, 3]},
+    "WAITING": {"cycles": [4, 6]},
+    "WORK": {"cycles": [4, 6]},
+    "REVIEW": {"cycles": [4, 6]},
+    "FAILED": {"cycles": [4, 6]},
+    "STRETCH": {"cycles": [4, 6]},
+    "DOZE": {"cycles": [4, 6]},
+    "RUBIK": {"cycles": [4, 6]},
+    "THINKING": {"cycles": [1, 1]},
+    "IMPATIENT": {"cycles": [1, 1]},
+    "RELIEVED": {"cycles": [1, 1]}
+  }
+}

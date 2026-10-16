@@ -1,16 +1,25 @@
 {
   "name": "iven-bridge",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "license": "MIT",
-  "description": "Iven desktop-pet bridge for DeepSeek Harness (dsh): session/event to local inbox",
+  "description": "Iven pet for DSH: session status, in-app overlay and standalone desktop handoff",
   "type": "module",
   "main": "index.js",
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./package.json": "./package.json"
+  },
   "engines": {
     "node": ">=20"
   },
   "dsh": {
     "bundle": {
       "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": ["@deepseek-ai/dsh-client-ui-slots"]
     }
   }
 }

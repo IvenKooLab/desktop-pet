@@ -24,8 +24,10 @@ import tkinter as tk
 import webbrowser
 from language_preferences import load_language, save_language
 from animation_assets import load_clips, timed_frame
+from animation_behaviors import load_behaviors, performance_ticks
+from display_mode import read_display_mode, write_display_mode
 from desktop_platform import configure_transparency, frame_path, clear_legacy_color_key
-from host_bridge import HostBridge
+from host_bridge import HostBridge, default_dir
 from bridge_display import status_card, following_badge
 
 try:                    # Windows：枚举窗口顶边当平台
@@ -369,6 +371,7 @@ class Pet:
         self.canvas.pack()
         self.frames = {}
         self.clips = load_clips(FRAMES_DIR)
+        self.behaviors = load_behaviors(BASE)
         extra_frames = {name for names, _ in self.clips.values() for name in names}
         for name in sorted(set(FRAMES) | extra_frames):
             path = frame_path(FRAMES_DIR, name)
@@ -418,6 +421,7 @@ class Pet:
         self.autoplay = True
         self._action_deck = []
         self._last_auto_action = None
+        self._clip_deadline = None
         self.first_land = True
         self.last_input = 0
         self.drag_off = None
@@ -441,6 +445,11 @@ class Pet:
         self._sleep_queue = []           # 睡眠期间的重要提醒，醒来补播
         self._host_label_shown = None
         self._host_dwell = False         # 工作节奏：打一轮板后的喘气间隙
+        self._host_action = False        # 区分真实宿主状态与普通轮播的同名动作
+        self._waiting_since = None
+        self._waiting_source = None
+        self._embedded_display = False
+        self._display_poll_at = 0
 
         self.root.geometry(f"+{int(self.x)}+{int(self.y)}")
         self._bind()
@@ -513,11 +522,23 @@ class Pet:
         auto = tk.BooleanVar(value=self.autoplay)
         menu.add_checkbutton(label=self._menu_text("自动轮播动作", "Automatic animations"), variable=auto,
                              command=lambda: setattr(self, "autoplay", auto.get()))
+        display = tk.Menu(menu, tearoff=0)
+        display_choice = tk.StringVar(value="embedded" if self._embedded_display else "desktop")
+        display.configure(postcommand=lambda: display_choice.set("embedded" if self._embedded_display else "desktop"))
+        for mode, zh, en in (("desktop", "独立桌面", "Desktop"), ("embedded", "DSH 界面内", "Inside DSH")):
+            display.add_radiobutton(label=self._menu_text(zh, en), variable=display_choice,
+                                    value=mode, command=lambda: self._set_display_mode(display_choice.get()))
+        display.add_separator()
+        display.add_command(label=self._menu_text("DSH 需保持打开；未接通时 30 秒回桌面", "Keep DSH open; returns to desktop after 30s if unavailable"),
+                            state="disabled")
+        menu.add_cascade(label=self._menu_text("显示模式", "Display mode"), menu=display)
         if self.host is not None:
             def _toggle_bridge():
                 self._bridge_on = bool(bridge.get())
-                if not self._bridge_on and self.state in ("WORK", "WAITING"):
+                if not self._bridge_on and (self._host_action or self._host_dwell):
                     self._set_state("IDLE", random.randint(40, 80))
+                    if self._bubble_persistent:
+                        self._hide_bubble()
             bridge = tk.BooleanVar(value=self._bridge_on)
             menu.add_checkbutton(label=self._menu_text("宿主桥接", "Host bridge"), variable=bridge,
                                  command=_toggle_bridge)
@@ -546,7 +567,10 @@ class Pet:
             menu.add_cascade(label=self._menu_text("跟踪 Harness", "Track Harness"), menu=tracking)
         for state, title in (("STRETCH", "伸懒腰 / Stretch"), ("DOZE", "打瞌睡 / Doze"),
                              ("RUBIK", "玩魔方 / Rubik cube"), ("WAITING", "等待 / Waiting"), ("WORK", "工作 / Working"),
-                             ("REVIEW", "检查 / Reviewing"), ("FAILED", "失落 / Sad")):
+                             ("REVIEW", "检查 / Reviewing"), ("FAILED", "失落 / Sad"),
+                             ("THINKING", "苦思冥想 / Deep in thought"), ("IMPATIENT", "等待不耐烦 / Getting impatient"),
+                             ("TOKEN_LOW", "额度不足（手动表演） / Low budget (manual performance)"),
+                             ("RELIEVED", "松口气 / Relieved")):
             if state in self.clips:
                 menu.add_command(label=title.split(" / ")[0 if LANG.startswith("zh") else 1], command=lambda s=state: self._menu_clip(s))
         menu.add_command(label=_T["menu_sleep"], command=self._to_sleep)
@@ -630,32 +654,63 @@ class Pet:
     # ---------- 状态切换 ----------
     def _set_state(self, s, duration=0):
         self.state, self.state_left = s, duration
+        self._clip_deadline = None
+        self._host_action = False
+        self._host_dwell = False
+
+    def _start_clip(self, state, cycles=1):
+        """Start a complete performance now, independently of the next logic tick."""
+        clip = self.clips[state]
+        self._set_state(state, performance_ticks(clip[1], cycles))
+        self._anim_key = None
+        self._play_clip(state, [], 1)
+        self._clip_deadline = self._anim_t0 + sum(clip[1]) * cycles / (1000 * PLAYBACK_SPEED)
+
+    def _clip_finished(self):
+        deadline = self._clip_deadline
+        return time.monotonic() >= deadline if deadline is not None else self.state_left <= 0
+
+    def _idle(self):
+        low, high = self.behaviors["idle_seconds"]
+        self._set_state("IDLE", round(random.uniform(low, high) * 20))
+
+    def _performance_cycles(self, state):
+        low, high = self.behaviors["actions"].get(state, (1, 1))
+        return random.randint(low, high)
 
     def _next_auto_action(self):
         if not self.autoplay:
-            self._set_state("IDLE", 80)
+            self._idle()
             return
         if not self._action_deck:
-            self._action_deck = [s for s in ("GREET", "BOUNCE", "CHEER", "SPIN",
-                                "WAITING", "WORK", "REVIEW", "FAILED", "STRETCH", "DOZE", "RUBIK") if s in self.clips]
+            self._action_deck = [s for s in self.behaviors["actions"] if s in self.clips]
             self._action_deck += ["WALK"]
             random.shuffle(self._action_deck)
             if len(self._action_deck) > 1 and self._action_deck[-1] == self._last_auto_action:
                 self._action_deck[0], self._action_deck[-1] = self._action_deck[-1], self._action_deck[0]
+        # Several menu names intentionally reuse one clip. Avoid showing the same
+        # artwork twice in succession when a different performance is available.
+        previous = self.clips.get(self._last_auto_action)
+        if previous and len(self._action_deck) > 1 and self.clips.get(self._action_deck[-1]) == previous:
+            for index, candidate in enumerate(self._action_deck[:-1]):
+                if self.clips.get(candidate) != previous:
+                    self._action_deck[index], self._action_deck[-1] = self._action_deck[-1], candidate
+                    break
         state = self._action_deck.pop()
         self._last_auto_action = state
         if state == "WALK":
             self.dir = random.choice((-1, 1))
-            self._set_state("WALK", random.randint(60, 100))
+            clip = self.clips.get("WALK_l" if self.dir < 0 else "WALK_r")
+            cycles = random.randint(*self.behaviors["walk_cycles"])
+            self._set_state("WALK", performance_ticks(clip[1], cycles) if clip else random.randint(100, 160))
         else:
-            self._set_state(state, (sum(self.clips[state][1]) + 49) // 50)
+            self._start_clip(state, self._performance_cycles(state))
 
     def _menu_clip(self, state):
         self._touch()
         if self._support() is not None:
-            ticks = (sum(self.clips[state][1]) + 49) // 50
-            self._manual(ticks + 30)
-            self._set_state(state, ticks)
+            self._start_clip(state, self._performance_cycles(state))
+            self._manual(self.state_left + 30)
 
     def _front_frame(self):
         """正面立绘帧名（转身过渡用）：优先 idle_0（正视图），无则 spin_0。"""
@@ -686,6 +741,9 @@ class Pet:
         self.say(_T["dash"], 1500)
 
     def _to_shy(self):
+        if "SHY" in self.clips:
+            self._menu_clip("SHY")
+            return
         self._touch()
         if self._support() is None:
             return
@@ -702,6 +760,9 @@ class Pet:
         self.say(SLEEP_LINE, 2000)
 
     def _to_cheer(self):
+        if "CHEER" in self.clips:
+            self._menu_clip("CHEER")
+            return
         self._touch()
         if self._support() is None:
             return
@@ -710,6 +771,9 @@ class Pet:
         self.say(random.choice(CHEER_LINES), 1800)
 
     def _to_spin(self):
+        if "SPIN" in self.clips:
+            self._menu_clip("SPIN")
+            return
         self._touch()
         if self._support() is None:
             return
@@ -754,6 +818,7 @@ class Pet:
         if n.kind == "permission.required":
             if "WAITING" in self.clips:
                 self._set_state("WAITING", 10 ** 9)
+                self._host_action = True
                 card = status_card(self.host, LANG.startswith("zh")) if self.host else None
                 if card:
                     self.say(card[1], 0, title=card[0], tone=card[2])
@@ -766,16 +831,14 @@ class Pet:
             self.say(_BT["failed"].format(label=n.label) if n.label
                      else _BT["failed_plain"], 6000, title=_BT["failed_plain"], tone="error")
         elif n.kind == "task.completed":
-            pick = "CHEER" if "CHEER" in self.clips else (
-                "HAPPY" if "HAPPY" in self.clips else None)
+            pick = next((state for state in ("RELIEVED", "CHEER", "HAPPY") if state in self.clips), None)
             if pick:
-                ticks = (sum(self.clips[pick][1]) + 49) // 50 + 20
-                self._manual(ticks + 30)
-                self._set_state(pick, ticks)
+                self._start_clip(pick)
+                self._manual(self.state_left + 30)
             self.say(n.label or _BT["done"], 7000, title=_BT["done"], tone="done")
         elif n.kind == "turn.ended":
             # Stop 语义：只是"本轮回复结束"，绝不宣称任务成功
-            if self.state in ("WORK", "WAITING") or self._host_dwell:
+            if self._host_action or self._host_dwell:
                 self._host_dwell = False
                 self._set_state("IDLE", random.randint(40, 80))
             self.say(n.label or _BT["turn_end"], 7000, title=_BT["turn_end"], tone="done")
@@ -787,15 +850,19 @@ class Pet:
         到点由 IDLE 分支回 WORK；等待保持 WAITING 姿势（由归约器静默退 idle）。
         """
         if self.host is None or not self._bridge_on:
+            self._waiting_since = self._waiting_source = None
             return
         if self.host.mode is None:
-            if self.state in ("WORK", "WAITING") or self._host_dwell:
+            self._waiting_since = self._waiting_source = None
+            if self._host_action or self._host_dwell:
                 self._host_dwell = False
                 self._set_state("IDLE", random.randint(40, 80))
             self._host_label_shown = None
             if self._bubble_persistent:
                 self._hide_bubble()
             return
+        if self.host.mode != "waiting":
+            self._waiting_since = self._waiting_source = None
         if (self.state in ("SLEEP", "GRAB", "FALL", "LAND")
                 or self.drag_off is not None or self._host_hold > self.tick_n):
             if self._bubble_persistent:
@@ -806,25 +873,58 @@ class Pet:
             if card:
                 self.say(card[1], 0, title=card[0], tone=card[2])
         if self.host.mode == "waiting":
-            if "WAITING" in self.clips and self.state != "WAITING":
+            source = getattr(self.host, "source", None)
+            if self._waiting_since is None or self._waiting_source != source:
+                self._waiting_since, self._waiting_source = time.monotonic(), source
+            target = "IMPATIENT" if time.monotonic() - self._waiting_since >= 30 and "IMPATIENT" in self.clips else "WAITING"
+            if target in self.clips and (self.state != target or not self._host_action):
                 self._host_dwell = False
-                self._set_state("WAITING", 10 ** 9)
+                self._set_state(target, 10 ** 9)
+                self._host_action = True
             return
+        self._waiting_since = self._waiting_source = None
         if "WORK" not in self.clips:
             return
-        if self.state == "WORK":
+        if self.state == "WORK" and self._host_action:
             return
-        if self.state == "IDLE" and self._host_dwell:
+        if self.state in ("IDLE", "THINKING") and self._host_dwell:
             return                             # 喘气中，播完自动回 WORK
         self._enter_work()
 
     def _enter_work(self):
         self._host_dwell = False
-        self._set_state("WORK", (sum(self.clips["WORK"][1]) + 49) // 50)
+        self._start_clip("WORK")
+        self._host_action = True
+
+    def _update_display_mode(self, now):
+        if now < self._display_poll_at:
+            return
+        self._display_poll_at = now + 0.25
+        events = self.host.dir if self.host is not None else default_dir()
+        embedded = read_display_mode(events) == "embedded"
+        if embedded == self._embedded_display:
+            return
+        self._embedded_display = embedded
+        if embedded:
+            self.root.withdraw()
+            self._hide_bubble()
+            if self._follow_badge:
+                self._follow_badge.withdraw()
+        else:
+            self.root.deiconify()
+            if self._follow_badge:
+                self._follow_badge.deiconify()
+
+    def _set_display_mode(self, mode):
+        events = self.host.dir if self.host is not None else default_dir()
+        if write_display_mode(events, mode):
+            self._display_poll_at = 0
+            self._update_display_mode(time.monotonic())
 
     # ---------- 主循环 ----------
     def _loop(self):
         now = time.monotonic()
+        self._update_display_mode(now)
         steps = 0
         while self._logic_next <= now and steps < 4:   # 追帧上限 4 步防风暴
             self._logic_step()
@@ -837,6 +937,8 @@ class Pet:
 
     def _render(self, now):
         """高频渲染：窗口位置在逻辑步间线性插值（亚像素），动画按墙钟相位取帧。"""
+        if self._embedded_display:
+            return
         a = 1.0 - min(1.0, max(0.0, (self._logic_next - now) / LOGIC_DT))
         rx = self._px + (self.x - self._px) * a
         ry = self._py + (self.y - self._py) * a
@@ -950,7 +1052,7 @@ class Pet:
                     nx = self.x
                 self.x = nx
                 if self.state_left <= 0:
-                    self._set_state("IDLE", random.randint(60, 120))
+                    self._idle()
                 if random.random() < 0.004:
                     self.say(random.choice(LINES))
 
@@ -992,18 +1094,26 @@ class Pet:
 
         elif self.state == "GREET":
             self._play_clip("GREET", ["greet_0"], 1500)
-            if self.state_left <= 0:
-                self._set_state("IDLE", random.randint(60, 120))
+            if self._clip_finished():
+                self._idle()
 
-        elif self.state in ("WAITING", "WORK", "REVIEW", "FAILED", "STRETCH", "DOZE", "RUBIK"):
+        elif self.state in ("WAITING", "WORK", "REVIEW", "FAILED", "STRETCH", "DOZE", "RUBIK",
+                            "THINKING", "IMPATIENT", "TOKEN_LOW", "RELIEVED"):
             self._play_clip(self.state, [], 1)
-            if self.state_left <= 0:
-                if self.state == "WORK" and self.host and self._bridge_on \
+            if self._clip_finished():
+                if self._host_action and self.state == "WORK" and self.host and self._bridge_on \
                         and self.host.mode == "working":
-                    self._host_dwell = True          # 打完一轮板，喘口气再打
-                    self._set_state("IDLE", random.randint(24, 48))
+                    if "THINKING" in self.clips:
+                        self._start_clip("THINKING")
+                        self._host_action = True
+                    else:
+                        self._set_state("IDLE", random.randint(24, 48))
+                    self._host_dwell = True          # 一轮打板后思考，避免持续连打
+                elif self._host_action and self._host_dwell and self.state == "THINKING" \
+                        and self.host and self._bridge_on and self.host.mode == "working":
+                    self._enter_work()
                 else:
-                    self._set_state("IDLE", random.randint(60, 120))
+                    self._idle()
 
         elif self.state == "SLEEP":
             self._play_clip("SLEEP", ["sleep_0", "sleep_1"], 2000)
@@ -1012,31 +1122,31 @@ class Pet:
 
         elif self.state == "BOUNCE":
             self._play_clip("BOUNCE", ["bounce_0", "bounce_1"], 200)
-            if self.state_left <= 0:
-                self._set_state("IDLE", random.randint(60, 120))
+            if self._clip_finished():
+                self._idle()
 
         elif self.state == "HAPPY":
             self._play_clip("HAPPY", ["happy_0", "happy_1"], 300)
-            if self.state_left <= 0:
-                self._set_state("IDLE", random.randint(60, 120))
+            if self._clip_finished():
+                self._idle()
 
         elif self.state == "SHY":
             self._play_clip("SHY", ["shy_0"], 1500)
-            if self.state_left <= 0:
-                self._set_state("IDLE", random.randint(60, 120))
+            if self._clip_finished():
+                self._idle()
 
         elif self.state == "CHEER":
             self._play_clip("CHEER", ["cheer_0", "cheer_1"], 350)
-            if self.state_left <= 0:
-                self._set_state("IDLE", random.randint(60, 120))
+            if self._clip_finished():
+                self._idle()
 
         elif self.state == "SPIN":
             if "SPIN" in self.clips:
                 self._play_clip("SPIN", [], 1)
             else:
                 self._set_anim(("spin",))
-            if self.state_left <= 0:
-                self._set_state("IDLE", random.randint(60, 120))
+            if self._clip_finished():
+                self._idle()
 
     # ---------- 动画 ----------
     def _play_clip(self, state, legacy_names, period_ms):
@@ -1100,6 +1210,8 @@ class Pet:
             self._bubble_position = position
 
     def say(self, text, ms=2600, title=None, tone="info"):
+        if self._embedded_display:
+            return
         # Status cards persist until the reducer changes state, independent of animation.
         title = title or "Iven"
         text = str(text)[:160]

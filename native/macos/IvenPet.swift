@@ -19,6 +19,64 @@ struct Clip: Decodable {
 }
 struct Manifest: Decodable { let version: Int; let clips: [String: Clip] }
 
+struct BehaviorPolicy {
+    var idle: ClosedRange<Double> = 3...5
+    var walk: ClosedRange<Int> = 5...8
+    var actions: [String: ClosedRange<Int>] = Dictionary(uniqueKeysWithValues:
+        ["GREET","BOUNCE","HAPPY","SHY","CHEER","WAITING","WORK","REVIEW","FAILED","STRETCH","DOZE","RUBIK"]
+            .map { ($0, 4...6) })
+    init(directory: URL? = nil) {
+        actions["SPIN"] = 2...3
+        for name in ["THINKING","IMPATIENT","TOKEN_LOW","RELIEVED"] { actions[name] = 1...1 }
+        struct Cycles: Decodable { let cycles: [Int] }
+        struct Raw: Decodable {
+            let version: Int
+            let idle_seconds: [Double]?
+            let walk_cycles: [Int]?
+            let actions: [String: Cycles]?
+        }
+        guard let directory, let data = try? Data(contentsOf:directory.appendingPathComponent("animation_behaviors.json")),
+              let raw = try? JSONDecoder().decode(Raw.self,from:data), raw.version == 1 else { return }
+        if let values = raw.idle_seconds, values.count == 2,
+           values[0] > 0, values[0] <= values[1], values[1] <= 30 { idle = values[0]...values[1] }
+        if let values = raw.walk_cycles, values.count == 2,
+           values[0] > 0, values[0] <= values[1], values[1] <= 16 { walk = values[0]...values[1] }
+        for (state, item) in raw.actions ?? [:] {
+            let values = item.cycles
+            if actions[state] != nil, values.count == 2, values[0] > 0,
+               values[0] <= values[1], values[1] <= 16 { actions[state] = values[0]...values[1] }
+        }
+    }
+    func seconds(_ state: String, clip: Clip) -> Double {
+        let cycles = state.hasPrefix("WALK_") ? walk : actions[state] ?? 1...1
+        return Double(clip.total * Int.random(in:cycles))/1000
+    }
+}
+
+struct DisplayLease: Codable {
+    let version: Int
+    let mode: String
+    let owner: String
+    let lease_until: Double
+    func isEmbedded(now: Double) -> Bool {
+        version == 1 && mode == "embedded" && owner == "dsh" && lease_until.isFinite
+            && now < lease_until && lease_until <= now+35000
+    }
+}
+func hostTransitionClip(phase: String, current: String, impatient: Bool) -> String? {
+    if phase == "waiting" {
+        let target = impatient ? "IMPATIENT" : "WAITING"
+        return current == target ? nil : target
+    }
+    if phase == "working" && ["WAITING","IMPATIENT"].contains(current) { return "WORK" }
+    return nil
+}
+func embeddedDisplayLease(_ path: URL, now: Double) -> Bool {
+    guard let data = try? Data(contentsOf:path), data.count <= 2048,
+          let lease = try? JSONDecoder().decode(DisplayLease.self,from:data) else { return false }
+    return lease.isEmbedded(now:now)
+}
+
 func draggedOrigin(start: NSPoint, pointerStart: NSPoint, pointer: NSPoint) -> NSPoint {
     // Cocoa screen coordinates increase upward; never mix them with Tk's y-down coordinates.
     NSPoint(x: start.x + pointer.x - pointerStart.x,
@@ -89,7 +147,7 @@ struct ActionDeck {
     private var remaining: [String] = []
     private var last = ""
     mutating func next(available: Set<String>, pinned: Bool) -> String {
-        let candidates = ["GREET", "BOUNCE", "CHEER", "SPIN", "WAITING", "WORK", "REVIEW", "FAILED", "STRETCH", "DOZE", "RUBIK"]
+        let candidates = ["GREET", "BOUNCE", "CHEER", "SPIN", "WAITING", "WORK", "REVIEW", "FAILED", "HAPPY", "SHY", "STRETCH", "DOZE", "RUBIK", "THINKING", "IMPATIENT", "RELIEVED"]
             .filter { available.contains($0) } + (pinned ? [] : ["WALK_r", "WALK_l"].filter { available.contains($0) })
         remaining = remaining.filter { candidates.contains($0) }
         if remaining.isEmpty { remaining = candidates.shuffled() }
@@ -283,6 +341,33 @@ final class PetController: NSObject, NSApplicationDelegate {
     private var direction: CGFloat = 1
     private var speed: CGFloat = 50
     private var deck = ActionDeck()
+    private let behaviors: BehaviorPolicy
+    private var waitingIdentity = ""
+    private var waitingSince: TimeInterval = 0
+    private var displayHidden = false
+    private var displayPollAt: TimeInterval = 0
+    private var displayFile: URL { bridge.dir.deletingLastPathComponent().appendingPathComponent("display.json") }
+    private func refreshDisplay(now: TimeInterval) {
+        guard now >= displayPollAt else { return }
+        displayPollAt = now+0.25
+        let hidden = embeddedDisplayLease(displayFile,now:Date().timeIntervalSince1970*1000)
+        if hidden != displayHidden {
+            displayHidden = hidden
+            print("[display-mode] \(hidden ? "embedded" : "desktop")"); fflush(stdout)
+            if !hidden { panel.orderFrontRegardless(); play("IDLE",mode:"IDLE",seconds:3) }
+        }
+        if hidden { panel.orderOut(nil); followPanel?.orderOut(nil); bubblePanel?.orderOut(nil) }
+    }
+    private func requestDisplay(_ mode: String) {
+        let lease = DisplayLease(version:1,mode:mode,owner:"dsh",lease_until:mode == "embedded" ? Date().timeIntervalSince1970*1000+30000 : 0)
+        do {
+            try FileManager.default.createDirectory(at:displayFile.deletingLastPathComponent(),withIntermediateDirectories:true)
+            try JSONEncoder().encode(lease).write(to:displayFile,options:.atomic)
+            displayPollAt = 0
+        } catch {
+            showBubble(bridgeZh ? "显示模式未能切换，请重试" : "Could not change display mode. Please retry.",seconds:4)
+        }
+    }
     private var autoplay = UserDefaults.standard.object(forKey:"Autoplay") as? Bool ?? true
     // 宿主桥接
     private var bridge = HostBridge()
@@ -318,7 +403,9 @@ final class PetController: NSObject, NSApplicationDelegate {
             "工作":"Work", "检查":"Review", "失落":"Sad", "挥手打招呼":"Wave hello",
             "弹跳":"Bounce", "开心":"Happy", "打板":"Clapperboard", "观察四周":"Look around",
             "小跳快走":"Quick walk", "害羞":"Shy", "睡觉":"Sleep", "唤醒":"Wake up",
-            "退出独立版":"Quit Iven Pet", "语言 / Language":"Language / 语言", "打开 GitHub 仓库":"Open GitHub repository"]
+            "退出独立版":"Quit Iven Pet", "语言 / Language":"Language / 语言", "打开 GitHub 仓库":"Open GitHub repository", "显示模式":"Display mode", "苦思冥想":"Thinking hard", "等待不耐烦":"Getting impatient", "额度不足（表演）":"Low token budget (performance)", "松口气":"Relieved",
+            "独立桌面":"Desktop", "DSH 界面内":"Inside DSH",
+            "界面内模式需要先安装 DSH 插件":"Inside DSH requires the interface plugin"]
         return english[title] ?? title
     }
 
@@ -328,23 +415,25 @@ final class PetController: NSObject, NSApplicationDelegate {
                 play("WAITING", mode: "HOST", seconds: 0)
             } else if clipName == "WORK" && mode == "HOST" {
                 // 工作不无限连打板：打一轮板喘口气，到点再打
-                play("IDLE", mode: "HOST", seconds: Double.random(in: 1.2...2.2))
+                if let thinking = clips["THINKING"] {
+                    play("THINKING", mode:"HOST", seconds:Double(thinking.total)/1000)
+                } else { play("IDLE", mode: "HOST", seconds: Double.random(in: 1.2...2.2)) }
             } else {
                 play("WORK", mode: "HOST", seconds: Double(clips["WORK"]!.total)/1000)
             }
             return
         }
         if mode != "IDLE" || !autoplay {
-            play("IDLE",mode:"IDLE",seconds:Double.random(in:3...6))
+            play("IDLE",mode:"IDLE",seconds:Double.random(in:behaviors.idle))
             return
         }
         let action = deck.next(available:Set(clips.keys),pinned:pinned)
         if action.hasPrefix("WALK_") {
             direction = action == "WALK_r" ? 1 : -1
             speed = 50
-            play(action,mode:"WALK",seconds:Double.random(in:3...5))
+            play(action,mode:"WALK",seconds:behaviors.seconds(action,clip:clips[action]!))
         } else {
-            play(action,mode:"ACTION",seconds:Double(clips[action]!.total)/1000)
+            play(action,mode:"ACTION",seconds:behaviors.seconds(action,clip:clips[action]!))
         }
     }
 
@@ -365,6 +454,9 @@ final class PetController: NSObject, NSApplicationDelegate {
         hostAssert()
     }
     private func hostAssert() {
+        let identity = bridge.mode == "waiting" ? (bridge.source ?? "unknown") : ""
+        if identity != waitingIdentity { waitingIdentity = identity; waitingSince = ProcessInfo.processInfo.systemUptime }
+        let waitingClip = !identity.isEmpty && ProcessInfo.processInfo.systemUptime-waitingSince >= 30 && clips["IMPATIENT"] != nil ? "IMPATIENT" : "WAITING"
         if bridge.mode == nil {
             if mode == "HOST" { play("IDLE",mode:"IDLE",seconds:3) }
             labelShown = nil
@@ -378,13 +470,13 @@ final class PetController: NSObject, NSApplicationDelegate {
         updateHostBubble()
         if mode == "HOST" {
             // 已在宿主模式：打板/喘气节奏交给 advance()，只在切等待时立即接管
-            if bridge.mode == "waiting" && clipName != "WAITING" {
-                play("WAITING", mode: "HOST", seconds: 0)
+            if let target = hostTransitionClip(phase:bridge.mode!,current:clipName,impatient:waitingClip == "IMPATIENT") {
+                play(target, mode:"HOST", seconds:target == "WORK" ? Double(clips[target]!.total)/1000 : 0)
             }
             return
         }
         if bridge.mode == "waiting" {
-            play("WAITING", mode: "HOST", seconds: 0)
+            play(waitingClip, mode: "HOST", seconds: 0)
         } else {
             play("WORK", mode: "HOST", seconds: Double(clips["WORK"]!.total)/1000)
 
@@ -405,6 +497,7 @@ final class PetController: NSObject, NSApplicationDelegate {
             }
         case "tool.failed":
             if bridge.mode == "working", let clip = clips["FAILED"] {
+                manualUntil = ProcessInfo.processInfo.systemUptime + Double(clip.total)/1000/playbackSpeed
                 play("FAILED", mode: "ACTION", seconds: Double(clip.total)/1000)
             }
         case "turn.failed":
@@ -412,9 +505,9 @@ final class PetController: NSObject, NSApplicationDelegate {
             showBubble(n.label.map { bridgeZh ? "出问题了：\($0)" : "Failed: \($0)" }
                        ?? (bridgeZh ? "出问题了…" : "Something failed…"), seconds: 6, title: hostName()+" · "+(bridgeZh ? "遇到问题" : "Needs attention"), tone: "error")
         case "task.completed":
-            let pick = clips["CHEER"] != nil ? "CHEER" : (clips["HAPPY"] != nil ? "HAPPY" : nil)
+            let pick = clips["RELIEVED"] != nil ? "RELIEVED" : (clips["CHEER"] != nil ? "CHEER" : (clips["HAPPY"] != nil ? "HAPPY" : nil))
             if let pick {
-                manualUntil = ProcessInfo.processInfo.systemUptime + Double(clips[pick]!.total)/1000 + 1.5
+                manualUntil = ProcessInfo.processInfo.systemUptime + (Double(clips[pick]!.total)/1000 + 1.0)/playbackSpeed + 0.5
                 play(pick, mode: "ACTION", seconds: Double(clips[pick]!.total)/1000 + 1.0)
             }
             showBubble(n.label ?? (bridgeZh ? "任务已完成" : "Task completed"), seconds: 7, title: hostName()+" · "+(bridgeZh ? "任务完成" : "Completed"), tone: "done")
@@ -574,6 +667,7 @@ final class PetController: NSObject, NSApplicationDelegate {
     }
 
     init(directory: URL) throws {
+        behaviors = BehaviorPolicy(directory:directory.deletingLastPathComponent())
         let manifest = try JSONDecoder().decode(Manifest.self, from: Data(contentsOf: directory.appendingPathComponent("animation.json")))
         guard manifest.version == 1 else { throw NSError(domain:"IvenPet",code:1,userInfo:[NSLocalizedDescriptionKey:"Unsupported animation manifest"]) }
         clips = manifest.clips
@@ -642,6 +736,12 @@ final class PetController: NSObject, NSApplicationDelegate {
         let now = ProcessInfo.processInfo.systemUptime
         let dt = min(0.05,max(0,now-previous)) * playbackSpeed
         previous = now
+        refreshDisplay(now:now)
+        if displayHidden {
+            bridgeFrame += 1
+            if bridgeFrame >= 60 { bridgeFrame = 0; _ = bridge.poll() }
+            return
+        }
         hostTick()
         if bubbleHideAt > 0 && now >= bubbleHideAt {
             bubblePanel?.orderOut(nil); bubbleHideAt = 0; bubbleKey = ""
@@ -691,6 +791,11 @@ final class PetController: NSObject, NSApplicationDelegate {
     }
     func perform(_ action: String) {
         pressed = false
+        if action.hasPrefix("DISPLAY:") {
+            let selected = String(action.dropFirst(8))
+            if ["desktop","embedded"].contains(selected) { requestDisplay(selected) }
+            return
+        }
         if action == "GITHUB" {
             NSWorkspace.shared.open(URL(string:"https://github.com/IvenKooLab/desktop-pet")!)
             return
@@ -735,8 +840,9 @@ final class PetController: NSObject, NSApplicationDelegate {
         } else if action == "SLEEP" { play("SLEEP",mode:"SLEEP",seconds:0) }
         else if action == "IDLE" { play("IDLE",mode:"IDLE",seconds:6) }
         else if let clip = clips[action] {
-            manualUntil = ProcessInfo.processInfo.systemUptime + Double(clip.total)/1000 + 1.0
-            play(action,mode:"ACTION",seconds:Double(clip.total)/1000)
+            let seconds = behaviors.seconds(action,clip:clip)
+            manualUntil = ProcessInfo.processInfo.systemUptime + seconds/playbackSpeed + 1.0
+            play(action,mode:"ACTION",seconds:seconds)
         }
     }
     @objc private func menuAction(_ item: NSMenuItem) { perform(item.representedObject as! String) }
@@ -746,6 +852,17 @@ final class PetController: NSObject, NSApplicationDelegate {
         heading.isEnabled = false
         menu.addItem(heading)
         menu.addItem(.separator())
+        let displayItem = NSMenuItem(title:menuText("显示模式"),action:nil,keyEquivalent:"")
+        let displays = NSMenu()
+        for (code,title) in [("desktop","独立桌面"),("embedded","DSH 界面内")] {
+            let item = NSMenuItem(title:menuText(title),action:#selector(menuAction),keyEquivalent:"")
+            item.target = self; item.representedObject = "DISPLAY:"+code
+            item.state = (displayHidden ? "embedded" : "desktop") == code ? .on : .off
+            displays.addItem(item)
+        }
+        let displayHint = NSMenuItem(title:menuText("界面内模式需要先安装 DSH 插件"),action:nil,keyEquivalent:"")
+        displayHint.isEnabled = false; displays.addItem(.separator()); displays.addItem(displayHint)
+        displayItem.submenu = displays; menu.addItem(displayItem)
         let tracking = NSMenuItem(title:menuText("跟踪 Harness"),action:nil,keyEquivalent:"")
         let sources = NSMenu()
         sources.minimumWidth = 320
@@ -776,7 +893,7 @@ final class PetController: NSObject, NSApplicationDelegate {
         auto.representedObject = "AUTOPLAY"
         auto.state = autoplay ? .on : .off
         menu.addItem(auto)
-        for (title,action) in [("伸懒腰","STRETCH"),("打瞌睡","DOZE"),("玩魔方","RUBIK"),("等待","WAITING"),("工作","WORK"),("检查","REVIEW"),("失落","FAILED"),("挥手打招呼","GREET"),("弹跳","BOUNCE"),("开心","HAPPY"),
+        for (title,action) in [("苦思冥想","THINKING"),("等待不耐烦","IMPATIENT"),("额度不足（表演）","TOKEN_LOW"),("松口气","RELIEVED"),("伸懒腰","STRETCH"),("打瞌睡","DOZE"),("玩魔方","RUBIK"),("等待","WAITING"),("工作","WORK"),("检查","REVIEW"),("失落","FAILED"),("挥手打招呼","GREET"),("弹跳","BOUNCE"),("开心","HAPPY"),
                                ("打板","CHEER"),("观察四周","SPIN"),("小跳快走","RUN"),
                                ("害羞","SHY"),("睡觉","SLEEP"),("唤醒","IDLE")] {
             let item = NSMenuItem(title:menuText(title),action:#selector(menuAction),keyEquivalent:"")
@@ -804,6 +921,20 @@ final class PetController: NSObject, NSApplicationDelegate {
 }
 
 if CommandLine.arguments.contains("--self-test") {
+    precondition(hostTransitionClip(phase:"working",current:"IMPATIENT",impatient:false) == "WORK")
+    precondition(hostTransitionClip(phase:"working",current:"WAITING",impatient:false) == "WORK")
+    precondition(hostTransitionClip(phase:"working",current:"THINKING",impatient:false) == nil)
+    precondition(hostTransitionClip(phase:"waiting",current:"WAITING",impatient:true) == "IMPATIENT")
+    precondition(hostTransitionClip(phase:"waiting",current:"IMPATIENT",impatient:true) == nil)
+    let now = 100000.0
+    precondition(DisplayLease(version:1,mode:"embedded",owner:"dsh",lease_until:now+30000).isEmbedded(now:now))
+    precondition(!DisplayLease(version:1,mode:"embedded",owner:"dsh",lease_until:now).isEmbedded(now:now))
+    precondition(!DisplayLease(version:1,mode:"embedded",owner:"dsh",lease_until:now+36000).isEmbedded(now:now))
+    precondition(!DisplayLease(version:1,mode:"embedded",owner:"other",lease_until:now+30000).isEmbedded(now:now))
+    let behavior = BehaviorPolicy()
+    let tiny = Clip(frames:["a"],durations:[1000])
+    precondition((4...6).contains(behavior.seconds("GREET",clip:tiny)))
+    precondition(behavior.seconds("THINKING",clip:tiny) == 1)
     let display = NSRect(x:-800,y:32,width:1440,height:868)
     for x in [display.minX, display.midX, display.maxX-200] {
         for y in [display.minY-7,display.maxY-240,display.maxY-100] {

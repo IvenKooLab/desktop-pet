@@ -1,8 +1,11 @@
-# DSH 适配器（Iven 桌宠桥接）
+# DSH 适配器：状态联动与界面内桌宠
 
 [dsh](https://github.com/deepseek-ai/deepseek-harness)（DeepSeek Harness）宿主插件：
 订阅 `session/event`，把工作状态归约为统一事件写入本地收件箱（默认
-`~/.iven-pet/events`），由 Iven 桌宠消费。状态归约语义参考
+`~/.iven-pet/events`），由 Iven 桌宠消费。另通过 DSH 官方 `shell.overlay`
+插槽在当前 Harness 界面内显示同一个 Iven，支持与独立桌面模式切换。
+两种显示方式共用仓库内已批准的透明 PNG、动作时间轴与动作编排配置，
+没有复制或重新设计角色素材。状态归约语义参考
 [dsh-pet](https://github.com/PC2005-cloud/dsh-pet)（MIT）的经验：
 `turn/end` 只是"本轮结束"；goal 自动续跑的轮次不算任务完成；只有
 `update_goal` 显式 `complete` / `blocked` 才映射为 `task.completed` / `turn.failed`。
@@ -31,10 +34,24 @@ ln -s <本仓库绝对路径>/adapters/dsh/iven-bridge \
 
 ```bash
 node adapters/dsh/self-test.mjs     # 纯映射语义自测（无需启动 dsh）
+node adapters/dsh/web-test.mjs      # 路由、同源防护、显示租约与 overlay 注册
 ```
 
 然后在 dsh 里跑一个真实任务（开始 → 工具执行 → 审批等待 → 结束），
 观察桌宠动作；`ls ~/.iven-pet/events` 应看到事件被陆续消费。
+
+首次安装或更新本适配器后，重启 DSH 再刷新页面，使宿主和浏览器入口同时更新。
+界面右上角会出现 **Iven · 移入界面**：点击后，宠物只在当前 DSH 页面内活动；
+可拖动位置，右键点播动作。工作中或等待确认时，角色上方持续显示 DSH 状态，
+开启摘要后还会显示任务标签。再次点击入口或宠物右键菜单中的 **移到独立桌面**
+可切回独立模式。
+
+独立应用须先运行（Mac：`start-mac.command`；Windows：`python pet.py`）。
+适配器切换显示位置，不另行启动或终止应用。独立应用菜单也可请求进入 DSH 界面；
+DSH 页面收到请求后认领显示权。插件尚未加载或页面断开时，独立桌宠会在 30 秒内恢复。
+
+这是 **DSH 专用的界面内模式**。其他 Harness 的状态适配器不因此拥有界面注入能力。
+浏览器刷新后，界面入口仍可用；多开 DSH 页面时，仅最后显式选中的页面显示宠物。
 
 ## 配置
 
@@ -46,7 +63,37 @@ node adapters/dsh/self-test.mjs     # 纯映射语义自测（无需启动 dsh�
 ## 卸载
 
 从 profile 的 `cordis.patch.yml` 删除 `iven-bridge` 条目并移除符号链接；
-`rm -rf ~/.iven-pet` 清掉收件箱。
+删除前可先切回独立桌面；即使直接关闭页面，有效期结束后独立应用也会恢复。
+`~/.iven-pet` 同时包含其他适配器的设置与事件，卸载 DSH 插件无需删除整个目录。
+
+## 显示协议与资源接口
+
+显示意图位于收件箱的上级目录 `display.json`（默认 `~/.iven-pet/display.json`）：
+
+```json
+{"version":1,"owner":"dsh","mode":"embedded","lease_until":1800000030000,"client_id":"web_example123"}
+```
+
+`mode` 可为 `embedded` 或 `desktop`；界面每 5 秒续约一次，租约最长 30 秒。
+无效、损坏、过期或远超有效期的文件一律按独立桌面处理。页面转入后台不再续约，
+避免宠物长时间隐藏在不可见标签页。原生菜单写入的无 `client_id` 请求由第一个可见页面认领；
+其他页面的心跳不能覆盖现有认领。显式点击界面入口可转移显示权。
+
+插件在 DSH 的同源 Web 服务挂载以下路由，不新开端口：
+
+| 路由 | 用途 |
+| --- | --- |
+| `GET /iven-pet/api/state` | DSH 当前工作状态、显示模式与租约 |
+| `GET /iven-pet/api/manifest` | 已批准帧的时间轴 |
+| `GET /iven-pet/api/behaviors` | 与独立应用共用的动作编排 |
+| `GET /iven-pet/frames/<name>.png` | 只允许时间轴列出的透明 PNG |
+| `POST /iven-pet/api/display` | 显式选择显示模式和当前页面 |
+| `POST /iven-pet/api/heartbeat` | 当前页面续约，不允许后台抢占 |
+
+控制路由采用与 loci-dsh / DSH API 网关同类的 Host / Origin / Fetch Metadata 校验，
+拒绝跨站浏览器请求；这属于浏览器请求边界，不是用户鉴权。
+素材直接从本仓库的 `frames3d/` 读取，因此请按上述本地目录方式安装，
+保留仓库目录结构。无 Web 服务的 DSH profile 仍可只用事件收件箱桥接。
 
 ## 事件映射
 
@@ -56,7 +103,7 @@ node adapters/dsh/self-test.mjs     # 纯映射语义自测（无需启动 dsh�
 | tool/call | tool.started（`update_goal` 同时记录 closing） |
 | tool/result | tool.finished |
 | approval/asked | permission.required |
-| todo/write | （仅更新任务标签，不发事件） |
+| todo/write | task.updated（开启摘要后带任务标签） |
 | turn/end（closing=complete） | task.completed |
 | turn/end（closing=blocked） | turn.failed |
 | turn/end（其余，含 goal 续跑） | turn.ended |
