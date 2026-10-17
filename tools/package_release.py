@@ -21,7 +21,7 @@ def main():
     if args.platform == 'macos-universal':
         app = ROOT / 'build/IvenPet.app'
         binary = app / 'Contents/MacOS/IvenPet'
-        subprocess.run(['lipo', '-verify_arch', 'arm64', 'x86_64', str(binary)], check=True)
+        subprocess.run(['lipo', str(binary), '-verify_arch', 'arm64', 'x86_64'], check=True)
         subprocess.run(['codesign', '--verify', '--deep', '--strict', str(app)], check=True)
         subprocess.run(['ditto', '-c', '-k', '--sequesterRsrc', '--keepParent', str(app), str(archive)], check=True)
     else:
