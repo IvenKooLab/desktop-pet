@@ -6,6 +6,8 @@ A tiny 3D plush companion for work and little breaks. With lavender-white hair, 
 
 Runs independently on **macOS and Windows**. No Codex, account or model API required.
 
+[Download the latest release](https://github.com/IvenKooLab/desktop-pet/releases/latest) · [Changelog](CHANGELOG.md)
+
 ## A glimpse of her day
 
 | Blink & look around | Wave, bounce & clapperboard | Wait, work & review |

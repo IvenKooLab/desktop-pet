@@ -6,6 +6,8 @@
 
 支持 **macOS / Windows**，独立运行，无需 Codex、账号或模型 API。
 
+[下载最新版本](https://github.com/IvenKooLab/desktop-pet/releases/latest) · [更新日志](CHANGELOG.md)
+
 ## 看看她的日常
 
 | 眨眼与四处看看 | 挥手、弹跳、打板 | 等待、工作、检查 |
