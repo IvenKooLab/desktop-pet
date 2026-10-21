@@ -58,9 +58,16 @@ struct DisplayLease: Codable {
     let mode: String
     let owner: String
     let lease_until: Double
+    var client_id: String?
     func isEmbedded(now: Double) -> Bool {
         version == 1 && mode == "embedded" && owner == "dsh" && lease_until.isFinite
             && now < lease_until && lease_until <= now+35000
+    }
+    // 两段式租约：请求租约（确认窗口）没有 client_id = 还没有 DSH 网页接手，
+    // 桌宠不能藏——否则 dsh 没开时就会白藏一整个租期。
+    var isClaimed: Bool {
+        if let cid = client_id { return !cid.isEmpty && cid.count <= 128 }
+        return false
     }
 }
 func hostTransitionClip(phase: String, current: String, impatient: Bool) -> String? {
@@ -71,10 +78,11 @@ func hostTransitionClip(phase: String, current: String, impatient: Bool) -> Stri
     if phase == "working" && ["WAITING","IMPATIENT"].contains(current) { return "WORK" }
     return nil
 }
-func embeddedDisplayLease(_ path: URL, now: Double) -> Bool {
+func embeddedDisplayLease(_ path: URL, now: Double) -> DisplayLease? {
     guard let data = try? Data(contentsOf:path), data.count <= 2048,
-          let lease = try? JSONDecoder().decode(DisplayLease.self,from:data) else { return false }
-    return lease.isEmbedded(now:now)
+          let lease = try? JSONDecoder().decode(DisplayLease.self,from:data),
+          lease.isEmbedded(now:now) else { return nil }
+    return lease
 }
 
 func draggedOrigin(start: NSPoint, pointerStart: NSPoint, pointer: NSPoint) -> NSPoint {
@@ -346,11 +354,27 @@ final class PetController: NSObject, NSApplicationDelegate {
     private var waitingSince: TimeInterval = 0
     private var displayHidden = false
     private var displayPollAt: TimeInterval = 0
+    private var embeddedRequestedAt: TimeInterval?
     private var displayFile: URL { bridge.dir.deletingLastPathComponent().appendingPathComponent("display.json") }
     private func refreshDisplay(now: TimeInterval) {
         guard now >= displayPollAt else { return }
         displayPollAt = now+0.25
-        let hidden = embeddedDisplayLease(displayFile,now:Date().timeIntervalSince1970*1000)
+        let lease = embeddedDisplayLease(displayFile,now:Date().timeIntervalSince1970*1000)
+        // 两段式租约：只有 DSH 网页 claim（client_id 已写）才真的隐藏
+        var hidden = lease?.isClaimed ?? false
+        if embeddedRequestedAt != nil {
+            if hidden {
+                embeddedRequestedAt = nil               // DSH 网页已接手
+            } else if lease == nil || now-embeddedRequestedAt! > 6.5 {
+                // 确认窗口内没人接手（dsh 没开/页面没开）：回桌面并提示，不白藏
+                embeddedRequestedAt = nil
+                requestDisplay("desktop")
+                showBubble(bridgeZh ? "未连上 DSH：启动 dsh 并打开网页后再试内嵌"
+                                    : "DSH not reachable: start dsh and open its web page first",seconds:4)
+                displayPollAt = now+0.25
+                hidden = false
+            }
+        }
         if hidden != displayHidden {
             displayHidden = hidden
             print("[display-mode] \(hidden ? "embedded" : "desktop")"); fflush(stdout)
@@ -359,10 +383,14 @@ final class PetController: NSObject, NSApplicationDelegate {
         if hidden { panel.orderOut(nil); followPanel?.orderOut(nil); bubblePanel?.orderOut(nil) }
     }
     private func requestDisplay(_ mode: String) {
-        let lease = DisplayLease(version:1,mode:mode,owner:"dsh",lease_until:mode == "embedded" ? Date().timeIntervalSince1970*1000+30000 : 0)
+        // 内嵌请求只给 6 秒确认窗口；网页客户端 claim 后会写 client_id 并续满租期
+        let lease = DisplayLease(version:1,mode:mode,owner:"dsh",
+                                 lease_until:mode == "embedded" ? Date().timeIntervalSince1970*1000+6000 : 0,
+                                 client_id:nil)
         do {
             try FileManager.default.createDirectory(at:displayFile.deletingLastPathComponent(),withIntermediateDirectories:true)
             try JSONEncoder().encode(lease).write(to:displayFile,options:.atomic)
+            embeddedRequestedAt = mode == "embedded" ? ProcessInfo.processInfo.systemUptime : nil
             displayPollAt = 0
         } catch {
             showBubble(bridgeZh ? "显示模式未能切换，请重试" : "Could not change display mode. Please retry.",seconds:4)
@@ -405,7 +433,8 @@ final class PetController: NSObject, NSApplicationDelegate {
             "小跳快走":"Quick walk", "害羞":"Shy", "睡觉":"Sleep", "唤醒":"Wake up",
             "退出独立版":"Quit Iven Pet", "语言 / Language":"Language / 语言", "打开 GitHub 仓库":"Open GitHub repository", "显示模式":"Display mode", "苦思冥想":"Thinking hard", "等待不耐烦":"Getting impatient", "额度不足（表演）":"Low token budget (performance)", "松口气":"Relieved",
             "独立桌面":"Desktop", "DSH 界面内":"Inside DSH",
-            "界面内模式需要先安装 DSH 插件":"Inside DSH requires the interface plugin"]
+            "内嵌需 DSH 网页接手；约 6 秒未接手自动回桌面":"Inside DSH needs its web page to take over; falls back to desktop after ~6s",
+            "未连上 DSH：启动 dsh 并打开网页后再试内嵌":"DSH not reachable: start dsh and open its web page first"]
         return english[title] ?? title
     }
 
@@ -860,7 +889,7 @@ final class PetController: NSObject, NSApplicationDelegate {
             item.state = (displayHidden ? "embedded" : "desktop") == code ? .on : .off
             displays.addItem(item)
         }
-        let displayHint = NSMenuItem(title:menuText("界面内模式需要先安装 DSH 插件"),action:nil,keyEquivalent:"")
+        let displayHint = NSMenuItem(title:menuText("内嵌需 DSH 网页接手；约 6 秒未接手自动回桌面"),action:nil,keyEquivalent:"")
         displayHint.isEnabled = false; displays.addItem(.separator()); displays.addItem(displayHint)
         displayItem.submenu = displays; menu.addItem(displayItem)
         let tracking = NSMenuItem(title:menuText("跟踪 Harness"),action:nil,keyEquivalent:"")
@@ -931,6 +960,10 @@ if CommandLine.arguments.contains("--self-test") {
     precondition(!DisplayLease(version:1,mode:"embedded",owner:"dsh",lease_until:now).isEmbedded(now:now))
     precondition(!DisplayLease(version:1,mode:"embedded",owner:"dsh",lease_until:now+36000).isEmbedded(now:now))
     precondition(!DisplayLease(version:1,mode:"embedded",owner:"other",lease_until:now+30000).isEmbedded(now:now))
+    // 两段式租约：请求（client_id 空）不隐藏，claim 后才隐藏
+    precondition(!DisplayLease(version:1,mode:"embedded",owner:"dsh",lease_until:now+30000,client_id:nil).isClaimed)
+    precondition(!DisplayLease(version:1,mode:"embedded",owner:"dsh",lease_until:now+30000,client_id:"").isClaimed)
+    precondition(DisplayLease(version:1,mode:"embedded",owner:"dsh",lease_until:now+30000,client_id:"web-1").isClaimed)
     let behavior = BehaviorPolicy()
     let tiny = Clip(frames:["a"],durations:[1000])
     precondition((4...6).contains(behavior.seconds("GREET",clip:tiny)))

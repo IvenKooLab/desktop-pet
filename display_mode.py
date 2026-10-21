@@ -28,10 +28,31 @@ def read_display_mode(events_directory, now_ms=None):
     return "desktop"
 
 
-def write_display_mode(events_directory, mode, now_ms=None):
-    """Request DSH takeover for 30 seconds; only a live embedded client may renew it."""
+def display_claimed(events_directory, now_ms=None):
+    """True only when a live embedded client has claimed the lease (client_id set).
+
+    桌宠端据此决定是否真的隐藏：请求租约（确认窗口内）还没有 client_id，
+    说明没有任何 DSH 网页接手——不能藏。
+    """
+    if read_display_mode(events_directory, now_ms) != "embedded":
+        return False
+    now_ms = time.time() * 1000 if now_ms is None else now_ms
+    try:
+        with (Path(events_directory).parent / "display.json").open(encoding="utf-8") as stream:
+            data = json.loads(stream.read(2049))
+    except (OSError, ValueError, UnicodeError):
+        return False
+    client = data.get("client_id") if isinstance(data, dict) else None
+    return isinstance(client, str) and 0 < len(client) <= 128
+
+
+def write_display_mode(events_directory, mode, now_ms=None, lease_ms=30000):
+    """Request DSH takeover. 默认 30 秒；桌宠端请求时用短确认窗口（约 6 秒），
+    只有网页客户端 claim 并心跳续租（写 client_id + 完整租期）后桌宠才隐藏。"""
     if mode not in ("desktop", "embedded"):
         raise ValueError("Unknown pet display mode")
+    if not isinstance(lease_ms, int) or not 0 < lease_ms <= 30000:
+        lease_ms = 30000
     now_ms = time.time() * 1000 if now_ms is None else now_ms
     parent = Path(events_directory).parent
     temporary = None
@@ -41,7 +62,7 @@ def write_display_mode(events_directory, mode, now_ms=None):
                                          encoding="utf-8", delete=False) as stream:
             temporary = stream.name
             json.dump({"version": 1, "mode": mode, "owner": "dsh",
-                       "lease_until": int(now_ms + 30000) if mode == "embedded" else 0}, stream)
+                       "lease_until": int(now_ms + lease_ms) if mode == "embedded" else 0}, stream)
         os.replace(temporary, parent / "display.json")
         return True
     except OSError:

@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT))
 from animation_assets import load_clips, timed_frame
 from animation_behaviors import load_behaviors, performance_ticks
-from display_mode import read_display_mode, write_display_mode
+from display_mode import read_display_mode, display_claimed, write_display_mode
 
 
 class AnimationTests(unittest.TestCase):
@@ -196,7 +196,8 @@ class AnimationTests(unittest.TestCase):
         pet = self.make_pet(SimpleNamespace(monotonic=lambda: now[0]))
         globals_ = pet._loop.__globals__
         globals_.update(LOGIC_DT=0.05 / 0.75, RENDER_MS=16,
-                        read_display_mode=lambda events: read_display_mode(events, now[0] * 1000))
+                        read_display_mode=lambda events: read_display_mode(events, now[0] * 1000),
+                        display_claimed=lambda events: display_claimed(events, now[0] * 1000))
         pet.root = SimpleNamespace(withdraw=lambda: updates.append("hide"),
                                    deiconify=lambda: updates.append("show"),
                                    after=lambda *args: updates.append("scheduled"))
@@ -205,15 +206,27 @@ class AnimationTests(unittest.TestCase):
         pet._render = lambda at: None
         pet._logic_step = pet._host_poll
         pet._logic_next, pet._display_poll_at, pet._embedded_display = now[0], 0, False
+        pet._embedded_requested_at = None
         with tempfile.TemporaryDirectory() as directory:
             events = Path(directory) / "events"
+            path = Path(directory) / "display.json"
             pet.host = SimpleNamespace(dir=events, poll=lambda: updates.append("poll") or [])
-            write_display_mode(events, "embedded", now[0] * 1000)
+            # 两段式租约第一阶段：请求未 claim —— 不能隐藏（没人接手不玩失踪）
+            write_display_mode(events, "embedded", now[0] * 1000, lease_ms=6000)
+            pet._loop()
+            self.assertFalse(pet._embedded_display)
+            self.assertNotIn("hide", updates)
+            # 第二阶段：网页客户端 claim（写 client_id）—— 隐藏，逻辑照常活着
+            data = json.loads(path.read_text())
+            data["client_id"] = "web-tab-1"
+            path.write_text(json.dumps(data))
+            now[0] += 0.3
             pet._loop()
             self.assertTrue(pet._embedded_display)
             self.assertIn("hide", updates)
             self.assertIn("poll", updates)
             self.assertIn("scheduled", updates)
+            # 租约到期（claim 后无人续租）：回桌面
             now[0] = 130.001
             pet._loop()
             self.assertFalse(pet._embedded_display)

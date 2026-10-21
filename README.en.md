@@ -64,6 +64,8 @@ Packaged versions are also available on the [releases page](https://github.com/I
 
 Iven runs as an independent desktop pet. Optional adapters let her follow a local coding agent: a status card stays visible while it works, approval requests remain visible, and turn endings or failures receive a reaction. With summaries enabled, the card can also show task labels or reply summaries provided by the adapter. Available text varies by source; this is not full conversation access for every agent.
 
+![Iven following ZCode at work: the status bubble shows the source, task label and current step, with a "Following · ZCode" badge](docs/images/bridge-zcode-working.png)
+
 ### Choose a source
 
 Right-click → **跟踪 Harness** (Track Harness):

@@ -25,7 +25,7 @@ import webbrowser
 from language_preferences import load_language, save_language
 from animation_assets import load_clips, timed_frame
 from animation_behaviors import load_behaviors, performance_ticks
-from display_mode import read_display_mode, write_display_mode
+from display_mode import read_display_mode, display_claimed, write_display_mode
 from desktop_platform import configure_transparency, frame_path, clear_legacy_color_key
 from host_bridge import HostBridge, default_dir
 from bridge_display import status_card, following_badge
@@ -450,6 +450,7 @@ class Pet:
         self._waiting_source = None
         self._embedded_display = False
         self._display_poll_at = 0
+        self._embedded_requested_at = None   # 内嵌确认窗口起点（claim 前不隐藏）
 
         self.root.geometry(f"+{int(self.x)}+{int(self.y)}")
         self._bind()
@@ -529,7 +530,7 @@ class Pet:
             display.add_radiobutton(label=self._menu_text(zh, en), variable=display_choice,
                                     value=mode, command=lambda: self._set_display_mode(display_choice.get()))
         display.add_separator()
-        display.add_command(label=self._menu_text("DSH 需保持打开；未接通时 30 秒回桌面", "Keep DSH open; returns to desktop after 30s if unavailable"),
+        display.add_command(label=self._menu_text("内嵌需 DSH 网页接手；约 6 秒未接手自动回桌面", "Inside DSH needs its web page to take over; falls back to desktop after ~6s"),
                             state="disabled")
         menu.add_cascade(label=self._menu_text("显示模式", "Display mode"), menu=display)
         if self.host is not None:
@@ -902,10 +903,25 @@ class Pet:
         self._display_poll_at = now + 0.25
         events = self.host.dir if self.host is not None else default_dir()
         embedded = read_display_mode(events) == "embedded"
-        if embedded == self._embedded_display:
+        # 两段式租约：只有 DSH 网页 claim 过（client_id 已写）才真的隐藏
+        hide = embedded and display_claimed(events)
+        if self._embedded_requested_at is not None:
+            if hide:
+                self._embedded_requested_at = None      # DSH 网页已接手
+            elif now - self._embedded_requested_at > 6.5:
+                # 确认窗口内没人接手（dsh 没开/页面没开）：回桌面并提示，不白藏
+                self._embedded_requested_at = None
+                write_display_mode(events, "desktop")
+                self._display_poll_at = now + 0.25
+                self.say(self._menu_text(
+                    "未连上 DSH：启动 dsh 并打开网页后再试内嵌",
+                    "DSH not reachable: start dsh and open its web page first"),
+                    4000)
+                hide = False
+        if hide == self._embedded_display:
             return
-        self._embedded_display = embedded
-        if embedded:
+        self._embedded_display = hide
+        if hide:
             self.root.withdraw()
             self._hide_bubble()
             if self._follow_badge:
@@ -917,7 +933,10 @@ class Pet:
 
     def _set_display_mode(self, mode):
         events = self.host.dir if self.host is not None else default_dir()
-        if write_display_mode(events, mode):
+        # 内嵌请求只给 6 秒确认窗口；网页客户端 claim 后会写 client_id 并续满租期
+        if write_display_mode(events, mode, lease_ms=6000 if mode == "embedded" else 30000):
+            self._embedded_requested_at = (time.monotonic()
+                                           if mode == "embedded" else None)
             self._display_poll_at = 0
             self._update_display_mode(time.monotonic())
 
