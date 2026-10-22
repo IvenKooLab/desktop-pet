@@ -50,8 +50,10 @@ python pet.py
 - **Automatic performances:** longer complete animation segments with short rests, including everyday performances lasting about 11–21 seconds at 75% playback speed. Pause or choose an action from the right-click menu.
 - **Work companion themes:** thinking hard, getting impatient, low token budget and relief. These sequences reuse approved original frames, preserving the character and palette. Work alternates with thinking; approval waits longer than 30 seconds use the impatient theme, and explicit completion triggers relief. Low token budget is a manual performance, not a detected account balance.
 - **Mouse interactions:** click to bounce, double-click for a happy reaction, drag for a grab reaction, then release to fall and land.
+- **Fling physics:** flick the pet and she flies on a parabola — bouncing off screen edges and losing energy on each ground bounce until settling; a gentle release just drops in place. The Mac build adds a squash animation on impact, with identical physics semantics on both platforms.
 - **Smooth and transparent:** approximately 60fps rendering, consistent proportions and per-frame timing, with native transparent windows on Mac.
-- **Pin on Mac:** keep her in a chosen spot while in-place animations continue.
+- **Position memory & system notifications:** the pet returns to where you left her after a restart (`~/.iven-pet/config.json`); task completed, failed and approval-needed events can raise native notifications — by default only while the pet is hidden inside DSH, with always/off options.
+- **Scriptable:** a local file control API ([docs/API.md](docs/API.md)) lets other plugins or the command line make her speak, play an action or read live state: `python tools/iven_cli.py say "take a break"`. Zero network, zero ports.
 
 ## Two display modes
 
@@ -111,7 +113,8 @@ Chat also stays on your machine, and the pet itself still needs no model API.
 | Click | Bounce; wake up when sleeping |
 | Double-click | Happy reaction |
 | Drag | Move the pet; release to fall naturally |
-| Right-click | Talk to Iven, pick actions, toggle autoplay, choose a tracked source, sleep or quit |
+| Fling | Parabolic flight with screen-edge and ground bounces |
+| Right-click | Talk to Iven, pick actions, toggle autoplay, system notifications, choose a tracked source, sleep or quit |
 | Control + click (Mac) | Open the menu |
 | Pin in place (Mac) | Stop roaming while in-place actions continue |
 

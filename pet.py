@@ -4,7 +4,7 @@
 Windows 使用色键 GIF；时间轴来自 animation.json，观察四周不等于全身转体。
 
 状态机：GREET(落地打招呼) → IDLE(呼吸) → WALK(走动) / RUN(小短腿快走) →
-        GRAB(挣扎) → FALL(重力下落) → LAND(压扁) → SLEEP(睡着)
+        GRAB(挣扎) → THROW(甩出·抛物线反弹) / FALL(重力下落) → LAND(压扁) → SLEEP(睡着)
         + CHEER(打板) / SPIN(转一圈) / BOUNCE(点击弹跳) / HAPPY(双击开心) / SHY(害羞)
 
 主循环：逻辑固定 50ms 步长（tick 语义/状态机节奏不变）+ ~60fps 渲染层——
@@ -15,6 +15,7 @@ Windows 使用色键 GIF；时间轴来自 animation.json，观察四周不等�
 
     python pet.py
 """
+import math
 import os
 import random
 import socket
@@ -31,6 +32,10 @@ from desktop_platform import configure_transparency, frame_path, clear_legacy_co
 from host_bridge import HostBridge, default_dir
 from bridge_display import status_card, following_badge
 import host_chat
+import pet_config
+import system_notify
+import throw_physics
+import control_api
 
 try:                    # Windows：枚举窗口顶边当平台
     import ctypes
@@ -416,7 +421,15 @@ class Pet:
         # 状态
         self.state = "FALL"          # 开场从天上掉下来，落地后打招呼
         self.x, self.y = random.randint(100, self.sw - SIZE - 100), 40
+        # 位置记忆：恢复上次离开时的位置（Tk 屏幕坐标，左上原点）
+        self.config = pet_config.load()
+        if self.config.get("remember_position", True):
+            pos = pet_config.valid_position(self.config.get("position"),
+                                            self.sw, self.sh, SIZE, "topleft")
+            if pos:
+                self.x, self.y = pos["x"], pos["y"]
         self.vy = 0
+        self.vx = 0
         self.dir = random.choice((-1, 1))
         self.tick_n = 0
         self.state_left = 0
@@ -428,6 +441,9 @@ class Pet:
         self.last_input = 0
         self.drag_off = None
         self.press_pos = None
+        self._drag_samples = []          # 甩抛初速采样（时间 + 指针位置）
+        self._throw_bounces = 0
+        self._notify_limiter = system_notify.RateLimiter()
         self.bubble = None
         self.bubble_job = None
         self._follow_badge = None
@@ -459,9 +475,14 @@ class Pet:
         self._chat_deadline = 0
         self._chat_poll_cd = 0
         self._chat_ticks = int(65 / LOGIC_DT)
+        # 本机文件控制接口（可选拼装；无请求时 poll 空转零开销）
+        self._api_dir = control_api.api_dir()
+        self._api_cd = 0
+        self._state_cd = 0
 
         self.root.geometry(f"+{int(self.x)}+{int(self.y)}")
         self._bind()
+        self.root.protocol("WM_DELETE_WINDOW", self._quit)
         # 双层主循环：逻辑固定步长 + 高频渲染插值，见 _loop/_render
         self._px, self._py = self.x, self.y     # 渲染插值锚点（上一步位置）
         self._logic_next = time.monotonic() + LOGIC_DT
@@ -533,6 +554,18 @@ class Pet:
         auto = tk.BooleanVar(value=self.autoplay)
         menu.add_checkbutton(label=self._menu_text("自动轮播动作", "Automatic animations"), variable=auto,
                              command=lambda: setattr(self, "autoplay", auto.get()))
+        notify = tk.Menu(menu, tearoff=0)
+        notify_choice = tk.StringVar(value=self.config.get("notifications", "auto"))
+
+        def _set_notifications():
+            self.config["notifications"] = notify_choice.get()
+            pet_config.save(self.config)
+        for mode, zh, en in (("auto", "自动（桌宠隐藏时）", "Auto (when hidden)"),
+                             ("always", "总是通知", "Always"),
+                             ("off", "关闭", "Off")):
+            notify.add_radiobutton(label=self._menu_text(zh, en), variable=notify_choice,
+                                   value=mode, command=_set_notifications)
+        menu.add_cascade(label=self._menu_text("系统通知", "System notifications"), menu=notify)
         display = tk.Menu(menu, tearoff=0)
         display_choice = tk.StringVar(value="embedded" if self._embedded_display else "desktop")
         display.configure(postcommand=lambda: display_choice.set("embedded" if self._embedded_display else "desktop"))
@@ -596,7 +629,7 @@ class Pet:
         menu.add_cascade(label=self._menu_text("语言 / Language", "Language / 语言"), menu=languages)
         menu.add_command(label=self._menu_text("打开 GitHub 仓库", "Open GitHub repository"),
                          command=lambda: webbrowser.open("https://github.com/IvenKooLab/desktop-pet"))
-        menu.add_command(label=_T["menu_exit"], command=self.root.destroy)
+        menu.add_command(label=_T["menu_exit"], command=self._quit)
         c.bind("<Button-3>", lambda e: menu.tk_popup(e.x_root, e.y_root))
         if sys.platform == "darwin":
             c.bind("<Button-2>", lambda e: menu.tk_popup(e.x_root, e.y_root))
@@ -633,6 +666,9 @@ class Pet:
         self.x = e.x_root - self.drag_off[0]
         self.y = e.y_root - self.drag_off[1]
         self._px, self._py = self.x, self.y     # 拖拽直通，不做步间插值
+        # 甩抛初速采样：只留最近几帧，估算窗口见 throw_physics.WINDOW
+        self._drag_samples.append((time.monotonic(), e.x_root, e.y_root))
+        self._drag_samples = self._drag_samples[-6:]
         self.root.geometry(f"+{int(self.x)}+{int(self.y)}")
 
     def _release(self, e):
@@ -658,9 +694,17 @@ class Pet:
                         else self._to_fall()
                 self.say(random.choice(LINES))
         elif self.state == "GRAB":
-            self._to_fall()                             # 松手 → 重力接管
+            # 松手：甩得动就抛物线飞出去，温柔放下则重力接管
+            v = throw_physics.estimate_velocity(self._drag_samples, time.monotonic())
+            if (v is not None and math.hypot(*v) >= throw_physics.THROW_MIN
+                    and not self._embedded_display):
+                self._to_throw(v[0], v[1])
+            else:
+                self._to_fall()
+            self._save_position()
         self.drag_off = None
         self.press_pos = None
+        self._drag_samples = []
 
     # ---------- 状态切换 ----------
     def _set_state(self, s, duration=0):
@@ -766,6 +810,22 @@ class Pet:
         self.vy = 0
         self._set_state("FALL")
 
+    def _to_throw(self, vx, vy):
+        """甩出：抛物线飞行 + 屏幕边缘反弹 + 落地弹跳（见 throw_physics）。"""
+        self.vx, self.vy = vx, vy
+        self._throw_bounces = 0
+        self._set_state("THROW")
+        self._show("fall_0")
+
+    def _save_position(self):
+        self.config["position"] = {"x": int(self.x), "y": int(self.y),
+                                   "cs": "topleft"}
+        pet_config.save(self.config)
+
+    def _quit(self):
+        self._save_position()
+        self.root.destroy()
+
     def _to_sleep(self):
         self._set_state("SLEEP")
         self.say(SLEEP_LINE, 2000)
@@ -799,9 +859,9 @@ class Pet:
         self._host_hold = self.tick_n + ticks
 
     def _host_busy(self):
-        """宿主提醒不得打断的情形：拖拽中/下落中/刚操作/手动点播窗口。"""
+        """宿主提醒不得打断的情形：拖拽中/下落中/甩出中/刚操作/手动点播窗口。"""
         return (self.drag_off is not None
-                or self.state in ("GRAB", "FALL", "LAND")
+                or self.state in ("GRAB", "FALL", "THROW", "LAND")
                 or self.tick_n - self.last_input < 30
                 or self._host_hold > self.tick_n)
 
@@ -817,8 +877,25 @@ class Pet:
         except Exception:
             pass                                  # 桥接异常不影响桌宠本体
 
+    def _maybe_notify(self, n):
+        """任务事件系统通知：默认 auto——桌宠隐藏/内嵌时才弹，绝不打扰常驻桌面。
+
+        通知正文只含状态与任务标签（适配器已截断清洗），不含摘要内容。
+        """
+        if not system_notify.gate(n.kind, self._embedded_display,
+                                  self.config.get("notifications", "auto")):
+            return
+        if not self._notify_limiter.allow(time.monotonic()):
+            return
+        zh = LANG.startswith("zh")
+        source = (getattr(self.host, "source", None) or "coding agent")
+        title = f"Iven · {source}"
+        system_notify.send(title, system_notify.notify_text(n.kind, n.label, zh),
+                           hwnd=self.hwnd)
+
     def _host_notice(self, n):
         """一次性提醒 → 动作/气泡。睡眠不唤醒，重要提醒入队。"""
+        self._maybe_notify(n)
         if self.state == "SLEEP":
             if n.kind in ("permission.required", "turn.failed", "task.completed") \
                     and len(self._sleep_queue) < 3:
@@ -874,7 +951,7 @@ class Pet:
             return
         if self.host.mode != "waiting":
             self._waiting_since = self._waiting_source = None
-        if (self.state in ("SLEEP", "GRAB", "FALL", "LAND")
+        if (self.state in ("SLEEP", "GRAB", "FALL", "THROW", "LAND")
                 or self.drag_off is not None or self._host_hold > self.tick_n):
             if self._bubble_persistent:
                 self._hide_bubble()
@@ -1007,6 +1084,80 @@ class Pet:
         if self.state == "THINKING":
             self._set_state("IDLE", random.randint(30, 60))
 
+    # ---------- 本机控制接口（control_api.py 的执行端） ----------
+    def _api_snapshot(self):
+        return {
+            "updated": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+            "state": self.state,
+            "x": int(self.x), "y": int(self.y),
+            "display": "embedded" if self._embedded_display else "desktop",
+            "following": (self.host.source
+                          if self.host and self._bridge_on else None),
+            "host_mode": (self.host.mode if self.host and self._bridge_on else None),
+        }
+
+    def _api_poll(self):
+        for path, obj in control_api.poll_requests(self._api_dir):
+            spec = control_api.parse_request(obj, allowed_states=set(self.clips))
+            try:
+                reply = (self._api_execute(spec)
+                         if spec else {"ok": False, "reason": "bad-request"})
+            except Exception:
+                reply = {"ok": False, "reason": "internal-error"}
+            try:
+                if spec:
+                    control_api.write_reply(self._api_dir, spec["id"], reply)
+                path.unlink()               # 处理即取走；回复落盘供调用方读取
+            except OSError:
+                pass
+        control_api.cleanup(self._api_dir)
+
+    def _api_execute(self, spec):
+        action = spec["action"]
+        if action == "say":
+            shown = not self._embedded_display
+            if shown:
+                self.say(spec["text"], min(9000, 2600 + 24 * len(spec["text"])))
+            return {"ok": True, "shown": shown}
+        if action == "play":
+            state = spec["state"]
+            grounded = self._support() is not None
+            if state == "IDLE":
+                self._idle()
+            elif state == "WALK":
+                self._to_walk()
+            elif state == "RUN":
+                self._to_run()
+            elif state == "SLEEP":
+                self._to_sleep()
+            elif state in self.clips:
+                if not grounded:
+                    return {"ok": False, "reason": "not-grounded"}
+                self._start_clip(state, 1)
+                self._manual(self.state_left + 30)
+            elif state == "BOUNCE" and grounded and "bounce_0" in self.frames:
+                self._manual(50)
+                self._set_state("BOUNCE", 16)
+            elif state == "HAPPY" and grounded and "happy_0" in self.frames:
+                self._manual(60)
+                self._set_state("HAPPY", 26)
+            elif state == "SHY":
+                self._to_shy()
+            elif state == "SPIN":
+                self._to_spin()
+            else:
+                return {"ok": False, "reason": "unsupported"}
+            return {"ok": True, "state": self.state}
+        if action == "sleep":
+            self._to_sleep()
+            return {"ok": True}
+        if action == "wake":
+            was_asleep = self.state == "SLEEP"
+            if was_asleep:
+                self._set_state("IDLE", random.randint(60, 120))
+            return {"ok": True, "was_asleep": was_asleep}
+        return {"ok": True, **self._api_snapshot()}
+
     def _loop(self):
         now = time.monotonic()
         self._update_display_mode(now)
@@ -1078,8 +1229,18 @@ class Pet:
                 self._chat_poll()
         self._host_assert()
 
-        # 站立类状态：吸附/跟随脚下的平台；平台消失 → 掉落
-        if self.state not in ("FALL", "GRAB"):
+        # 本机文件控制接口（docs/API.md）：0.5s 取请求，~1.3s 写状态快照
+        self._api_cd -= 1
+        if self._api_cd <= 0:
+            self._api_cd = 10
+            self._api_poll()
+        self._state_cd -= 1
+        if self._state_cd <= 0:
+            self._state_cd = 20
+            control_api.write_state(control_api.state_path(), self._api_snapshot())
+
+        # 站立类状态：吸附/跟随脚下的平台；平台消失 → 掉落（THROW 例外：抛物线自主飞行）
+        if self.state not in ("FALL", "GRAB", "THROW"):
             s = self._support()
             if s is None:
                 self._to_fall()
@@ -1162,6 +1323,26 @@ class Pet:
                 self._set_state("LAND", 10)
             else:
                 self._show("fall_0")
+
+        elif self.state == "THROW":
+            # 甩出后的抛物线飞行：边缘反弹、平台/地面落点由 throw_physics 归一
+            self.x, self.y, self.vx, self.vy, event = throw_physics.step(
+                self.x, self.y, self.vx, self.vy, LOGIC_DT,
+                min_x=0, max_x=self.sw - SIZE, min_y=0,
+                ground_y=self.base, size=SIZE,
+                platforms=self._all_platforms())
+            if event == "bounce":
+                self._throw_bounces += 1
+                if abs(self.vx) > 8:
+                    self.dir = -1 if self.vx < 0 else 1
+            elif event == "land" or self._throw_bounces > throw_physics.MAX_BOUNCES:
+                self.vx = self.vy = 0.0
+                self._throw_bounces = 0
+                self._set_state("LAND", 10)
+            else:
+                self._show("fall_0")
+                if abs(self.vx) > 8:
+                    self.dir = -1 if self.vx < 0 else 1
 
         elif self.state == "LAND":
             self._show("land_0")

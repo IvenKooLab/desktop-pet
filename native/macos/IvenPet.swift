@@ -130,6 +130,135 @@ func draggedOrigin(start: NSPoint, pointerStart: NSPoint, pointer: NSPoint) -> N
             y: start.y + pointer.y - pointerStart.y)
 }
 
+// MARK: - 甩抛物理（与 throw_physics.py 同语义；Cocoa y 向上，重力取负）
+// 常量换算一致：G=1200 px/s²、RESTITUTION=0.55、FRICTION=0.72、LAND=260、THROW_MIN=280。
+enum ThrowPhysics {
+    static let window = 0.12
+    static let minSpan = 0.02
+    static let maxSpeed: CGFloat = 2600
+    static let throwMin: CGFloat = 280
+    static let g: CGFloat = 1200
+    static let restitution: CGFloat = 0.55
+    static let friction: CGFloat = 0.72
+    static let landSpeed: CGFloat = 260
+    static let maxBounces = 4
+
+    static func estimateVelocity(samples: [(Double, CGFloat, CGFloat)], now: Double) -> (vx: CGFloat, vy: CGFloat)? {
+        let usable = samples.filter { now - $0.0 <= window }.sorted { $0.0 < $1.0 }
+        guard usable.count >= 2 else { return nil }
+        let dt = usable.last!.0 - usable.first!.0
+        guard dt >= minSpan else { return nil }
+        var vx = (usable.last!.1 - usable.first!.1) / CGFloat(dt)
+        var vy = (usable.last!.2 - usable.first!.2) / CGFloat(dt)
+        let speed = hypot(vx, vy)
+        guard speed > 1e-6 else { return nil }
+        if speed > maxSpeed { vx *= maxSpeed/speed; vy *= maxSpeed/speed }
+        return (vx, vy)
+    }
+
+    /// 推进一投掷步（Cocoa 坐标：y 向上、vy 向上为正）。
+    /// floorY 为脚底地面线；返回 (x, y, vx, vy, event)，event ∈ {"fly","bounce","land"}。
+    static func step(x: CGFloat, y: CGFloat, vx: CGFloat, vy: CGFloat, dt: Double,
+                     minX: CGFloat, maxX: CGFloat, maxY: CGFloat, floorY: CGFloat, size: CGFloat)
+        -> (x: CGFloat, y: CGFloat, vx: CGFloat, vy: CGFloat, event: String) {
+        guard dt > 0, x.isFinite, y.isFinite, vx.isFinite, vy.isFinite else {
+            return (x, y, vx, vy, "fly")
+        }
+        var nx = x + vx * CGFloat(dt)
+        var ny = y + (vy - g * CGFloat(dt)) * CGFloat(dt)
+        var nvx = vx, nvy = vy - g * CGFloat(dt)
+        var event = "fly"
+        // 左右屏幕边缘：水平反弹
+        if nx < minX { nx = minX; nvx = -nvx * restitution }
+        else if nx > maxX { nx = maxX; nvx = -nvx * restitution }
+        // 顶部边缘：撞顶向下
+        if ny + size > maxY { ny = maxY - size; nvy = -nvy * restitution }
+        // 地面（Mac 独立版没有窗口平台，只有屏幕底边）
+        if ny <= floorY {
+            if abs(nvy) > landSpeed || abs(nvx) > landSpeed {
+                ny = floorY
+                nvy = -nvy * restitution
+                nvx = nvx * friction
+                event = "bounce"
+            } else {
+                ny = floorY
+                nvx = 0; nvy = 0
+                event = "land"
+            }
+        }
+        return (nx, ny, nvx, nvy, event)
+    }
+}
+
+// MARK: - 本地配置（~/.iven-pet/config.json，与 pet_config.py 共用；cs=cocoa 为本端坐标系）
+enum PetConfig {
+    static let notifyKinds: Set<String> = ["permission.required", "turn.failed", "task.completed"]
+
+    static func fileURL() -> URL {
+        FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".iven-pet/config.json")
+    }
+    static func load() -> [String: Any] {
+        guard let data = try? Data(contentsOf: fileURL()),
+              let obj = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else { return [:] }
+        return obj
+    }
+    static func save(_ obj: [String: Any]) {
+        let merged = obj
+        if let data = try? JSONSerialization.data(withJSONObject: merged, options: [.sortedKeys]) {
+            let url = fileURL()
+            try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try? data.write(to: url, options: .atomic)
+        }
+    }
+    static func notifyMode(_ obj: [String: Any]) -> String {
+        let mode = obj["notifications"] as? String
+        return (mode == "always" || mode == "off") ? mode! : "auto"
+    }
+    static func position(_ obj: [String: Any]) -> (x: CGFloat, y: CGFloat)? {
+        guard let pos = obj["position"] as? [String: Any], (pos["cs"] as? String) == "cocoa",
+              let x = pos["x"] as? Double, let y = pos["y"] as? Double else { return nil }
+        return (CGFloat(x), CGFloat(y))
+    }
+}
+
+// MARK: - 系统通知（osascript；失败静默，绝不影响桌宠本体）
+enum SystemNotify {
+    static var lastAt: Double = 0
+    static let minInterval: Double = 8.0
+
+    static func gate(_ kind: String, petHidden: Bool, mode: String) -> Bool {
+        guard notifyKindAllowed(kind) else { return false }
+        if mode == "off" { return false }
+        if mode == "always" { return true }
+        return petHidden                        // auto
+    }
+    static func notifyKindAllowed(_ kind: String) -> Bool { PetConfig.notifyKinds.contains(kind) }
+
+    static func send(title: String, body: String) {
+        let now = ProcessInfo.processInfo.systemUptime
+        if now - lastAt < minInterval { return }
+        lastAt = now
+        let escaped = { (s: String) in s.replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "\"", with: "\\\"") }
+        let script = "display notification \"\(escaped(String(body.prefix(120))))\" with title \"\(escaped(String(title.prefix(64))))\""
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
+        process.arguments = ["-e", script]
+        process.standardOutput = FileHandle.nullDevice
+        process.standardError = FileHandle.nullDevice
+        try? process.run()
+    }
+    static func text(_ kind: String, label: String?, zh: Bool) -> String {
+        let suffix = label.map { (zh ? "：" : ": ") + String($0.prefix(80)) } ?? ""
+        switch kind {
+        case "permission.required": return (zh ? "等你确认权限" : "Approval needed") + suffix
+        case "turn.failed": return (zh ? "出问题了" : "Something failed") + suffix
+        case "task.completed": return (zh ? "任务完成" : "Task completed") + suffix
+        default: return label ?? ""
+        }
+    }
+}
+
 func statusCardPlacement(pet: NSRect, screen: NSRect, card: NSSize) -> (pet: NSPoint, bubble: NSPoint) {
     let origin = NSPoint(x:pet.minX,y:min(pet.minY,screen.maxY-card.height-156))
     let x = min(screen.maxX-card.width-8,max(screen.minX+8,pet.midX-card.width/2))
@@ -147,6 +276,7 @@ final class PetView: NSView {
     private var originStart = NSPoint.zero
     private var moved = false
     private var doubleClick = false
+    private var dragSamples: [(Double, CGFloat, CGFloat)] = []
     override var isOpaque: Bool { false }
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 
@@ -157,6 +287,7 @@ final class PetView: NSView {
         originStart = window.frame.origin
         moved = false
         doubleClick = event.clickCount >= 2
+        dragSamples = [(ProcessInfo.processInfo.systemUptime, pointerStart.x, pointerStart.y)]
         owner.pressed = true
     }
     override func mouseDragged(with event: NSEvent) {
@@ -165,6 +296,8 @@ final class PetView: NSView {
         if hypot(pointer.x-pointerStart.x, pointer.y-pointerStart.y) > 4 {
             if !moved { owner.play("GRAB", mode: "DRAG", seconds: 0) }
             moved = true
+            dragSamples.append((ProcessInfo.processInfo.systemUptime, pointer.x, pointer.y))
+            if dragSamples.count > 6 { dragSamples.removeFirst(dragSamples.count - 6) }
             window.setFrameOrigin(draggedOrigin(start: originStart, pointerStart: pointerStart, pointer: pointer))
         }
     }
@@ -173,7 +306,15 @@ final class PetView: NSView {
         owner.pressed = false
         if moved {
             owner.velocity = 0
-            owner.play(owner.pinned ? "IDLE" : "FALL", mode: owner.pinned ? "IDLE" : "FALL", seconds: owner.pinned ? 6 : 0)
+            // 甩得动就抛出去（THROW 模式接管），温柔放下则重力接管
+            let v = ThrowPhysics.estimateVelocity(samples: dragSamples, now: ProcessInfo.processInfo.systemUptime)
+            if let v, hypot(v.vx, v.vy) >= ThrowPhysics.throwMin, !owner.pinned {
+                owner.beginThrow(vx: v.vx, vy: v.vy)
+            } else {
+                owner.play(owner.pinned ? "IDLE" : "FALL", mode: owner.pinned ? "IDLE" : "FALL", seconds: owner.pinned ? 6 : 0)
+            }
+            owner.savePosition()
+            dragSamples.removeAll()
         }
         else { owner.perform(doubleClick ? "HAPPY" : "BOUNCE") }
     }
@@ -376,6 +517,10 @@ final class PetController: NSObject, NSApplicationDelegate {
     var pressed = false
     var pinned = UserDefaults.standard.bool(forKey:"Pinned")
     var velocity: CGFloat = 0
+    var throwVX: CGFloat = 0
+    var throwVY: CGFloat = 0
+    var throwBounces = 0
+    private var config: [String: Any] = [:]
     private var clips: [String: Clip]
     private var images: [String: CGImage] = [:]
     private var timer: Timer?
@@ -470,6 +615,8 @@ final class PetController: NSObject, NSApplicationDelegate {
             "工作中":"Working", "等你确认":"Needs approval", "未收到事件":"No events received",
             "空闲（已收到事件）":"Idle (events received)", "自动：确认优先 → 最近活动":"Auto: approvals → recent activity",
             "固定在当前位置":"Pin in place", "自动轮播动作":"Automatic animations",
+            "系统通知":"System notifications", "自动（桌宠隐藏时）":"Auto (when hidden)",
+            "总是通知":"Always notify", "关闭":"Off",
             "伸懒腰":"Stretch", "打瞌睡":"Doze", "玩魔方":"Rubik’s cube", "等待":"Wait",
             "工作":"Work", "检查":"Review", "失落":"Sad", "挥手打招呼":"Wave hello",
             "弹跳":"Bounce", "开心":"Happy", "打板":"Clapperboard", "观察四周":"Look around",
@@ -515,8 +662,39 @@ final class PetController: NSObject, NSApplicationDelegate {
     }
     private func hostSuppressed() -> Bool {
         let now = ProcessInfo.processInfo.systemUptime
-        return pressed || mode == "DRAG" || mode == "FALL" || mode == "SLEEP" || now < manualUntil
+        return pressed || mode == "DRAG" || mode == "FALL" || mode == "THROW" || mode == "SLEEP" || now < manualUntil
     }
+    // ---------- 甩抛物理 ----------
+    func beginThrow(vx: CGFloat, vy: CGFloat) {
+        throwVX = vx; throwVY = vy; throwBounces = 0
+        play("FALL", mode: "THROW", seconds: 0)     // 空中帧；运动由 THROW 分支接管
+    }
+    /// 落地/弹跳瞬间的 Q 弹挤压（CALayer 关键帧，不改素材帧）
+    private func squash(_ amount: CGFloat) {
+        guard let layer = view.layer else { return }
+        let height = layer.bounds.height
+        let squashed = CATransform3DConcat(
+            CATransform3DMakeTranslation(0, height*(1-amount), 0),
+            CATransform3DMakeScale(1.0 + (1-amount)*0.6, amount, 1))
+        let anim = CAKeyframeAnimation(keyPath: "transform")
+        anim.values = [layer.transform, squashed, layer.transform]
+        anim.keyTimes = [0, 0.35, 1]
+        anim.duration = 0.3
+        layer.add(anim, forKey: "iven-squash")
+    }
+    // ---------- 本地配置与系统通知 ----------
+    func savePosition() {
+        guard let panel else { return }
+        config["position"] = ["x": Double(panel.frame.minX), "y": Double(panel.frame.minY), "cs": "cocoa"] as [String: Any]
+        PetConfig.save(config)
+    }
+    private func maybeNotify(_ n: BridgeNotice) {
+        guard SystemNotify.gate(n.kind, petHidden: displayHidden,
+                                mode: PetConfig.notifyMode(config)) else { return }
+        SystemNotify.send(title: "Iven · " + hostName(),
+                          body: SystemNotify.text(n.kind, label: n.label, zh: bridgeZh))
+    }
+    func applicationWillTerminate(_ notification: Notification) { savePosition() }
     private func hostTick() {
         bridgeFrame += 1
         if bridgeFrame >= 60 {                       // 每秒轮询一次收件箱
@@ -555,6 +733,7 @@ final class PetController: NSObject, NSApplicationDelegate {
         }
     }
     private func handleNotice(_ n: BridgeNotice) {
+        maybeNotify(n)
         if mode == "SLEEP" {
             if ["permission.required","turn.failed","task.completed"].contains(n.kind),
                sleepQueue.count < 3 { sleepQueue.append(n) }
@@ -782,6 +961,15 @@ final class PetController: NSObject, NSApplicationDelegate {
         view.layer?.contentsGravity = .resizeAspect
         panel.contentView = view
         panel.orderFrontRegardless()
+        // 位置记忆：恢复上次离开时的位置（Cocoa 坐标，cs=cocoa）
+        config = PetConfig.load()
+        if let pos = PetConfig.position(config) {
+            let visible = (NSScreen.screens.first {
+                $0.visibleFrame.insetBy(dx: -200, dy: -200).contains(NSPoint(x: pos.x+100, y: pos.y+100))
+            } ?? NSScreen.main)?.visibleFrame ?? screen
+            panel.setFrameOrigin(NSPoint(x: min(max(pos.x, visible.minX), visible.maxX-200),
+                                         y: min(max(pos.y, visible.minY-7), visible.maxY-240)))
+        }
         // A pinned pet must start idle; FALL has no deadline and suppresses host UI.
         play(pinned ? "IDLE" : "FALL",mode:pinned ? "IDLE" : "FALL",seconds:pinned ? 4 : 0)
         previous = ProcessInfo.processInfo.systemUptime
@@ -804,6 +992,77 @@ final class PetController: NSObject, NSApplicationDelegate {
         shown = ""
         view?.show(images[clip.frames[0]]!)
     }
+    // ---------- 本机控制接口（control_api.py 协议的 Swift 执行端） ----------
+    private var apiFrame = 0
+    private var apiDir: URL { bridge.dir.deletingLastPathComponent().appendingPathComponent("api") }
+    private var stateFile: URL { bridge.dir.deletingLastPathComponent().appendingPathComponent("state.json") }
+    private func stateSnapshot() -> [String: Any] {
+        let formatter = ISO8601DateFormatter()
+        var snap: [String: Any] = ["updated": formatter.string(from: Date()),
+            "state": clipName, "mode": mode,
+            "x": Double(panel?.frame.minX ?? 0), "y": Double(panel?.frame.minY ?? 0),
+            "display": displayHidden ? "embedded" : "desktop",
+            "host_mode": bridge.mode ?? NSNull()]
+        snap["following"] = bridge.source ?? NSNull()
+        return snap
+    }
+    private func writeStateSnapshot() {
+        let payload = stateSnapshot().merging(["version": 1]) { current, _ in current }
+        if let data = try? JSONSerialization.data(withJSONObject: payload) {
+            try? data.write(to: stateFile, options: .atomic)
+        }
+    }
+    private func pollControlApi() {
+        guard let names = try? FileManager.default.contentsOfDirectory(atPath: apiDir.path) else { return }
+        for name in names.sorted() where name.hasPrefix("request-") && name.hasSuffix(".json") {
+            let url = apiDir.appendingPathComponent(name)
+            // 与 Python 端一致的校验；请求文件处理即取走
+            guard let data = try? Data(contentsOf: url),
+                  let obj = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+                  (obj["version"] as? Int) == 1,
+                  let id = obj["id"] as? String, !id.isEmpty, id.count <= 64 else {
+                try? FileManager.default.removeItem(at: url); continue
+            }
+            let action = obj["action"] as? String ?? ""
+            var reply: [String: Any]
+            switch action {
+            case "say":
+                let text = ChatClient.cleanText(obj["text"], limit: 2000)
+                if text.isEmpty {
+                    reply = ["ok": false, "reason": "bad-request"]
+                } else {
+                    if !displayHidden { showBubble(text, seconds: min(9, 2.6 + Double(text.count)*0.024)) }
+                    reply = ["ok": true, "shown": !displayHidden]
+                }
+            case "play":
+                let state = obj["state"] as? String ?? ""
+                let builtin: Set<String> = ["IDLE","WALK","RUN","SLEEP","BOUNCE","HAPPY","SHY","SPIN"]
+                if builtin.contains(state) || clips[state] != nil {
+                    perform(state == "WALK" ? (Bool.random() ? "WALK_r" : "WALK_l") : state)
+                    reply = ["ok": true, "state": clipName]
+                } else {
+                    reply = ["ok": false, "reason": "unsupported"]
+                }
+            case "sleep":
+                perform("SLEEP")
+                reply = ["ok": true]
+            case "wake":
+                let asleep = mode == "SLEEP"
+                if asleep { perform("IDLE") }
+                reply = ["ok": true, "was_asleep": asleep]
+            case "state":
+                reply = stateSnapshot()
+            default:
+                reply = ["ok": false, "reason": "bad-request"]
+            }
+            let payload = reply.merging(["version": 1, "id": id]) { current, _ in current }
+            if let out = try? JSONSerialization.data(withJSONObject: payload) {
+                try? out.write(to: apiDir.appendingPathComponent("reply-\(id).json"), options: .atomic)
+            }
+            try? FileManager.default.removeItem(at: url)
+        }
+    }
+
     // ---------- 和 Iven 说话 ----------
     @objc private func chatInput() {
         if chatPendingId != nil {
@@ -863,6 +1122,13 @@ final class PetController: NSObject, NSApplicationDelegate {
         let dt = min(0.05,max(0,now-previous)) * playbackSpeed
         previous = now
         refreshDisplay(now:now)
+        // 本机文件控制接口（docs/API.md）：~0.5s 轮询请求 + 写状态快照
+        apiFrame += 1
+        if apiFrame >= 30 {
+            apiFrame = 0
+            pollControlApi()
+            writeStateSnapshot()
+        }
         if displayHidden {
             bridgeFrame += 1
             if bridgeFrame >= 60 { bridgeFrame = 0; _ = bridge.poll() }
@@ -900,6 +1166,19 @@ final class PetController: NSObject, NSApplicationDelegate {
                 if origin.y <= floor {
                     origin.y = floor
                     velocity = 0
+                    play("LAND",mode:"ACTION",seconds:0.35)
+                }
+            } else if mode == "THROW" {
+                // 甩出后的抛物线：边缘反弹 + 落地 Q 弹，语义同 throw_physics.py
+                let r = ThrowPhysics.step(x: origin.x, y: origin.y, vx: throwVX, vy: throwVY, dt: dt,
+                                          minX: screen.minX, maxX: screen.maxX-200,
+                                          maxY: screen.maxY, floorY: floor, size: 200)
+                origin.x = r.x; origin.y = r.y; throwVX = r.vx; throwVY = r.vy
+                if r.event == "bounce" {
+                    throwBounces += 1
+                    squash(0.86)
+                } else if r.event == "land" || throwBounces > ThrowPhysics.maxBounces {
+                    throwVX = 0; throwVY = 0; throwBounces = 0
                     play("LAND",mode:"ACTION",seconds:0.35)
                 }
             } else if mode != "DRAG" {
@@ -958,6 +1237,13 @@ final class PetController: NSObject, NSApplicationDelegate {
             hostAssert()
             return
         }
+        if action.hasPrefix("NOTIFY:") {
+            let mode = String(action.dropFirst(7))
+            guard ["auto","always","off"].contains(mode) else { return }
+            config["notifications"] = mode
+            PetConfig.save(config)
+            return
+        }
         if action == "QUIT" { NSApp.terminate(nil); return }
         if mode == "SLEEP" && action != "SLEEP" { flushSleepQueue() }
         if action == "AUTOPLAY" {
@@ -970,7 +1256,9 @@ final class PetController: NSObject, NSApplicationDelegate {
             pinned.toggle()
             UserDefaults.standard.set(pinned,forKey:"Pinned")
             velocity = 0
+            throwVX = 0; throwVY = 0; throwBounces = 0
             play(pinned ? "IDLE" : "FALL",mode:pinned ? "IDLE" : "FALL",seconds:pinned ? 6 : 0)
+            savePosition()
             return
         }
         if action == "RUN" {
@@ -1039,6 +1327,18 @@ final class PetController: NSObject, NSApplicationDelegate {
         auto.representedObject = "AUTOPLAY"
         auto.state = autoplay ? .on : .off
         menu.addItem(auto)
+        let notifyItem = NSMenuItem(title:menuText("系统通知"),action:nil,keyEquivalent:"")
+        let notifyMenu = NSMenu()
+        let currentNotify = PetConfig.notifyMode(config)
+        for (code,title) in [("auto","自动（桌宠隐藏时）"),("always","总是通知"),("off","关闭")] {
+            let item = NSMenuItem(title:menuText(title),action:#selector(menuAction),keyEquivalent:"")
+            item.target = self
+            item.representedObject = "NOTIFY:"+code
+            item.state = currentNotify == code ? .on : .off
+            notifyMenu.addItem(item)
+        }
+        notifyItem.submenu = notifyMenu
+        menu.addItem(notifyItem)
         for (title,action) in [("苦思冥想","THINKING"),("等待不耐烦","IMPATIENT"),("额度不足（表演）","TOKEN_LOW"),("松口气","RELIEVED"),("伸懒腰","STRETCH"),("打瞌睡","DOZE"),("玩魔方","RUBIK"),("等待","WAITING"),("工作","WORK"),("检查","REVIEW"),("失落","FAILED"),("挥手打招呼","GREET"),("弹跳","BOUNCE"),("开心","HAPPY"),
                                ("打板","CHEER"),("观察四周","SPIN"),("小跳快走","RUN"),
                                ("害羞","SHY"),("睡觉","SLEEP"),("唤醒","IDLE")] {
@@ -1196,6 +1496,40 @@ if CommandLine.arguments.contains("--self-test") {
         fputs("bridge self-test threw: \(error)\n", stderr)
         exit(1)
     }
+    // 甩抛物理（与 tests/test_throw_physics.py 同语义；Cocoa y 向上）
+    do {
+        let v = ThrowPhysics.estimateVelocity(samples: [(10.0,0,0),(10.1,500,0),(10.15,550,0)], now: 10.15)
+        precondition(v != nil && abs(v!.vx - 1000) < 0.01, "stale samples outside the window are ignored")
+        precondition(ThrowPhysics.estimateVelocity(samples: [(10.0,0,0),(10.005,30,0)], now: 10.005) == nil,
+                     "span shorter than minSpan has no velocity")
+        let fly = ThrowPhysics.step(x: 500, y: 400, vx: 100, vy: 800, dt: 0.05,
+                                    minX: 0, maxX: 1800, maxY: 1000, floorY: 0, size: 200)
+        precondition(fly.event == "fly" && fly.y > 400, "still rising")
+        let hit = ThrowPhysics.step(x: 500, y: 2, vx: 0, vy: -1500, dt: 0.05,
+                                    minX: 0, maxX: 1800, maxY: 1000, floorY: 0, size: 200)
+        precondition(hit.event == "bounce" && hit.y == 0 && hit.vy > 0 && hit.vy < 1560,
+                     "floor bounce reflects upward with energy loss")
+        let soft = ThrowPhysics.step(x: 500, y: 0, vx: 50, vy: -100, dt: 0.05,
+                                     minX: 0, maxX: 1800, maxY: 1000, floorY: 0, size: 200)
+        precondition(soft.event == "land" && soft.vx == 0 && soft.vy == 0, "soft contact settles in place")
+        let wall = ThrowPhysics.step(x: 1790, y: 500, vx: 3000, vy: 0, dt: 0.05,
+                                     minX: 0, maxX: 1800, maxY: 1000, floorY: 0, size: 200)
+        precondition(wall.x == 1800 && wall.vx < 0, "right edge reflects the throw")
+        let ceiling = ThrowPhysics.step(x: 500, y: 799, vx: 0, vy: 2000, dt: 0.05,
+                                        minX: 0, maxX: 1800, maxY: 1000, floorY: 0, size: 200)
+        precondition(ceiling.y + 200 == 1000 && ceiling.vy < 0, "top edge bounces downward")
+    }
+    // 系统通知门控 + 配置解析（不触真实通知与真实配置文件）
+    precondition(SystemNotify.gate("permission.required", petHidden: true, mode: "auto"))
+    precondition(!SystemNotify.gate("permission.required", petHidden: false, mode: "auto"))
+    precondition(!SystemNotify.gate("turn.ended", petHidden: true, mode: "always"))
+    precondition(!SystemNotify.gate("task.completed", petHidden: true, mode: "off"))
+    precondition(PetConfig.notifyMode(["notifications":"always"]) == "always")
+    precondition(PetConfig.notifyMode(["notifications":"yolo"]) == "auto")
+    precondition(PetConfig.notifyMode([:]) == "auto")
+    precondition(PetConfig.position(["position":["x":10.0,"y":20.0,"cs":"cocoa"]]) != nil)
+    precondition(PetConfig.position(["position":["x":10.0,"y":20.0,"cs":"topleft"]]) == nil)
+    precondition(PetConfig.position([:]) == nil)
     print("PASS: upward/downward screen-coordinate drag, timed frame boundaries/wrap, host-bridge reduction")
     exit(0)
 }

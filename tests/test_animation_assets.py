@@ -12,6 +12,7 @@ sys.path.insert(0,str(ROOT))
 from animation_assets import load_clips, timed_frame
 from animation_behaviors import load_behaviors, performance_ticks
 from display_mode import read_display_mode, display_claimed, write_display_mode
+import system_notify
 
 
 class AnimationTests(unittest.TestCase):
@@ -44,7 +45,11 @@ class AnimationTests(unittest.TestCase):
         cls = next(node for node in tree.body if isinstance(node, ast.ClassDef) and node.name == "Pet")
         namespace = {"time": clock, "random": __import__("random"), "PLAYBACK_SPEED": 0.75,
                      "performance_ticks": performance_ticks, "timed_frame": timed_frame,
-                     "LANG": "en", "status_card": lambda *args: None}
+                     "LANG": "en", "status_card": lambda *args: None,
+                     "control_api": __import__("control_api"),
+                     "throw_physics": __import__("throw_physics"),
+                     "pet_config": __import__("pet_config"),
+                     "system_notify": system_notify}
         exec(compile(ast.Module(body=[cls], type_ignores=[]), "pet.py", "exec"), namespace)
         pet = namespace["Pet"].__new__(namespace["Pet"])
         pet.clips, pet.behaviors = load_clips(ROOT / "frames3d"), load_behaviors(ROOT)
@@ -54,6 +59,10 @@ class AnimationTests(unittest.TestCase):
         pet._anim_key = None
         pet._waiting_since = pet._waiting_source = None
         pet.last_input = 0
+        pet._api_cd = pet._state_cd = 10 ** 9     # 控制接口轮询在单测中关闭
+        pet.config = {"notifications": "off"}
+        pet._notify_limiter = system_notify.RateLimiter()
+        pet._embedded_display = False
         return pet
 
     def test_long_performance_keeps_full_last_frame_at_75_percent(self):
