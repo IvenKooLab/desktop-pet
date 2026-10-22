@@ -14,6 +14,7 @@ import { existsSync, mkdirSync, renameSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { homedir } from 'node:os'
 import { createWebIntegration } from './web.js'
+import { createChatIntegration, resolveChatDir } from './chat-host.js'
 
 export const name = 'iven-bridge'
 export const inject = []
@@ -23,6 +24,17 @@ export const DEFAULT_CONFIG = {
   eventsDir: '',
   /** 摘要开关：默认只传状态；开启后附带 todo 提炼的任务标签 */
   summary: false,
+  /** 对话功能：桌宠"和 Iven 说话"经本插件用宿主 LLM 生成回复 */
+  chat: true,
+  /** 对话目录；空 = IVEN_CHAT_DIR 环境变量或 ~/.iven-pet/chat */
+  chatDir: '',
+  /** 对话记忆保留轮数（一问一答为一轮） */
+  chatMemoryRounds: 8,
+  /** 单次生成超时（毫秒） */
+  chatTimeoutMs: 60000,
+  /** 可选：固定对话模型（默认跟随当前会话的 agent 默认模型） */
+  chatProvider: '',
+  chatModel: '',
 }
 
 export function sessionIdOf(session) {
@@ -144,4 +156,25 @@ export function apply(ctx, config) {
     })
     return () => { dispose?.(); flagsBySession.clear() }
   }, 'iven-bridge: inbox writer')
+
+  // 对话：动态注入 llm 服务；headless/未配置模型时自然跳过，插件其余功能不受影响
+  if (cfg.chat) {
+    ctx.inject(['llm', 'agentDefaultModel'], (chatCtx) => {
+      const chat = createChatIntegration({
+        services: { llm: chatCtx.llm, agentDefaultModel: chatCtx.agentDefaultModel },
+        dir: resolveChatDir(cfg.chatDir),
+        config: {
+          memoryRounds: cfg.chatMemoryRounds,
+          timeoutMs: cfg.chatTimeoutMs,
+          chatProvider: cfg.chatProvider,
+          chatModel: cfg.chatModel,
+        },
+        logger: ctx.logger,
+      })
+      ctx.effect(() => {
+        chat.start()
+        return () => chat.stop()
+      }, 'iven-bridge: chat host')
+    })
+  }
 }

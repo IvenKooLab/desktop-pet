@@ -70,6 +70,45 @@ struct DisplayLease: Codable {
         return false
     }
 }
+// MARK: - 对话客户端（"和 Iven 说话"，协议见 adapters/dsh/iven-bridge/chat-host.js）
+struct ChatReply { let ok: Bool; let text: String; let mood: String?; let reason: String? }
+enum ChatClient {
+    // 情绪白名单：键与 DSH 插件 chat.js 的 MOODS 对齐，值为桌宠 clip
+    static let moodClips = ["happy": "HAPPY", "shy": "SHY", "cheer": "CHEER",
+                            "greet": "GREET", "relieved": "RELIEVED"]
+    static func cleanText(_ value: Any?, limit: Int) -> String {
+        guard let s = value as? String else { return "" }
+        let cleaned = String(s.map { c in (c >= " " && c != "\u{7f}") ? c : " " }
+                               .prefix(limit)).trimmingCharacters(in: .whitespaces)
+        return cleaned
+    }
+    static func writeRequest(_ dir: URL, text: String, id: String) throws {
+        let cleaned = cleanText(text, limit: 2000)
+        guard !cleaned.isEmpty else {
+            throw NSError(domain: "IvenChat", code: 1,
+                          userInfo: [NSLocalizedDescriptionKey: "消息为空"])
+        }
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let payload: [String: Any] = ["version": 1, "id": id, "text": cleaned]
+        let data = try JSONSerialization.data(withJSONObject: payload)
+        try data.write(to: dir.appendingPathComponent("request-\(id).json"), options: .atomic)
+    }
+    static func readReply(_ dir: URL, id: String) -> ChatReply? {
+        let path = dir.appendingPathComponent("reply-\(id).json")
+        guard let data = try? Data(contentsOf: path),
+              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
+        try? FileManager.default.removeItem(at: path)      // 读取即消费
+        guard (obj["version"] as? Int) == 1, obj["id"] as? String == id else { return nil }
+        if (obj["ok"] as? Bool) == true {
+            let text = cleanText(obj["text"], limit: 400)
+            let mood = obj["mood"] as? String
+            return ChatReply(ok: true, text: text.isEmpty ? "……" : text,
+                             mood: moodClips[mood ?? ""] != nil ? mood : nil, reason: nil)
+        }
+        return ChatReply(ok: false, text: "", mood: nil, reason: obj["reason"] as? String)
+    }
+}
+
 func hostTransitionClip(phase: String, current: String, impatient: Bool) -> String? {
     if phase == "waiting" {
         let target = impatient ? "IMPATIENT" : "WAITING"
@@ -352,6 +391,10 @@ final class PetController: NSObject, NSApplicationDelegate {
     private let behaviors: BehaviorPolicy
     private var waitingIdentity = ""
     private var waitingSince: TimeInterval = 0
+    private var chatPendingId: String?
+    private var chatDeadline: TimeInterval = 0
+    private var chatFrame = 0
+    private var chatDir: URL { bridge.dir.deletingLastPathComponent().appendingPathComponent("chat") }
     private var displayHidden = false
     private var displayPollAt: TimeInterval = 0
     private var embeddedRequestedAt: TimeInterval?
@@ -432,7 +475,7 @@ final class PetController: NSObject, NSApplicationDelegate {
             "弹跳":"Bounce", "开心":"Happy", "打板":"Clapperboard", "观察四周":"Look around",
             "小跳快走":"Quick walk", "害羞":"Shy", "睡觉":"Sleep", "唤醒":"Wake up",
             "退出独立版":"Quit Iven Pet", "语言 / Language":"Language / 语言", "打开 GitHub 仓库":"Open GitHub repository", "显示模式":"Display mode", "苦思冥想":"Thinking hard", "等待不耐烦":"Getting impatient", "额度不足（表演）":"Low token budget (performance)", "松口气":"Relieved",
-            "独立桌面":"Desktop", "DSH 界面内":"Inside DSH",
+            "和 Iven 说话…":"Talk to Iven…", "独立桌面":"Desktop", "DSH 界面内":"Inside DSH",
             "内嵌需 DSH 网页接手；约 6 秒未接手自动回桌面":"Inside DSH needs its web page to take over; falls back to desktop after ~6s",
             "未连上 DSH：启动 dsh 并打开网页后再试内嵌":"DSH not reachable: start dsh and open its web page first"]
         return english[title] ?? title
@@ -761,6 +804,60 @@ final class PetController: NSObject, NSApplicationDelegate {
         shown = ""
         view?.show(images[clip.frames[0]]!)
     }
+    // ---------- 和 Iven 说话 ----------
+    @objc private func chatInput() {
+        if chatPendingId != nil {
+            showBubble(bridgeZh ? "Iven 还在想上一个问题…" : "Iven is still thinking…", seconds: 2.2)
+            return
+        }
+        let alert = NSAlert()
+        alert.messageText = bridgeZh ? "和 Iven 说话" : "Talk to Iven"
+        alert.informativeText = bridgeZh ? "说点什么（需要 DSH 在线并安装适配器）"
+                                         : "Say something (needs DSH running with its adapter)"
+        let input = NSTextField(frame: NSRect(x: 0, y: 0, width: 260, height: 24))
+        input.placeholderString = bridgeZh ? "聊点什么…" : "Say something…"
+        alert.accessoryView = input
+        alert.addButton(withTitle: bridgeZh ? "发送" : "Send")
+        alert.addButton(withTitle: bridgeZh ? "取消" : "Cancel")
+        alert.window.initialFirstResponder = input
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        let text = input.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return }
+        do {
+            let id = "pet-\(getpid())-\(UUID().uuidString.prefix(8))"
+            try ChatClient.writeRequest(chatDir, text: text, id: id)
+            chatPendingId = id
+            chatDeadline = Date().timeIntervalSince1970 + 65
+            manualUntil = chatDeadline + 2      // 等回复期间宿主状态不抢
+            if clips["THINKING"] != nil { play("THINKING", mode: "ACTION", seconds: 0) }
+        } catch {
+            showBubble(bridgeZh ? "消息没有发出去" : "Could not send the message", seconds: 3)
+        }
+    }
+    private func handleChatReply(_ reply: ChatReply) {
+        chatPendingId = nil
+        if reply.ok {
+            if let mood = reply.mood, let clip = ChatClient.moodClips[mood], clips[clip] != nil {
+                play(clip, mode: "ACTION", seconds: Double(clips[clip]!.total)/1000)
+            } else {
+                play("IDLE", mode: "IDLE", seconds: 4)
+            }
+            showBubble(reply.text, seconds: min(9, 2.6 + Double(reply.text.count) * 0.024))
+        } else {
+            play("IDLE", mode: "IDLE", seconds: 3)
+            let message: String
+            switch reply.reason {
+            case "provider-missing":
+                message = bridgeZh ? "需要 DSH 在线且配置了模型才能对话"
+                                   : "Chat needs DSH running with a model configured"
+            case "bad-request":
+                message = bridgeZh ? "消息没有发出去" : "The message was not sent"
+            default:
+                message = bridgeZh ? "生成失败，稍后再试" : "Generation failed, try again later"
+            }
+            showBubble(message, seconds: 4.2)
+        }
+    }
     @objc private func tick() {
         let now = ProcessInfo.processInfo.systemUptime
         let dt = min(0.05,max(0,now-previous)) * playbackSpeed
@@ -770,6 +867,21 @@ final class PetController: NSObject, NSApplicationDelegate {
             bridgeFrame += 1
             if bridgeFrame >= 60 { bridgeFrame = 0; _ = bridge.poll() }
             return
+        }
+        if chatPendingId != nil {
+            chatFrame += 1
+            if chatFrame >= 30 {                     // ~0.5s @60fps
+                chatFrame = 0
+                if let reply = ChatClient.readReply(chatDir, id: chatPendingId!) {
+                    handleChatReply(reply)
+                } else if Date().timeIntervalSince1970 > chatDeadline {
+                    chatPendingId = nil
+                    play("IDLE", mode: "IDLE", seconds: 3)
+                    showBubble(bridgeZh ? "没有等到回复：需要 DSH 在线、装好适配器并配置模型"
+                                        : "No reply: DSH must be running with its adapter and a model",
+                               seconds: 5)
+                }
+            }
         }
         hostTick()
         if bubbleHideAt > 0 && now >= bubbleHideAt {
@@ -881,6 +993,11 @@ final class PetController: NSObject, NSApplicationDelegate {
         heading.isEnabled = false
         menu.addItem(heading)
         menu.addItem(.separator())
+        if clips["THINKING"] != nil {
+            let chat = NSMenuItem(title:menuText("和 Iven 说话…"),action:#selector(chatInput),keyEquivalent:"")
+            chat.target = self
+            menu.addItem(chat)
+        }
         let displayItem = NSMenuItem(title:menuText("显示模式"),action:nil,keyEquivalent:"")
         let displays = NSMenu()
         for (code,title) in [("desktop","独立桌面"),("embedded","DSH 界面内")] {
@@ -964,6 +1081,24 @@ if CommandLine.arguments.contains("--self-test") {
     precondition(!DisplayLease(version:1,mode:"embedded",owner:"dsh",lease_until:now+30000,client_id:nil).isClaimed)
     precondition(!DisplayLease(version:1,mode:"embedded",owner:"dsh",lease_until:now+30000,client_id:"").isClaimed)
     precondition(DisplayLease(version:1,mode:"embedded",owner:"dsh",lease_until:now+30000,client_id:"web-1").isClaimed)
+    // 对话文件协议：请求写入 → 回复往返 → 读取即删 → 情绪白名单
+    do {
+        let tmp = FileManager.default.temporaryDirectory
+            .appendingPathComponent("iven-chat-selftest-\(UUID().uuidString)")
+        try ChatClient.writeRequest(tmp, text: "在吗", id: "t1")
+        let reqObj = try JSONSerialization.jsonObject(with: Data(contentsOf: tmp.appendingPathComponent("request-t1.json"))) as? [String: Any]
+        precondition(reqObj?["text"] as? String == "在吗", "request sanitized")
+        let replyPayload: [String: Any] = ["version": 1, "id": "t1", "ok": true, "text": "在的呀", "mood": "happy"]
+        try JSONSerialization.data(withJSONObject: replyPayload).write(to: tmp.appendingPathComponent("reply-t1.json"))
+        let reply = ChatClient.readReply(tmp, id: "t1")
+        precondition(reply?.ok == true && reply?.mood == "happy" && reply?.text == "在的呀", "reply round-trip")
+        precondition(ChatClient.readReply(tmp, id: "t1") == nil, "reply consumed on read")
+        precondition(ChatClient.moodClips["unicorn"] == nil, "mood whitelist enforced")
+        try? FileManager.default.removeItem(at: tmp)
+    } catch {
+        fputs("chat self-test threw: \(error)\n", stderr)
+        exit(1)
+    }
     let behavior = BehaviorPolicy()
     let tiny = Clip(frames:["a"],durations:[1000])
     precondition((4...6).contains(behavior.seconds("GREET",clip:tiny)))

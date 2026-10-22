@@ -177,6 +177,26 @@ goal 自动续跑轮次（`user/message` 的 `source.kind === 'goal'`）只算�
 字段口径与"仅监测 vs 可驱动"的边界在接入前按当期文档重新核验，不在本仓
 预置配置。双向会话控制（`send_prompt`）是第二阶段独立提案，默认不做。
 
+## 对话通道（"和 Iven 说话"）
+
+对话与事件收件箱是**两条独立通道**，共用"仅本机文件 + 原子写"的约定：
+
+```
+桌宠菜单输入 → chat/request-<id>.json → DSH 插件（宿主内 ctx.llm 生成）
+             ← chat/reply-<id>.json ← 气泡显示（可选情绪动作）
+```
+
+- 请求/回复/记忆（`chat/memory.json`，默认 8 轮）都在 `~/.iven-pet/chat`。
+- 语义与 dsh-pet（MIT）同构：模型候选链（插件配置 `chatProvider/chatModel`
+  覆盖 → 当前会话默认模型）逐级回落；失败返回结构化 `reason`
+  （provider-missing / no-text / generate-error / bad-request），**绝不伪造回复**；
+  情绪标记 `[表情:名称]` 只认白名单（happy/shy/cheer/greet/relieved），
+  幻觉名称直接丢弃——文本是数据，不是指令。
+- 超时：桌宠等 65 秒；适配器单次生成 60 秒 AbortSignal。桌宠超时如实提示，
+  不会把失败说成"没听清"。清空对话 = 删除 `chat/memory.json`。
+- 关闭路径：插件 `chat: false` 即整条通道下线；桌宠菜单输入后只会得到
+  如实的"没有等到回复"。桌宠本体零模型依赖不变。
+
 ## 安全红线
 
 - 不上传/不落盘全量对话、工具结果、源码或凭据；默认只传状态。

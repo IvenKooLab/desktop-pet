@@ -22,6 +22,7 @@ import sys
 import time
 import tkinter as tk
 import webbrowser
+from tkinter import simpledialog
 from language_preferences import load_language, save_language
 from animation_assets import load_clips, timed_frame
 from animation_behaviors import load_behaviors, performance_ticks
@@ -29,6 +30,7 @@ from display_mode import read_display_mode, display_claimed, write_display_mode
 from desktop_platform import configure_transparency, frame_path, clear_legacy_color_key
 from host_bridge import HostBridge, default_dir
 from bridge_display import status_card, following_badge
+import host_chat
 
 try:                    # Windows：枚举窗口顶边当平台
     import ctypes
@@ -49,7 +51,7 @@ def _texts(lang):
     """5 语言 UI/台词表（zh 简中 / zh-Hant 繁中 / en / ko / ja）。"""
     if lang == "zh-Hant":
         return {
-            "menu_speak": "說句話", "menu_clap": "打個板 🎬",
+            "menu_speak": "說句話", "menu_chat": "和 Iven 說話…", "menu_clap": "打個板 🎬",
             "menu_spin": "轉一圈 🔄", "menu_run": "小短腿快走 🏃",
             "menu_shy": "害羞一下 😳", "menu_sleep": "睡一覺",
             "menu_exit": "退出",
@@ -74,7 +76,7 @@ def _texts(lang):
         }
     if lang == "en":
         return {
-            "menu_speak": "Say something", "menu_clap": "Clap board 🎬",
+            "menu_speak": "Say something", "menu_chat": "Talk to Iven…", "menu_clap": "Clap board 🎬",
             "menu_spin": "Spin around 🔄", "menu_run": "Quick walk 🏃",
             "menu_shy": "Get shy 😳", "menu_sleep": "Sleep",
             "menu_exit": "Exit",
@@ -104,7 +106,7 @@ def _texts(lang):
         }
     if lang == "ko":
         return {
-            "menu_speak": "말 걸기", "menu_clap": "클래퍼 🎬",
+            "menu_speak": "말 걸기", "menu_chat": "Iven와 대화…", "menu_clap": "클래퍼 🎬",
             "menu_spin": "빙글 돌기 🔄", "menu_run": "빠른 걸음 🏃",
             "menu_shy": "쑥스러움 😳", "menu_sleep": "자기",
             "menu_exit": "종료",
@@ -129,7 +131,7 @@ def _texts(lang):
         }
     if lang == "ja":
         return {
-            "menu_speak": "話しかける", "menu_clap": "カチンコ 🎬",
+            "menu_speak": "話しかける", "menu_chat": "Iven と話す…", "menu_clap": "カチンコ 🎬",
             "menu_spin": "ぐるっと回る 🔄", "menu_run": "ちょこ速歩き 🏃",
             "menu_shy": "照れちゃう 😳", "menu_sleep": "お昼寝",
             "menu_exit": "終了",
@@ -153,7 +155,7 @@ def _texts(lang):
             "wow": ["わー！", "楽しい！", "イェーイ！"],
         }
     return {
-        "menu_speak": "说句话", "menu_clap": "打个板 🎬",
+        "menu_speak": "说句话", "menu_chat": "和 Iven 说话…", "menu_clap": "打个板 🎬",
         "menu_spin": "转一圈 🔄", "menu_run": "小短腿快走 🏃",
         "menu_shy": "害羞一下 😳", "menu_sleep": "睡一觉",
         "menu_exit": "退出",
@@ -451,6 +453,12 @@ class Pet:
         self._embedded_display = False
         self._display_poll_at = 0
         self._embedded_requested_at = None   # 内嵌确认窗口起点（claim 前不隐藏）
+        # "和 Iven 说话"：等待 DSH 适配器生成的回复
+        self.chat_dir = host_chat.chat_dir()
+        self._chat_id = None
+        self._chat_deadline = 0
+        self._chat_poll_cd = 0
+        self._chat_ticks = int(65 / LOGIC_DT)
 
         self.root.geometry(f"+{int(self.x)}+{int(self.y)}")
         self._bind()
@@ -509,6 +517,8 @@ class Pet:
         menu.add_command(label=self._menu_text("Iven Pet · 独立桌宠", "Iven Pet · Desktop companion"), state="disabled")
         menu.add_separator()
         menu.add_command(label=_T["menu_speak"], command=lambda: self.say(random.choice(LINES)))
+        if "THINKING" in self.clips:
+            menu.add_command(label=_T["menu_chat"], command=self._chat_input)
         if {"cheer_0", "cheer_1"} <= self.frames.keys():
             menu.add_command(label=_T["menu_clap"], command=self._to_cheer)
         if {"spin_0", "spin_1", "spin_2", "spin_3"} <= self.frames.keys():
@@ -941,6 +951,62 @@ class Pet:
             self._update_display_mode(time.monotonic())
 
     # ---------- 主循环 ----------
+    # ---------- 和 Iven 说话 ----------
+    def _chat_input(self):
+        if self._chat_id:
+            self.say(self._menu_text("Iven 还在想上一个问题…", "Iven is still thinking…"), 2200)
+            return
+        text = simpledialog.askstring(
+            "Iven Pet",
+            self._menu_text("说点什么（需要 DSH 在线并安装适配器）",
+                            "Say something (needs DSH running with its adapter)"),
+            parent=self.root)
+        if not text or not text.strip():
+            return
+        try:
+            self._chat_id = host_chat.write_request(self.chat_dir, text)
+        except (OSError, ValueError):
+            self.say(self._menu_text("消息没有发出去", "Could not send the message"), 3000)
+            return
+        self._chat_deadline = self.tick_n + self._chat_ticks
+        self._manual(self._chat_ticks + 150)      # 等回复期间宿主状态不抢
+        if "THINKING" in self.clips:
+            self._set_state("THINKING", 10 ** 9)
+
+    def _chat_poll(self):
+        reply = host_chat.read_reply(self.chat_dir, self._chat_id)
+        if reply is None:
+            if self.tick_n >= self._chat_deadline:
+                self._chat_finish()
+                self.say(self._menu_text(
+                    "没有等到回复：需要 DSH 在线、装好适配器并配置模型",
+                    "No reply: DSH must be running with its adapter and a model"),
+                    5000)
+            return
+        self._chat_finish()
+        if reply.get("ok"):
+            text = reply.get("text") or "……"
+            clip = {"happy": "HAPPY", "shy": "SHY", "cheer": "CHEER",
+                    "greet": "GREET", "relieved": "RELIEVED"}.get(reply.get("mood"))
+            if clip and clip in self.clips and self._support() is not None:
+                ticks = (sum(self.clips[clip][1]) + 49) // 50
+                self._manual(ticks + 60)
+                self._set_state(clip, ticks)
+            self.say(text, min(9000, 2600 + 24 * len(text)))
+        else:
+            reason = reply.get("reason")
+            msg = {"provider-missing": "需要 DSH 在线且配置了模型才能对话",
+                   "bad-request": "消息没有发出去"}.get(reason, "生成失败，稍后再试")
+            self.say(self._menu_text(msg, {
+                "provider-missing": "Chat needs DSH running with a model configured",
+                "bad-request": "The message was not sent"}.get(
+                    reason, "Generation failed, try again later")), 4200)
+
+    def _chat_finish(self):
+        self._chat_id = None
+        if self.state == "THINKING":
+            self._set_state("IDLE", random.randint(30, 60))
+
     def _loop(self):
         now = time.monotonic()
         self._update_display_mode(now)
@@ -1008,6 +1074,8 @@ class Pet:
         if self._host_poll_cd <= 0:
             self._host_poll_cd = 10
             self._host_poll()
+            if self._chat_id:
+                self._chat_poll()
         self._host_assert()
 
         # 站立类状态：吸附/跟随脚下的平台；平台消失 → 掉落

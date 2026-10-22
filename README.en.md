@@ -95,6 +95,15 @@ Adapters send events through a local file inbox — no network, no extra model c
 
 See [docs/BRIDGE.md](docs/BRIDGE.md) for the protocol and developer notes.
 
+### Talk to Iven
+
+Right-click → **“Talk to Iven…”** and type a message; Iven answers with the model
+configured in your DSH — a speech bubble, sometimes with a matching expression
+animation, and the last 8 turns are remembered locally (delete
+`~/.iven-pet/chat/memory.json` to reset). DSH must be running with its adapter
+installed; when it is unreachable she says so instead of pretending to chat.
+Chat also stays on your machine, and the pet itself still needs no model API.
+
 ## Interactions
 
 | Input | Response |
@@ -102,7 +111,7 @@ See [docs/BRIDGE.md](docs/BRIDGE.md) for the protocol and developer notes.
 | Click | Bounce; wake up when sleeping |
 | Double-click | Happy reaction |
 | Drag | Move the pet; release to fall naturally |
-| Right-click | Pick actions, toggle autoplay, choose a tracked source, sleep or quit |
+| Right-click | Talk to Iven, pick actions, toggle autoplay, choose a tracked source, sleep or quit |
 | Control + click (Mac) | Open the menu |
 | Pin in place (Mac) | Stop roaming while in-place actions continue |
 

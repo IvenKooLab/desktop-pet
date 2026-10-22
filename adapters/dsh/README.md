@@ -95,6 +95,26 @@ DSH 页面收到请求后认领显示权（写入 client_id 并续满租期）�
 素材直接从本仓库的 `frames3d/` 读取，因此请按上述本地目录方式安装，
 保留仓库目录结构。无 Web 服务的 DSH profile 仍可只用事件收件箱桥接。
 
+## 和 Iven 说话（对话功能）
+
+装好本插件后（需含 `llm` 服务的 profile，web 默认满足），桌宠右键菜单会出现
+**"和 Iven 说话…"**：输入一句话，Iven 会用你 DSH 里配置的模型生成回复，
+以气泡显示，还可能搭配一个表情动作（happy/shy/cheer/greet/relieved）。
+
+- 对话记忆在 `~/.iven-pet/chat/memory.json`，默认保留最近 8 轮；清空即删该文件。
+- DSH 没开、没配置模型或生成失败时，桌宠会如实提示，不会假装聊天成功。
+- 配置（profile 的 iven-bridge 条目 `config:`，均可省略）：
+
+| 键 | 默认 | 说明 |
+| --- | --- | --- |
+| `chat` | `true` | 关闭后菜单输入会得到如实的"没有等到回复" |
+| `chatDir` | `~/.iven-pet/chat` | 请求/回复/记忆目录 |
+| `chatMemoryRounds` | `8` | 记忆保留轮数 |
+| `chatTimeoutMs` | `60000` | 单次生成超时 |
+| `chatProvider` / `chatModel` | 跟随会话 | 固定对话模型（覆盖默认跟随） |
+
+自测：`node adapters/dsh/chat-test.mjs`（假 llm 全流程，无需启动 dsh）。
+
 ## 事件映射
 
 | DSH `session/event` | 统一事件 |
