@@ -140,6 +140,11 @@ def export(source, destinations, manifest_only=False):
         if not all(key in spec for key in ("source", "sha256", "columns", "rows",
                                            "centers", "baselines", "scale", "actions")):
             continue
+        review = spec.get("review")
+        if review is not None and (review.get("approved") is not True
+                or review.get("source_sha256") != spec["sha256"]
+                or not review.get("reviewer") or not review.get("notes")):
+            raise ValueError(f"{sheet_path.name}: candidate requires recorded visual review bound to source hash")
         extra_source = extra_dir / spec["source"]
         if hashlib.sha256(extra_source.read_bytes()).hexdigest() != spec["sha256"]:
             raise ValueError(f"{sheet_path.name}: source does not match its checked manifest")

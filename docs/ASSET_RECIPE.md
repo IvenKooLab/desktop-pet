@@ -1,86 +1,109 @@
-# Iven 新动作素材配方（ASSET RECIPE）
+# Iven 动作素材生产与验收
 
-给 Iven 增加**全新动作**（新像素内容）的完整流程。编排已有帧（如 THINKING、
-YAWN 这类复用帧的剪辑）不需要本文——那只是改 `tools/export_iven_v2.py` 的
-`themed_clips()`。
+角色身份以 `frames3d/idle_0.png` 和已验收的 Iven v2 为准：保持脸、发型、青蓝耳机、原版服装配色、短身比例和绒质手办材质。**动作允许放下场记板，增加道具与小场景。** 这是一套维护者构建工具，不恢复面向用户的桌宠制作器。
 
-整套流程分三段：**① AI 生成原始素材 → ② 一键打包成 sheet → ③ 发布与注册**。
-其中 ②③ 已完全自动化；① 需要图像/视频生成工具（豆包、即梦、可灵、Runway、
-GPT-4o 图像等，或继续交给 codex 姐姐）。
+## 先做三个样片
 
-## 角色卡（所有提示词必须携带的一致性约束）
+| 样片 | 表演与场景 | 验收重点 |
+| --- | --- | --- |
+| 哈欠 | 困倦→掩嘴张嘴→放松；可坐在靠枕边，场记板放旁边 | 嘴与手真实运动、闭眼自然、衣服不变 |
+| 跺脚 | 重心偏移→抬脚→落脚→恢复；可加入地面纸团或小型情绪符号 | 脚接触与重心，不能用失落眨眼冒充 |
+| 工作思考 | 桌前看笔记→持笔思考→记录→放下笔；桌上杯子，场记板立在旁边 | 手与笔、桌面、道具稳定，循环回到同一桌前姿势 |
 
-Iven 是 **3D 绒质手办**风格，任何生成提示词都要固定以下要素，并以
-`frames3d/idle_0.png` 为造型/配色/比例的对照基准：
+首批是关键姿势样片，不等于已经制作完成的连续视频动画。先看三个样片能否稳定保持身份与衔接；未通过时停止扩大生成，评估固定 3D 模型和骨骼路线。
 
-- 紫白短发、青蓝耳机、3D 绒质（fabric/plush figure）质感，柔和棚拍光
-- 站姿比例：角色整体高度约占画幅 65%（头顶留 ~20%，脚底在 ~85% 高度线）
-- 单帧正视图参考 `frames3d/idle_0.png`；配色以该帧为准（import 工具会做均色
-  偏差体检，偏差 >40 会警告）
-- **禁止**：2D 扁平插画风、改变发型/耳机/服装、长身比例、重新设计角色
+研究更新：主线先试真实连续视频，图像 sheet 仅用于母版和分镜。已核实 dsh-pet 的视频与人工抠像流程，见[方法核查](research/DSH_PET_ANIMATION_2026-10-23.md)和[Iven 试验提示词](IVEN_VIDEO_PROMPTS.md)。静态 sheet 失败不足以判断视频路线不可行。
 
-## 路线 A · 图像生成（sheet 或帧序列，codex 姐姐路线）
+## 1. 生成原始素材
 
-已有先例：`assets/iven-v2/actions/little-breaks.png + .json`（伸懒腰/打瞌睡/
-玩魔方就是这么进来的）。
+每个动作使用同一份批准的参考图和固定相机。首尾为同一姿势；完整动作一般数秒，交互反应可更短，工作段可循环。不得以重复旧帧、延长静止停顿冒充新动作。
 
-提示词模板（按需替换"动作描述"）：
+- 原生透明 PNG 优先，保留完整 alpha；不默认侵蚀绒毛和发丝。
+- 视频可以抽帧，例如 `ffmpeg -i action.mp4 -vf fps=12 frame_%04d.png`。抽帧后保留相机画幅和真实位移，不把每帧人物重新居中或贴地。
+- Sheet 必须检查网格是否真正等分，不能假设生成器精确服从布局提示。切到脚、串入相邻格均视为原始素材失败。
+- 背景场景可以是透明的小型桌面、靠枕、椅子、道具组合；不必始终手持场记板。场景要适合桌面小尺寸阅读，不遮住角色脸或交互区域。
 
-> 一只 3D 绒质手办风格的桌面宠物，紫白短发，戴青蓝色耳机，站在纯绿幕
-> （#00FF00）背景前。动作：<动作描述，如"打哈欠并伸懒腰，先睁眼、闭眼张嘴、
-> 再睁眼">。横排网格 6 格，同一角色、同一比例、同一光照，每格一个关键姿势，
-> 脚底对齐同一水平线，正视图。参考图：<附 frames3d/idle_0.png>
+## 2. 标注与固定标定
 
-产出两种都接受：
+导入要求 **逐帧标注** 与 **批准参考配置**。默认参考配置为 `assets/iven-v2/reference-profile.json`。区域是启发式色样，不是可靠的自动人体分割，需目测确认未采到皮肤、背景或其他道具。
 
-1. **帧序列目录**（推荐）：每帧一张 PNG → 直接走下面的"一键打包"
-2. **整张 sheet + 手写 JSON**：需符合 schema（见 `little-breaks.json`）——
-   `source/sha256/columns/rows/centers/baselines/scale/actions`
+逐帧标注示例：
 
-## 路线 B · AI 视频（动作连贯，dsh-pet 的做法）
-
-用豆包/即梦/可灵/Runway 生成 10 秒绿幕视频，然后抽帧：
-
-> 一只 3D 绒质手办风格的桌面宠物，紫白短发，戴青蓝色耳机，全程站在纯绿幕
-> （#00FF00）背景前的地面上，比例固定不变。0–10 秒动作分解：<按秒写清各阶段>。
-> 首帧和末帧都是标准正面站立姿势；角色头顶距画面顶部约 20% 高度，脚底踩在
-> 约 85% 高度线；动作全程不超出画幅；镜头固定，正视图。
-
-抽帧（每秒 8–12 帧够用，选 4–8 个关键姿势更好）：
-
-```sh
-ffmpeg -i action.mp4 -vf "fps=10" pet-work/raw/<name>/frame_%03d.png
+```json
+{
+  "version": 1,
+  "reference_index": 0,
+  "prop_policy": "same",
+  "frames": {
+    "frame_0000.png": {
+      "head_width": 81,
+      "body_height": 55,
+      "anchor_x": 100,
+      "ground_y": 193,
+      "foot_y": 193,
+      "regions": {
+        "hair": [[77, 69, 119, 90]],
+        "headphones": [[54, 106, 61, 120]],
+        "clothing": [[70, 143, 77, 153]],
+        "prop": [[86, 159, 117, 166]]
+      }
+    }
+  }
+}
 ```
 
-## ② 一键打包（自动：抠像 → 收边 → 裁切 → 对齐比例 → sheet + JSON）
+- `head_width`：不含耳机、散发的头部尺度；用于中性参考帧的一次整体缩放。弯腰或举手不会改变它。
+- `body_height`：按身体标记测量的尺度，不能把举起的手或道具算进去；转身、屈膝引起的变化需人工解释。
+- `anchor_x` / `ground_y`：固定相机下的原点与地面，**全段不变**；不是逐帧人物中心/最低像素。
+- `foot_y`：脚底位置，用于记录跳跃轨迹；跳起来时可以离开 `ground_y`，工具不会强行贴回地面。
+- `regions`：每个部位可以有多个框，随姿势更新。看不到的部位不要凭空猜值：先补充可验证视角或拆分该段再导入。
+- `prop_policy: "same"` 对照批准的场记板；新杯子、笔记本等使用 `"new"`，对照该动作中性帧的道具颜色稳定性，仍必须单独验收新道具设计。不得用它跳过头发、耳机、服装检查。
+
+## 3. 导入与预览
+
+仅构建期需要 Pillow。运行时依旧不增加依赖。
 
 ```sh
-python tools/import_action.py --frames-dir pet-work/raw/<name> --name <ACTION>
-# 常用：--ms 180（统一每帧时长）、--durations 200,150,...（逐帧）、
-#       --key green|magenta|none（默认按四角自动检测）
+python tools/import_action.py \
+  --frames-dir pet-work/raw/yawn --name YAWN_NEW \
+  --annotations pet-work/raw/yawn-annotations.json \
+  --reference-profile assets/iven-v2/reference-profile.json \
+  --key none --ms 180
 ```
 
-产物落在 `pet-work/import/`（本地过程目录，**不直接发布**）。工具自动完成：
-绿幕/品红键控、alpha 边缘收缩 1px、包围盒裁切、最高帧对齐 idle_0 角色高度、
-单行 sheet 排版、脚底线/中心测量、sha256 与 JSON 写入、配色偏差体检。
+输出默认在 `pet-work/import/`：
 
-## ③ 发布与注册（目测验收后）
+- 原画幅 sheet + JSON：全段共用一个缩放、相机原点和地面，保留跳跃及横移。
+- `*-qa.json`：分部位 RGB 差异、头身标尺、脚底轨迹、相邻帧变化、首尾差异、运行画幅裁切检查。
+- `*-contact-light.png` / `*-contact-dark.png`：深浅背景逐帧检查图。
+- `*-preview-light.gif` / `*-preview-dark.gif`：按当前 75% 播放速度输出的预览。
 
-1. 目测 `pet-work/import/<name>-sheet.png`：比例、配色、透明边缘与 Iven 一致
-2. `mv pet-work/import/<name>-sheet.* assets/iven-v2/actions/`
-3. 全量导出（重写 frames3d 的 PNG/GIF 与 animation.json）：
-   `python tools/export_iven_v2.py`（需 Pillow）
-4. 注册到两端运行时（代码改动，走评审）：
-   - `animation_behaviors.json` + `animation_behaviors.py` 的 `DEFAULT_ACTIONS`
-   - `pet.py`：右键菜单元组 + `_logic_step` 长动作分支元组
-   - `IvenPet.swift`：菜单数组 + `ActionDeck` candidates + `BehaviorPolicy`
-5. 回归：`python -m unittest discover -s tests`、`zsh tools/build_macos.sh`、
-   `IvenPet --self-test`；Windows 侧色键 GIF 需实机补验
-6. 质检（可选但推荐，需 numpy/scipy）：`python tools/qa_frames.py`
+均色改为区域内高 alpha 像素的逐通道中位数。检查阈值用于找问题，**不是视觉质量证明**。预览 GIF 不代表视频插帧，只有实际输入帧；不能把缺少的中间姿势用交叉淡化掩盖。
 
-## 边界与红线（继承 AGENTS.md）
+绿幕输入才使用 `--key green`，品红同理。`--erode 1` 仅作显式的构建选项，报告会要求重验发丝/绒毛；默认关闭。工具不改衣服颜色来“修正”配色报告。
 
-- 权威素材基准不变：不重新设计角色、不改 2D 母版、禁止逐帧独立缩放
-- 新动作的透明边缘、统一比例、脚底线、时间轴必须全部重做检查
-- 未验收的素材只留在 `pet-work/`，不进 `assets/`、不进发布包
-- 观察四周类动作是视线动作；不要宣称完整 3D 转身（除非素材真的做到）
+## 4. 验收后再发布
+
+候选生成的 `review.approved` 永远为 `false`。新格式 sheet 未记录验收时，导出器会拒绝接入。确认全部项目后，由维护者记录：
+
+```json
+"review": {
+  "approved": true,
+  "source_sha256": "与 source/sha256 相同的实际图片哈希",
+  "reviewer": "实际验收人",
+  "notes": "实际观察结果、缺陷处置、确认过的背景和运行端"
+}
+```
+
+验收必须涵盖：角色身份与原版服装配色；头身比例；深浅背景的透明边缘；首尾和中间动作衔接；脚接地/滑步；道具数量、形状与握持；200px 运行尺寸可读性。自动报告不能排除材质漂移或道具变形。
+
+通过后才将 sheet/JSON 放入 `assets/iven-v2/actions/`，导出、注册菜单与播放策略。旧验收素材格式保持兼容；新候选不要删除 `review` 字段绕过门槛。
+
+```sh
+python tools/export_iven_v2.py
+python -m unittest discover -s tests
+node adapters/dsh/self-test.mjs
+zsh tools/build_macos.sh
+```
+
+Windows 色键 GIF 与 Mac 原生端需实际验收；不能用一端的测试声称两端视觉均通过。每批 5～8 个动作，发布时区分新素材和旧帧编排，同步中英文说明与演示。

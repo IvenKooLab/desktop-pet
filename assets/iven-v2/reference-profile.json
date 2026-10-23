@@ -1,0 +1,53 @@
+{
+  "version": 1,
+  "source": "../../frames3d/idle_0.png",
+  "head_width": 81,
+  "regions": {
+    "hair": [
+      [
+        77,
+        69,
+        119,
+        90
+      ]
+    ],
+    "headphones": [
+      [
+        54,
+        106,
+        61,
+        120
+      ],
+      [
+        140,
+        106,
+        146,
+        119
+      ]
+    ],
+    "clothing": [
+      [
+        70,
+        143,
+        77,
+        153
+      ],
+      [
+        125,
+        143,
+        131,
+        153
+      ]
+    ],
+    "prop": [
+      [
+        86,
+        159,
+        117,
+        166
+      ]
+    ]
+  },
+  "notes": "Front-facing neutral reference. Region samples are heuristics, not semantic segmentation; moving or occluded regions require per-frame annotation. Head width excludes headphones and loose side hair.",
+  "body_height": 55
+}

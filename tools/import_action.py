@@ -7,16 +7,9 @@
     python tools/import_action.py --frames-dir ... --name WAVE_BYE --ms 180
     python tools/import_action.py --frames-dir ... --key magenta   # 默认自动检测
 
-步骤（均可关）：
-    1. 色键抠像（自动检测绿幕/品红；--key none 跳过，要求帧已带 alpha）
-    2. alpha 边缘收缩 1px（--erode 0 关闭；只对色键过的帧默认开启，去残边）
-    3. 自动裁切到角色包围盒，量脚底线/中心
-    4. 统一缩放：最高帧对齐 idle_0 的角色高度（两端比例一致的硬约束）
-    5. 排成单行 sheet，写 <name>.png + <name>.json（含 sha256）
-    6. 配色体检：与 idle_0 的不透明像素均色对比，偏差大即警告（不阻断）
-
-产物默认落在 pet-work/import/（本地过程目录，不直接发布）；目测验收后
-mv 进 assets/iven-v2/actions/，再跑全量导出与注册（见 docs/ASSET_RECIPE.md）。
+固定画幅导入：标注头宽、地面坐标与身体/道具颜色区域，使用同一相机标定。
+不按逐帧包围盒裁切或对齐，不自动缩边。保留跳跃高度和左右位移。
+输出 sheet/JSON、QA 报告、深浅背景静态与动画预览；所有输出仅为待验收候选。
 
 依赖 Pillow（构建期工具；运行时仍纯标准库）。
 """
@@ -27,6 +20,7 @@ import sys
 from pathlib import Path
 
 from PIL import Image, ImageChops, ImageFilter
+from action_quality import inspect, render_review, validate_annotations
 
 ROOT = Path(__file__).resolve().parent.parent
 PAD = 6                    # sheet 单元格内边距
@@ -38,7 +32,7 @@ def detect_key(frame):
     width, height = frame.size
     corners = [frame.getpixel(p) for p in ((1, 1), (width - 2, 1),
                                            (1, height - 2), (width - 2, height - 2))]
-    solid = [c[:3] for c in corners if len(c) >= 3]
+    solid = [c[:3] for c in corners if len(c) >= 3 and (len(c) < 4 or c[3] >= 192)]
     if not solid:
         return "none"
     r, g, b = (sum(ch) / len(solid) for ch in zip(*solid))
@@ -74,94 +68,87 @@ def content_bbox(frame):
     return alpha.getbbox()
 
 
-def mean_color(frame):
-    """不透明像素均色（R,G,B）。"""
-    return frame.resize((1, 1), Image.Resampling.BOX).getpixel((0, 0))[:3]
-
-
-def build_sheet(frames_dir, name, key, erode, ms, durations, out_dir):
-    paths = sorted(p for p in Path(frames_dir).iterdir()
-                   if p.suffix.lower() == ".png")
+def build_sheet(frames_dir, name, key, erode, ms, durations, out_dir,
+                annotations=None, reference_profile=None):
+    paths = sorted(p for p in Path(frames_dir).iterdir() if p.suffix.lower() == ".png")
     if not paths:
-        raise SystemExit(f"帧目录没有 PNG：{frames_dir}")
+        raise ValueError("帧目录没有 PNG")
     if name != name.upper() or not name.isidentifier():
-        raise SystemExit("动作名需为大写标识符（如 WAVE_BYE）")
-    cropped = []
-    keyed_any = False
+        raise ValueError("动作名需为大写标识符")
+    durations = [ms] * len(paths) if durations is None else durations
+    if len(durations) != len(paths) or any(type(d) is not int or d <= 0 for d in durations):
+        raise ValueError("每帧必须有正整数毫秒时长")
+    if annotations is None or reference_profile is None:
+        raise ValueError("需要 --annotations 和 --reference-profile；不再按最高帧猜测比例")
+    meta = json.loads(Path(annotations).read_text())
+    profile = json.loads(Path(reference_profile).read_text())
+    frames, keyed_any, original_alphas = [], False, []
+    size = None
     for path in paths:
-        frame = Image.open(path)
-        key_kind = key if key != "auto" else detect_key(frame)
-        frame, did = key_out(frame, key_kind)
-        keyed_any = keyed_any or did
+        frame = Image.open(path).convert("RGBA")
+        if size is not None and frame.size != size:
+            raise ValueError("所有帧必须是相同画幅；禁止逐帧裁切输入")
+        size = frame.size
+        frame, did = key_out(frame, key if key != "auto" else detect_key(frame))
+        keyed_any |= did
+        original_alphas.append(frame.getchannel("A").getbbox())
         if did and erode:
             frame.putalpha(frame.getchannel("A").filter(ImageFilter.MinFilter(3)))
+        if content_bbox(frame) is None:
+            raise ValueError(f"{path.name}: 抠像后没有内容")
+        frames.append((path, frame))
+    ref_index = validate_annotations(frames, meta)
+    anchor = meta["frames"][paths[ref_index].name]
+    ref_path = (Path(reference_profile).parent / profile["source"]).resolve()
+    reference = Image.open(ref_path).convert("RGBA")
+    if type(profile.get("head_width")) not in (int, float) or not 0 < profile["head_width"] <= reference.width:
+        raise ValueError("参考角色 head_width 必须为画幅内的正数")
+    factor = profile["head_width"] / anchor["head_width"]
+    # Whole source canvases stay intact. One reference anchor and scale apply to ALL poses.
+    w, h = size
+    sheet = Image.new("RGBA", (w * len(frames), h), (0, 0, 0, 0))
+    for index, (_, frame) in enumerate(frames):
+        sheet.alpha_composite(frame, (index * w, 0))
+    if type(profile.get("body_height")) not in (int, float) or not 0 < profile["body_height"] <= reference.height:
+        raise ValueError("参考角色 body_height 必须为画幅内的正数")
+    report = inspect(frames, meta, reference, profile["regions"],
+                     profile["body_height"] / profile["head_width"])
+    if erode:
+        report["findings"].append("Explicit erosion enabled: inspect lost hair/fabric alpha")
+        report["automatic_checks_pass"] = False
+    # Detect clipping after the SAME transform used by the runtime exporter.
+    for path, frame in frames:
         box = content_bbox(frame)
-        if box is None:
-            raise SystemExit(f"{path.name} 抠像后没有内容，检查 --key 设置")
-        cropped.append((path, frame.crop(box)))
-    # 目标角色高度 = idle_0 的内容高度（角色比例一致的硬约束）
-    reference = Image.open(ROOT / "frames3d/idle_0.png").convert("RGBA")
-    ref_box = content_bbox(reference)
-    target_h = ref_box[3] - ref_box[1]
-    tallest = max(box.height for _, box in cropped)
-    factor = round(target_h / tallest, 3)
-    # 单行布局：单元格 = 最高帧 + 上下留白，角色底对齐（脚底线一致）
-    cell_w = max(box.width for _, box in cropped) + PAD * 2
-    cell_h = tallest + PAD * 2
-    sheet = Image.new("RGBA", (cell_w * len(cropped), cell_h), (0, 0, 0, 0))
-    columns, centers = [0], []
-    for index, (_, box) in enumerate(cropped):
-        x0 = index * cell_w
-        sheet.alpha_composite(box, (x0 + (cell_w - box.width) // 2,
-                                    cell_h - PAD - box.height))
-        columns.append(x0 + cell_w)
-        centers.append(x0 + cell_w // 2)
+        target = [100 + (box[0] - anchor["anchor_x"]) * factor,
+                  193 + (box[1] - anchor["ground_y"]) * factor,
+                  100 + (box[2] - anchor["anchor_x"]) * factor,
+                  193 + (box[3] - anchor["ground_y"]) * factor]
+        if target[0] < 0 or target[1] < 0 or target[2] > 200 or target[3] > 200:
+            report["findings"].append(f"{path.name}: calibrated pose clips runtime 200px canvas")
+            report["automatic_checks_pass"] = False
+    out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
-    sheet_path = out_dir / f"{name.lower()}-sheet.png"
+    stem = name.lower() + "-sheet"
+    sheet_path = out_dir / (stem + ".png")
     sheet.save(sheet_path)
-    # 配色体检（对照 idle_0 的不透明均色；只警告不阻断，人工把关造型）
-    ref_mean = mean_color(reference.crop(ref_box))
-    for path, box in cropped:
-        mean = mean_color(box)
-        delta = sum((a - b) ** 2 for a, b in zip(mean, ref_mean)) ** 0.5
-        if delta > PALETTE_WARN:
-            print(f"[配色警告] {path.name} 与 idle_0 均色偏差 {delta:.0f}"
-                  f"（> {PALETTE_WARN:.0f}），人工核对后再发布", file=sys.stderr)
-    if not durations:
-        durations = [ms] * len(cropped)
-    if len(durations) != len(cropped):
-        raise SystemExit(f"--durations 需要 {len(cropped)} 个值")
-    spec = {
-        "source": sheet_path.name,
-        "sha256": hashlib.sha256(sheet_path.read_bytes()).hexdigest(),
-        "columns": columns,
-        "rows": [0, cell_h],
-        "centers": centers,
-        "baselines": [cell_h - PAD],
-        "scale": factor,
-        "actions": [{"name": name, "durations": durations}],
-    }
-    spec_path = out_dir / f"{name.lower()}-sheet.json"
-    spec_path.write_text(json.dumps(spec, ensure_ascii=False, indent=2),
-                         encoding="utf-8")
-    print(json.dumps({
-        "ok": True,
-        "frames": len(cropped),
-        "keyed": keyed_any,
-        "scale": factor,
-        "char_height_px": round(tallest * factor),
-        "sheet": str(sheet_path),
-        "spec": str(spec_path),
-        "next": [
-            "1. 目测 sheet：角色比例/配色/透明边缘是否与 Iven 一致",
-            "2. 通过后把两个文件 mv 进 assets/iven-v2/actions/",
-            "3. 全量导出（需 Pillow）：python tools/export_iven_v2.py",
-            "4. 注册：animation_behaviors(.json/.py DEFAULT_ACTIONS) + "
-            "pet.py 菜单与状态分支 + IvenPet.swift 菜单/ActionDeck/BehaviorPolicy",
-            "5. 回归：python -m unittest discover -s tests && "
-            "zsh tools/build_macos.sh && IvenPet --self-test",
-        ],
-    }, ensure_ascii=False, indent=2))
+    spec = {"source": sheet_path.name,
+            "sha256": hashlib.sha256(sheet_path.read_bytes()).hexdigest(),
+            "columns": [w * i for i in range(len(frames) + 1)], "rows": [0, h],
+            "centers": [w * i + anchor["anchor_x"] for i in range(len(frames))],
+            "baselines": [anchor["ground_y"]], "scale": factor,
+            "actions": [{"name": name, "durations": durations}],
+            "review": {"approved": False, "report": stem + "-qa.json"}}
+    (out_dir / (stem + ".json")).write_text(json.dumps(spec, ensure_ascii=False, indent=2) + "\n")
+    report["source_sha256"] = spec["sha256"]
+    report["reference_sha256"] = hashlib.sha256(ref_path.read_bytes()).hexdigest()
+    report["calibration"] = {"scale": factor, "anchor_x": anchor["anchor_x"],
+                             "ground_y": anchor["ground_y"], "method": "shared-head-width-and-fixed-ground"}
+    (out_dir / (stem + "-qa.json")).write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n")
+    render_review(frames, durations, out_dir, stem)
+    print(json.dumps({"ok": True, "approved": False,
+                      "automatic_checks_pass": report["automatic_checks_pass"],
+                      "findings": report["findings"], "sheet": str(sheet_path)}, ensure_ascii=False))
+    return spec, report
 
 
 def main():
@@ -171,19 +158,21 @@ def main():
     parser.add_argument("--name", required=True, help="动作名（大写标识符，如 WAVE_BYE）")
     parser.add_argument("--key", choices=["auto", "green", "magenta", "none"],
                         default="auto", help="底色类型（默认按四角自动检测）")
-    parser.add_argument("--erode", type=int, choices=(0, 1), default=1,
-                        help="色键后 alpha 边缘收缩 1px（默认开）")
+    parser.add_argument("--erode", type=int, choices=(0, 1), default=0,
+                        help="显式启用色键后缩边（默认关闭，保护绒毛/发丝）")
     parser.add_argument("--ms", type=int, default=160, help="统一每帧毫秒（默认 160）")
     parser.add_argument("--durations", default=None,
                         help="逐帧毫秒，逗号分隔（优先于 --ms）")
     parser.add_argument("--out", type=Path,
                         default=ROOT / "pet-work/import",
                         help="输出目录（默认 pet-work/import，验收后再发布）")
+    parser.add_argument("--annotations", type=Path, required=True, help="逐帧身体标尺、地面与分部位区域")
+    parser.add_argument("--reference-profile", type=Path, required=True, help="已批准参考图的标尺与分部位区域")
     args = parser.parse_args()
     durations = ([int(v) for v in args.durations.split(",")]
                  if args.durations else None)
     build_sheet(args.frames_dir, args.name, args.key, args.erode,
-                args.ms, durations, args.out)
+                args.ms, durations, args.out, args.annotations, args.reference_profile)
 
 
 if __name__ == "__main__":
