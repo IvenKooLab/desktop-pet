@@ -157,6 +157,27 @@ class AnimationTests(unittest.TestCase):
             self.assertGreaterEqual(sum(clip["durations"]),
                                     6000 if state in long_performances else 3000)
 
+    def test_life_performances_do_not_repeat_or_jump_gaze_directions(self):
+        clips = json.loads((ROOT / "frames3d/animation.json").read_text())["clips"]
+        bundled = load_behaviors(ROOT)
+        with tempfile.TemporaryDirectory() as missing:
+            fallback = load_behaviors(missing)
+        for state in ("YAWN", "STOMP", "CELEBRATE", "SEARCH"):
+            self.assertEqual(bundled["actions"][state], (1, 1))
+            self.assertEqual(fallback["actions"][state], (1, 1))
+            self.assertLessEqual(max(clips[state]["durations"]), 800)
+        gaze = [int(frame.split("_")[1]) for frame in clips["SEARCH"]["frames"]
+                if frame.startswith("look_")]
+        # Neighbours on the 16-direction ring, including the 15 -> 0 seam.
+        for before, after in zip(gaze, gaze[1:]):
+            self.assertIn((after - before) % 16, (0, 1, 15))
+        # Celebration may wave and jump, but must not cut into working poses.
+        self.assertFalse(any(f.startswith("work_") for f in clips["CELEBRATE"]["frames"]))
+        failed = [int(f.split("_")[1]) for f in clips["STOMP"]["frames"]
+                  if f.startswith("failed_")]
+        for before, after in zip(failed, failed[1:]):
+            self.assertLessEqual(abs(after - before), 1)
+
     def test_waiting_becomes_impatient_after_30_seconds_and_resets_for_other_source(self):
         now = [100.0]
         pet = self.make_pet(SimpleNamespace(monotonic=lambda: now[0]))

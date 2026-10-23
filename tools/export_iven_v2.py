@@ -48,23 +48,31 @@ def themed_clips(clips):
             hold("idle_0", 700) + hold("idle_2", 400) + hold("idle_3", 900)
             + hold("idle_4", 400) + hold("idle_0", 500) + source("GREET", 1.5, 2)
             + hold("idle_3", 800) + hold("idle_0", 1000)),
-        # ---- 2026-10-23 生活小动作：依旧全部复用已验收帧，无新像素 ----
-        "YAWN": sequence("打哈欠", ["IDLE"],
-            hold("idle_0", 500) + source("IDLE", 1.1)
-            + hold("idle_2", 350) + hold("idle_3", 1500) + hold("idle_4", 350)
-            + source("IDLE", 1.5) + hold("idle_0", 400)),
-        "STOMP": sequence("生气跺脚", ["IDLE", "FAILED"],
-            hold("idle_0", 400) + source("FAILED", 1.2)
-            + (hold("failed_2", 160) + hold("failed_4", 160)) * 3
-            + hold("failed_3", 300) + hold("idle_0", 450)),
-        "CELEBRATE": sequence("撒欢庆祝", ["IDLE", "GREET", "BOUNCE", "CHEER", "HAPPY"],
-            hold("idle_0", 350) + source("GREET", 1.2) + source("BOUNCE", 1.1)
-            + source("CHEER", 1.3) + source("HAPPY", 1.1) + source("BOUNCE", 0.95)
-            + hold("idle_0", 450)),
-        "SEARCH": sequence("东张西望找东西", ["IDLE", "SPIN"],
-            hold("idle_0", 450) + source("SPIN", 0.9) + hold("look_3", 550)
-            + source("IDLE", 1.3) + source("SPIN", 1.4) + hold("look_11", 600)
-            + hold("idle_0", 550)),
+        # Legacy IDs remain callable, but labels describe the actual approved poses.
+        # Each performance resolves once; repetition is controlled by the shared policy.
+        "YAWN": sequence("困倦眨眼", ["IDLE"],
+            hold("idle_0", 600) + hold("idle_1", 180) + hold("idle_2", 300)
+            + hold("idle_3", 650) + hold("idle_4", 250) + hold("idle_5", 450)
+            + hold("idle_2", 280) + hold("idle_3", 800) + hold("idle_4", 250)
+            + hold("idle_5", 300) + hold("idle_0", 650)),
+        "STOMP": sequence("委屈表情", ["IDLE", "FAILED"],
+            hold("idle_0", 600) + source("FAILED", 1.4)
+            + hold("failed_7", 500)
+            + [(f"failed_{i}", 180) for i in range(6, -1, -1)]
+            + hold("idle_0", 650)),
+        "CELEBRATE": sequence("挥手庆祝", ["IDLE", "GREET", "BOUNCE"],
+            hold("idle_0", 500) + source("GREET", 1.2)
+            + [(f"wave_{i}", 140) for i in range(2, -1, -1)]
+            + hold("idle_0", 300) + source("BOUNCE", 1.2)
+            + hold("idle_0", 700)),
+        "SEARCH": sequence("左右观察", ["IDLE", "SPIN"],
+            hold("idle_0", 550)
+            + [(f"look_{i}", 180) for i in (12, 13, 14, 15, 0)]
+            + hold("look_0", 450)
+            + [(f"look_{i}", 180) for i in (1, 2, 3, 4)]
+            + hold("look_4", 650)
+            + [(f"look_{i}", 180) for i in (3, 2, 1, 0, 15, 14, 13, 12)]
+            + hold("look_12", 450) + hold("idle_0", 650)),
     }
 
 

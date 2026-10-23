@@ -615,8 +615,8 @@ class Pet:
                              ("THINKING", "苦思冥想 / Deep in thought"), ("IMPATIENT", "等待不耐烦 / Getting impatient"),
                              ("TOKEN_LOW", "额度不足（手动表演） / Low budget (manual performance)"),
                              ("RELIEVED", "松口气 / Relieved"),
-                             ("YAWN", "打哈欠 / Yawn"), ("STOMP", "生气跺脚 / Angry stomp"),
-                             ("CELEBRATE", "撒欢庆祝 / Celebrate"), ("SEARCH", "东张西望 / Search around")):
+                             ("YAWN", "困倦眨眼 / Sleepy blink"), ("STOMP", "委屈表情 / Feeling down"),
+                             ("CELEBRATE", "挥手庆祝 / Celebrate"), ("SEARCH", "左右观察 / Look around")):
             if state in self.clips:
                 menu.add_command(label=title.split(" / ")[0 if LANG.startswith("zh") else 1], command=lambda s=state: self._menu_clip(s))
         menu.add_command(label=_T["menu_sleep"], command=self._to_sleep)
