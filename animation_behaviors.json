@@ -18,6 +18,10 @@
     "RUBIK": {"cycles": [4, 6]},
     "THINKING": {"cycles": [1, 1]},
     "IMPATIENT": {"cycles": [1, 1]},
-    "RELIEVED": {"cycles": [1, 1]}
+    "RELIEVED": {"cycles": [1, 1]},
+    "YAWN": {"cycles": [1, 2]},
+    "STOMP": {"cycles": [2, 3]},
+    "CELEBRATE": {"cycles": [1, 2]},
+    "SEARCH": {"cycles": [1, 2]}
   }
 }

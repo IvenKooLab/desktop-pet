@@ -9,6 +9,7 @@ DEFAULT_ACTIONS = {
     "REVIEW": (4, 6), "FAILED": (4, 6), "STRETCH": (4, 6),
     "DOZE": (4, 6), "RUBIK": (4, 6),
     "THINKING": (1, 1), "IMPATIENT": (1, 1), "RELIEVED": (1, 1),
+    "YAWN": (1, 2), "STOMP": (2, 3), "CELEBRATE": (1, 2), "SEARCH": (1, 2),
 }
 
 

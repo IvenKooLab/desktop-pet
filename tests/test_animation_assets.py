@@ -27,11 +27,12 @@ class AnimationTests(unittest.TestCase):
         pet.behaviors = load_behaviors(ROOT)
         pet.autoplay, pet._action_deck, pet._last_auto_action = True, [], None
         cycle = []
-        for _ in range(17):
+        expected = {"GREET", "BOUNCE", "HAPPY", "SHY", "CHEER", "SPIN", "WAITING", "WORK", "REVIEW", "FAILED", "STRETCH", "DOZE", "RUBIK", "THINKING", "IMPATIENT", "RELIEVED", "WALK", "YAWN", "STOMP", "CELEBRATE", "SEARCH"}
+        for _ in range(len(expected)):
             pet._next_auto_action()
             cycle.append(pet.state)
             self.assertGreater(pet.state_left, 0)
-        self.assertEqual(set(cycle), {"GREET", "BOUNCE", "HAPPY", "SHY", "CHEER", "SPIN", "WAITING", "WORK", "REVIEW", "FAILED", "STRETCH", "DOZE", "RUBIK", "THINKING", "IMPATIENT", "RELIEVED", "WALK"})
+        self.assertEqual(set(cycle), expected)
         self.assertNotIn("TOKEN_LOW", cycle)
         pet.autoplay = False
         pet._next_auto_action()
@@ -136,7 +137,8 @@ class AnimationTests(unittest.TestCase):
     def test_themed_sequences_only_reference_original_approved_frames(self):
         manifest = json.loads((ROOT / "frames3d/animation.json").read_text())
         clips = manifest["clips"]
-        original = {frame for state in ("IDLE", "REVIEW", "SPIN", "WAITING", "BOUNCE", "FAILED", "GREET")
+        # WORK 帧 = 已批准的打板（cheer）源帧；2026-10-23 起撒欢庆祝也复用它们
+        original = {frame for state in ("IDLE", "REVIEW", "SPIN", "WAITING", "BOUNCE", "FAILED", "GREET", "WORK")
                     for frame in clips[state]["frames"]}
         # Execute the pure composer without importing the build-time Pillow dependency.
         tree = ast.parse((ROOT / "tools/export_iven_v2.py").read_text())
@@ -144,13 +146,16 @@ class AnimationTests(unittest.TestCase):
         namespace = {}
         exec(compile(ast.Module(body=[composer], type_ignores=[]), "export_iven_v2.py", "exec"), namespace)
         rebuilt = namespace["themed_clips"](clips)
-        for state in ("THINKING", "IMPATIENT", "TOKEN_LOW", "RELIEVED"):
+        long_performances = ("THINKING", "IMPATIENT", "TOKEN_LOW", "RELIEVED")
+        life_actions = ("YAWN", "STOMP", "CELEBRATE", "SEARCH")
+        for state in long_performances + life_actions:
             clip = clips[state]
             self.assertEqual(clip, rebuilt[state])
             self.assertTrue(clip["reused_frames"])
             self.assertEqual((clip["frames"][0], clip["frames"][-1]), ("idle_0", "idle_0"))
             self.assertTrue(set(clip["frames"]).issubset(original))
-            self.assertGreaterEqual(sum(clip["durations"]), 6000)
+            self.assertGreaterEqual(sum(clip["durations"]),
+                                    6000 if state in long_performances else 3000)
 
     def test_waiting_becomes_impatient_after_30_seconds_and_resets_for_other_source(self):
         now = [100.0]

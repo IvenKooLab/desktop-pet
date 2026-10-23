@@ -48,6 +48,23 @@ def themed_clips(clips):
             hold("idle_0", 700) + hold("idle_2", 400) + hold("idle_3", 900)
             + hold("idle_4", 400) + hold("idle_0", 500) + source("GREET", 1.5, 2)
             + hold("idle_3", 800) + hold("idle_0", 1000)),
+        # ---- 2026-10-23 生活小动作：依旧全部复用已验收帧，无新像素 ----
+        "YAWN": sequence("打哈欠", ["IDLE"],
+            hold("idle_0", 500) + source("IDLE", 1.1)
+            + hold("idle_2", 350) + hold("idle_3", 1500) + hold("idle_4", 350)
+            + source("IDLE", 1.5) + hold("idle_0", 400)),
+        "STOMP": sequence("生气跺脚", ["IDLE", "FAILED"],
+            hold("idle_0", 400) + source("FAILED", 1.2)
+            + (hold("failed_2", 160) + hold("failed_4", 160)) * 3
+            + hold("failed_3", 300) + hold("idle_0", 450)),
+        "CELEBRATE": sequence("撒欢庆祝", ["IDLE", "GREET", "BOUNCE", "CHEER", "HAPPY"],
+            hold("idle_0", 350) + source("GREET", 1.2) + source("BOUNCE", 1.1)
+            + source("CHEER", 1.3) + source("HAPPY", 1.1) + source("BOUNCE", 0.95)
+            + hold("idle_0", 450)),
+        "SEARCH": sequence("东张西望找东西", ["IDLE", "SPIN"],
+            hold("idle_0", 450) + source("SPIN", 0.9) + hold("look_3", 550)
+            + source("IDLE", 1.3) + source("SPIN", 1.4) + hold("look_11", 600)
+            + hold("idle_0", 550)),
     }
 
 
@@ -105,34 +122,46 @@ def export(source, destinations, manifest_only=False):
         canvas.paste(sprite.convert("RGB"),(7,0),mask)
         encoded[name] = canvas
     # Additional actions share one scale and baseline; no per-pose resizing.
+    # Every validated sheet (JSON+PNG pair, schema见 docs/ASSET_RECIPE.md) participates.
     extra_dir = ROOT / "assets/iven-v2/actions"
-    spec = json.loads((extra_dir / "little-breaks.json").read_text())
-    extra_source = extra_dir / spec["source"]
-    if hashlib.sha256(extra_source.read_bytes()).hexdigest() != spec["sha256"]:
-        raise ValueError("Additional action source does not match its checked manifest")
-    extra = Image.open(extra_source).convert("RGBA")
-    factor = spec["scale"]
-    for row, action in enumerate(spec["actions"]):
-        names = []
-        for column in range(6):
-            name = action["name"].lower() + "_" + str(column)
-            names.append(name)
-            x0,x1 = spec["columns"][column:column+2]
-            y0,y1 = spec["rows"][row:row+2]
-            cell = extra.crop((x0,y0,x1,y1))
-            sprite = cell.resize((round(cell.width*factor),round(cell.height*factor)),Image.Resampling.LANCZOS)
-            canvas = Image.new("RGBA",(200,200),(0,0,0,0))
-            center = spec["centers"][column]-x0
-            canvas.alpha_composite(sprite,(round(100-center*factor),round(193-spec["baselines"][row]*factor)))
-            transparent[name] = canvas
-            gif = Image.new("RGB",(200,200),(255,0,255))
-            gif.paste(canvas.convert("RGB"),(0,0),canvas.getchannel("A").point(lambda a:255 if a>=128 else 0))
-            encoded[name] = gif
-        if action["name"] in ("STRETCH","DOZE"):
-            # The established idle pose brackets the new performance.
-            names = ["idle_0"] + names[1:-1] + ["idle_0"]
-        manifest["clips"][action["name"]] = {"frames":names,"durations":action["durations"]}
-    manifest["additional_source_sha256"] = spec["sha256"]
+    extra_sheets = {}
+    for sheet_path in sorted(extra_dir.glob("*.json")):
+        spec = json.loads(sheet_path.read_text())
+        # Sheet schema: source+sha256+columns+rows+centers+baselines+scale+actions。
+        # 其他 JSON（如 model-review.json 验收记录）跳过。
+        if not all(key in spec for key in ("source", "sha256", "columns", "rows",
+                                           "centers", "baselines", "scale", "actions")):
+            continue
+        extra_source = extra_dir / spec["source"]
+        if hashlib.sha256(extra_source.read_bytes()).hexdigest() != spec["sha256"]:
+            raise ValueError(f"{sheet_path.name}: source does not match its checked manifest")
+        extra = Image.open(extra_source).convert("RGBA")
+        factor = spec["scale"]
+        rows = spec["rows"]
+        for row, action in enumerate(spec["actions"]):
+            frame_count = len(action["durations"])
+            names = []
+            for column in range(frame_count):
+                name = action["name"].lower() + "_" + str(column)
+                names.append(name)
+                x0,x1 = spec["columns"][column:column+2]
+                y0,y1 = rows[row:row+2]
+                cell = extra.crop((x0,y0,x1,y1))
+                sprite = cell.resize((round(cell.width*factor),round(cell.height*factor)),Image.Resampling.LANCZOS)
+                canvas = Image.new("RGBA",(200,200),(0,0,0,0))
+                center = spec["centers"][column]-x0
+                canvas.alpha_composite(sprite,(round(100-center*factor),round(193-spec["baselines"][row]*factor)))
+                transparent[name] = canvas
+                gif = Image.new("RGB",(200,200),(255,0,255))
+                gif.paste(canvas.convert("RGB"),(0,0),canvas.getchannel("A").point(lambda a:255 if a>=128 else 0))
+                encoded[name] = gif
+            if action["name"] in ("STRETCH","DOZE"):
+                # The established idle pose brackets the new performance.
+                names = ["idle_0"] + names[1:-1] + ["idle_0"]
+            manifest["clips"][action["name"]] = {"frames":names,"durations":action["durations"]}
+        extra_sheets[sheet_path.stem] = spec["sha256"]
+    manifest["additional_source_sha256"] = extra_sheets.get("little-breaks")
+    manifest["extra_sheets"] = extra_sheets
     manifest["clips"].update(themed_clips(manifest["clips"]))
     for destination in destinations:
         destination.mkdir(parents=True,exist_ok=True)

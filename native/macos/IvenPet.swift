@@ -28,6 +28,9 @@ struct BehaviorPolicy {
     init(directory: URL? = nil) {
         actions["SPIN"] = 2...3
         for name in ["THINKING","IMPATIENT","TOKEN_LOW","RELIEVED"] { actions[name] = 1...1 }
+        // 2026-10-23 生活小动作（与 animation_behaviors.py DEFAULT_ACTIONS 同步）
+        actions["YAWN"] = 1...2; actions["STOMP"] = 2...3
+        actions["CELEBRATE"] = 1...2; actions["SEARCH"] = 1...2
         struct Cycles: Decodable { let cycles: [Int] }
         struct Raw: Decodable {
             let version: Int
@@ -335,7 +338,7 @@ struct ActionDeck {
     private var remaining: [String] = []
     private var last = ""
     mutating func next(available: Set<String>, pinned: Bool) -> String {
-        let candidates = ["GREET", "BOUNCE", "CHEER", "SPIN", "WAITING", "WORK", "REVIEW", "FAILED", "HAPPY", "SHY", "STRETCH", "DOZE", "RUBIK", "THINKING", "IMPATIENT", "RELIEVED"]
+        let candidates = ["GREET", "BOUNCE", "CHEER", "SPIN", "WAITING", "WORK", "REVIEW", "FAILED", "HAPPY", "SHY", "STRETCH", "DOZE", "RUBIK", "THINKING", "IMPATIENT", "RELIEVED", "YAWN", "STOMP", "CELEBRATE", "SEARCH"]
             .filter { available.contains($0) } + (pinned ? [] : ["WALK_r", "WALK_l"].filter { available.contains($0) })
         remaining = remaining.filter { candidates.contains($0) }
         if remaining.isEmpty { remaining = candidates.shuffled() }
@@ -619,6 +622,7 @@ final class PetController: NSObject, NSApplicationDelegate {
             "总是通知":"Always notify", "关闭":"Off",
             "伸懒腰":"Stretch", "打瞌睡":"Doze", "玩魔方":"Rubik’s cube", "等待":"Wait",
             "工作":"Work", "检查":"Review", "失落":"Sad", "挥手打招呼":"Wave hello",
+            "打哈欠":"Yawn", "生气跺脚":"Angry stomp", "撒欢庆祝":"Celebrate", "东张西望":"Search around",
             "弹跳":"Bounce", "开心":"Happy", "打板":"Clapperboard", "观察四周":"Look around",
             "小跳快走":"Quick walk", "害羞":"Shy", "睡觉":"Sleep", "唤醒":"Wake up",
             "退出独立版":"Quit Iven Pet", "语言 / Language":"Language / 语言", "打开 GitHub 仓库":"Open GitHub repository", "显示模式":"Display mode", "苦思冥想":"Thinking hard", "等待不耐烦":"Getting impatient", "额度不足（表演）":"Low token budget (performance)", "松口气":"Relieved",
@@ -1339,7 +1343,7 @@ final class PetController: NSObject, NSApplicationDelegate {
         }
         notifyItem.submenu = notifyMenu
         menu.addItem(notifyItem)
-        for (title,action) in [("苦思冥想","THINKING"),("等待不耐烦","IMPATIENT"),("额度不足（表演）","TOKEN_LOW"),("松口气","RELIEVED"),("伸懒腰","STRETCH"),("打瞌睡","DOZE"),("玩魔方","RUBIK"),("等待","WAITING"),("工作","WORK"),("检查","REVIEW"),("失落","FAILED"),("挥手打招呼","GREET"),("弹跳","BOUNCE"),("开心","HAPPY"),
+        for (title,action) in [("苦思冥想","THINKING"),("等待不耐烦","IMPATIENT"),("额度不足（表演）","TOKEN_LOW"),("松口气","RELIEVED"),("打哈欠","YAWN"),("生气跺脚","STOMP"),("撒欢庆祝","CELEBRATE"),("东张西望","SEARCH"),("伸懒腰","STRETCH"),("打瞌睡","DOZE"),("玩魔方","RUBIK"),("等待","WAITING"),("工作","WORK"),("检查","REVIEW"),("失落","FAILED"),("挥手打招呼","GREET"),("弹跳","BOUNCE"),("开心","HAPPY"),
                                ("打板","CHEER"),("观察四周","SPIN"),("小跳快走","RUN"),
                                ("害羞","SHY"),("睡觉","SLEEP"),("唤醒","IDLE")] {
             let item = NSMenuItem(title:menuText(title),action:#selector(menuAction),keyEquivalent:"")
