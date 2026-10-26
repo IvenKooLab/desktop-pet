@@ -61,6 +61,7 @@ class AnimationTests(unittest.TestCase):
         pet._waiting_since = pet._waiting_source = None
         pet.last_input = 0
         pet._api_cd = pet._state_cd = 10 ** 9     # 控制接口轮询在单测中关闭
+        pet._update_pending = []                  # 更新检查在单测中不触发网络
         pet.config = {"notifications": "off"}
         pet._notify_limiter = system_notify.RateLimiter()
         pet._embedded_display = False

@@ -27,12 +27,14 @@ class PetConfigTests(unittest.TestCase):
 
     def test_round_trip(self):
         path = self.tmp / "config.json"
-        cfg = {"notifications": "always", "remember_position": False,
+        cfg = {"notifications": "always", "update_check": "off",
+               "remember_position": False,
                "position": {"x": 120, "y": 80, "cs": "topleft"},
                "unknown_field": "dropped"}
         self.assertTrue(pet_config.save(cfg, path))
         loaded = pet_config.load(path)
         self.assertEqual(loaded["notifications"], "always")
+        self.assertEqual(loaded["update_check"], "off")
         self.assertFalse(loaded["remember_position"])
         self.assertEqual(loaded["position"], {"x": 120, "y": 80, "cs": "topleft"})
         self.assertNotIn("unknown_field", loaded)      # 未知字段不落盘
@@ -40,10 +42,12 @@ class PetConfigTests(unittest.TestCase):
     def test_invalid_values_normalized(self):
         path = self.tmp / "config.json"
         path.write_text(json.dumps(
-            {"notifications": "yolo", "remember_position": "yes",
+            {"notifications": "yolo", "update_check": "yolo",
+             "remember_position": "yes",
              "position": {"x": 5, "y": 5, "cs": "middle"}}), encoding="utf-8")
         cfg = pet_config.load(path)
         self.assertEqual(cfg["notifications"], "auto")  # 非法回落默认
+        self.assertEqual(cfg["update_check"], "auto")
         self.assertTrue(cfg["remember_position"])
         self.assertIsNone(cfg["position"])              # 未知坐标系丢弃
 

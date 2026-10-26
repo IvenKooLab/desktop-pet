@@ -217,6 +217,9 @@ enum PetConfig {
         let mode = obj["notifications"] as? String
         return (mode == "always" || mode == "off") ? mode! : "auto"
     }
+    static func updateCheckEnabled(_ obj: [String: Any]) -> Bool {
+        (obj["update_check"] as? String) != "off"
+    }
     static func position(_ obj: [String: Any]) -> (x: CGFloat, y: CGFloat)? {
         guard let pos = obj["position"] as? [String: Any], (pos["cs"] as? String) == "cocoa",
               let x = pos["x"] as? Double, let y = pos["y"] as? Double else { return nil }
@@ -259,6 +262,54 @@ enum SystemNotify {
         case "task.completed": return (zh ? "任务完成" : "Task completed") + suffix
         default: return label ?? ""
         }
+    }
+}
+
+// MARK: - 更新检查（与 update_check.py 同语义；只请求 GitHub releases 跳转，不上传内容）
+enum UpdateCheck {
+    static let releasesURL = URL(string: "https://github.com/IvenKooLab/desktop-pet/releases/latest")!
+
+    static func parseVersion(_ text: String) -> [Int]? {
+        var value = text.trimmingCharacters(in: .whitespaces)
+        if value.hasPrefix("v") { value.removeFirst() }
+        let parts = value.split(separator: ".", omittingEmptySubsequences: false)
+        guard !parts.isEmpty else { return nil }
+        var numbers: [Int] = []
+        for part in parts {
+            guard let number = Int(part) else { return nil }
+            numbers.append(number)
+        }
+        return numbers
+    }
+
+    static func isNewer(_ latest: [Int], _ current: [Int]) -> Bool {
+        let width = max(latest.count, current.count)
+        for index in 0..<width {
+            let l = index < latest.count ? latest[index] : 0
+            let c = index < current.count ? current[index] : 0
+            if l != c { return l > c }
+        }
+        return false
+    }
+
+    static func tag(from url: URL) -> String? {
+        let components = url.pathComponents
+        guard let index = components.firstIndex(of: "tag"), index + 1 < components.count else { return nil }
+        let tag = components[index + 1]
+        guard let parsed = parseVersion(tag) else { return nil }
+        return parsed.map(String.init).joined(separator: ".")
+    }
+
+    static func check(completion: @escaping (String?) -> Void) {
+        var request = URLRequest(url: releasesURL)
+        request.httpMethod = "HEAD"                // 只要跳转后的地址，不下载页面正文
+        request.timeoutInterval = 6
+        request.setValue("IvenPet-update-check/1 (+https://github.com/IvenKooLab/desktop-pet)",
+                         forHTTPHeaderField: "User-Agent")
+        URLSession.shared.dataTask(with: request) { _, response, _ in
+            let latest = response?.url.flatMap { tag(from: $0) }
+            DispatchQueue.main.async { completion(latest) }
+        }.resume()
     }
 }
 
@@ -524,6 +575,8 @@ final class PetController: NSObject, NSApplicationDelegate {
     var throwVY: CGFloat = 0
     var throwBounces = 0
     private var config: [String: Any] = [:]
+    private var updateVersion: String?      // 发现的新版本（nil = 未知/无更新）
+    private var updateChecked = false
     private var clips: [String: Clip]
     private var images: [String: CGImage] = [:]
     private var timer: Timer?
@@ -625,7 +678,7 @@ final class PetController: NSObject, NSApplicationDelegate {
             "困倦眨眼":"Sleepy blink", "委屈表情":"Feeling down", "挥手庆祝":"Celebrate", "左右观察":"Look around",
             "弹跳":"Bounce", "开心":"Happy", "打板":"Clapperboard", "观察四周":"Look around",
             "小跳快走":"Quick walk", "害羞":"Shy", "睡觉":"Sleep", "唤醒":"Wake up",
-            "退出独立版":"Quit Iven Pet", "语言 / Language":"Language / 语言", "打开 GitHub 仓库":"Open GitHub repository", "显示模式":"Display mode", "苦思冥想":"Thinking hard", "等待不耐烦":"Getting impatient", "额度不足（表演）":"Low token budget (performance)", "松口气":"Relieved",
+            "退出独立版":"Quit Iven Pet", "语言 / Language":"Language / 语言", "打开 GitHub 仓库":"Open GitHub repository", "启动时检查更新":"Check for updates on launch", "检查更新…":"Check for updates…", "显示模式":"Display mode", "苦思冥想":"Thinking hard", "等待不耐烦":"Getting impatient", "额度不足（表演）":"Low token budget (performance)", "松口气":"Relieved",
             "和 Iven 说话…":"Talk to Iven…", "独立桌面":"Desktop", "DSH 界面内":"Inside DSH",
             "内嵌需 DSH 网页接手；约 6 秒未接手自动回桌面":"Inside DSH needs its web page to take over; falls back to desktop after ~6s",
             "未连上 DSH：启动 dsh 并打开网页后再试内嵌":"DSH not reachable: start dsh and open its web page first"]
@@ -981,6 +1034,53 @@ final class PetController: NSObject, NSApplicationDelegate {
         RunLoop.main.add(timer!, forMode:.common)
         print("[start] native AppKit | transparent CALayer | \(images.count) PNG frames | drag uses Cocoa screen coordinates | bridge=\(bridge.dir.path)")
         fflush(stdout)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 4) { [weak self] in
+            self?.autoUpdateCheck()
+        }
+    }
+
+    // ---------- 更新检查 ----------
+    private var currentVersion: String {
+        (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String) ?? "0.0.0"
+    }
+    private func autoUpdateCheck() {
+        guard PetConfig.updateCheckEnabled(config), !updateChecked else { return }
+        updateChecked = true
+        checkForUpdate(manual: false)
+    }
+    private func checkForUpdate(manual: Bool) {
+        if manual {
+            showBubble(bridgeZh ? "正在检查更新…" : "Checking for updates…", seconds: 1.6)
+        }
+        UpdateCheck.check { [weak self] latest in
+            self?.handleUpdate(latest: latest, manual: manual)
+        }
+    }
+    private func handleUpdate(latest: String?, manual: Bool) {
+        guard let latest,
+              let latestParsed = UpdateCheck.parseVersion(latest),
+              let currentParsed = UpdateCheck.parseVersion(currentVersion) else {
+            if manual {
+                showBubble(bridgeZh ? "检查更新失败：网络不可用或被拦截"
+                                    : "Update check failed: network unavailable", seconds: 4)
+            }
+            return
+        }
+        if UpdateCheck.isNewer(latestParsed, currentParsed) {
+            updateVersion = latest
+            let text = bridgeZh
+                ? "发现新版本 v\(latest)（当前 v\(currentVersion)）：右键 → 下载新版本"
+                : "Update v\(latest) available (current v\(currentVersion)): right-click → Download"
+            if displayHidden {
+                SystemNotify.send(title: "Iven · " + (bridgeZh ? "发现新版本" : "Update available"),
+                                  body: text)
+            }
+            showBubble(text, seconds: 9,
+                       title: bridgeZh ? "发现新版本" : "Update available", tone: "done")
+        } else if manual {
+            showBubble(bridgeZh ? "已是最新版本 v\(currentVersion)"
+                                : "You are up to date (v\(currentVersion))", seconds: 4)
+        }
     }
 
     private func screenFrame() -> NSRect {
@@ -1224,6 +1324,14 @@ final class PetController: NSObject, NSApplicationDelegate {
             NSWorkspace.shared.open(URL(string:"https://github.com/IvenKooLab/desktop-pet")!)
             return
         }
+        if action == "CHECK_UPDATE" { checkForUpdate(manual: true); return }
+        if action == "DOWNLOAD_UPDATE" { NSWorkspace.shared.open(UpdateCheck.releasesURL); return }
+        if action == "TOGGLE_UPDATE_CHECK" {
+            let enabled = PetConfig.updateCheckEnabled(config)
+            config["update_check"] = enabled ? "off" : "auto"
+            PetConfig.save(config)
+            return
+        }
         if action.hasPrefix("LANG:") {
             let language = String(action.dropFirst(5))
             guard ["system","zh","en"].contains(language) else { return }
@@ -1361,6 +1469,22 @@ final class PetController: NSObject, NSApplicationDelegate {
             languages.addItem(item)
         }
         languageItem.submenu = languages; menu.addItem(languageItem)
+        menu.addItem(.separator())
+        let autoUpdate = NSMenuItem(title: menuText("启动时检查更新"), action: #selector(menuAction), keyEquivalent: "")
+        autoUpdate.target = self
+        autoUpdate.representedObject = "TOGGLE_UPDATE_CHECK"
+        autoUpdate.state = PetConfig.updateCheckEnabled(config) ? .on : .off
+        menu.addItem(autoUpdate)
+        let checkUpdate = NSMenuItem(title: menuText("检查更新…"), action: #selector(menuAction), keyEquivalent: "")
+        checkUpdate.target = self
+        checkUpdate.representedObject = "CHECK_UPDATE"
+        menu.addItem(checkUpdate)
+        if let updateVersion {
+            let download = NSMenuItem(title: bridgeZh ? "下载新版本 v\(updateVersion)…" : "Download v\(updateVersion)…", action: #selector(menuAction), keyEquivalent: "")
+            download.target = self
+            download.representedObject = "DOWNLOAD_UPDATE"
+            menu.addItem(download)
+        }
         let github = NSMenuItem(title:menuText("打开 GitHub 仓库"),action:#selector(menuAction),keyEquivalent:"")
         github.target = self; github.representedObject = "GITHUB"; menu.addItem(github)
         menu.addItem(.separator())
@@ -1537,6 +1661,19 @@ if CommandLine.arguments.contains("--self-test") {
     precondition(PetConfig.position(["position":["x":10.0,"y":20.0,"cs":"cocoa"]]) != nil)
     precondition(PetConfig.position(["position":["x":10.0,"y":20.0,"cs":"topleft"]]) == nil)
     precondition(PetConfig.position([:]) == nil)
+    // 更新检查：版本解析/比较与跳转 tag 提取（与 tests/test_update_check.py 同语义）
+    precondition(UpdateCheck.parseVersion("v1.0.1") == [1,0,1])
+    precondition(UpdateCheck.isNewer(UpdateCheck.parseVersion("1.0.10")!, UpdateCheck.parseVersion("1.0.9")!))
+    precondition(UpdateCheck.isNewer([1,0,2], [1,0,1]))
+    precondition(!UpdateCheck.isNewer([1,0,1], [1,0,1]))
+    precondition(!UpdateCheck.isNewer([1,0], [1,0,0]))
+    precondition(UpdateCheck.isNewer([1,1], [1,0,9]))
+    precondition(UpdateCheck.parseVersion("bad") == nil && UpdateCheck.parseVersion("") == nil)
+    precondition(UpdateCheck.tag(from: URL(string:"https://github.com/IvenKooLab/desktop-pet/releases/tag/v1.0.1")!) == "1.0.1")
+    precondition(UpdateCheck.tag(from: URL(string:"https://github.com/IvenKooLab/desktop-pet/releases")!) == nil)
+    precondition(PetConfig.updateCheckEnabled([:]))
+    precondition(PetConfig.updateCheckEnabled(["update_check":"auto"]))
+    precondition(!PetConfig.updateCheckEnabled(["update_check":"off"]))
     print("PASS: upward/downward screen-coordinate drag, timed frame boundaries/wrap, host-bridge reduction")
     exit(0)
 }

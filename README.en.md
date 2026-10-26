@@ -54,6 +54,7 @@ python pet.py
 - **Smooth and transparent:** approximately 60fps rendering, consistent proportions and per-frame timing, with native transparent windows on Mac.
 - **Position memory & system notifications:** the pet returns to where you left her after a restart (`~/.iven-pet/config.json`); task completed, failed and approval-needed events can raise native notifications — by default only while the pet is hidden inside DSH, with always/off options.
 - **Scriptable:** a local file control API ([docs/API.md](docs/API.md)) lets other plugins or the command line make her speak, play an action or read live state: `python tools/iven_cli.py say "take a break"`. Zero network, zero ports.
+- **Update notices:** quietly checks the GitHub release feed on launch (only the redirect URL is read; nothing is uploaded, and it can be disabled from the menu); a newer version raises a bubble with a download entry, plus a manual “Check for updates…” item.
 
 ## Two display modes
 

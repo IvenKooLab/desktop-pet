@@ -20,6 +20,7 @@ import os
 import random
 import socket
 import sys
+import threading
 import time
 import tkinter as tk
 import webbrowser
@@ -36,6 +37,7 @@ import pet_config
 import system_notify
 import throw_physics
 import control_api
+import update_check
 
 try:                    # Windows：枚举窗口顶边当平台
     import ctypes
@@ -479,6 +481,10 @@ class Pet:
         self._api_dir = control_api.api_dir()
         self._api_cd = 0
         self._state_cd = 0
+        # 更新检查（后台线程探测；结果在主循环里消费，绝不跨线程碰 Tk）
+        self._update = None              # (latest_version, releases_url)
+        self._update_checked = False
+        self._update_pending = []        # [(result, manual), ...]
 
         self.root.geometry(f"+{int(self.x)}+{int(self.y)}")
         self._bind()
@@ -493,6 +499,51 @@ class Pet:
         self._idle_fx = 0                        # 待机微动作剩余 tick
         self._idle_fx_frame = None
         self.root.after(RENDER_MS, self._loop)
+        self.root.after(4000, self._auto_update_check)   # 启动 4s 后探测一次
+
+    # ---------- 更新检查 ----------
+    def _current_version(self):
+        return update_check.current_version(BASE) or "0.0.0"
+
+    def _auto_update_check(self):
+        if self.config.get("update_check", "auto") == "off" or self._update_checked:
+            return
+        self._update_checked = True
+        self._check_update(manual=False)
+
+    def _check_update(self, manual=False):
+        """后台线程只做网络探测；结果入队，由主循环消费（Tk 只能主线程碰）。"""
+        def worker():
+            self._update_pending.append((update_check.latest_release(), manual))
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _update_poll(self):
+        while self._update_pending:
+            result, manual = self._update_pending.pop(0)
+            self._update_result(result, manual)
+
+    def _update_result(self, result, manual):
+        current = self._current_version()
+        if result is None:
+            if manual:
+                self.say(self._menu_text("检查更新失败：网络不可用或被拦截",
+                                         "Update check failed: network unavailable"), 4200)
+            return
+        latest, url = result
+        if update_check.is_newer(latest, current):
+            self._update = (latest, url)
+            self._bind()                     # 菜单是启动时构建的，这里带出下载项
+            text = self._menu_text(
+                f"发现新版本 v{latest}（当前 v{current}）：右键 → 下载新版本",
+                f"Update v{latest} available (current v{current}): right-click → Download update")
+            if self._embedded_display:       # 桌面端隐藏时用系统通知兜底
+                system_notify.send("Iven · " + self._menu_text("发现新版本", "Update available"),
+                                   text[:120])
+            self.say(text, 9000,
+                     title=self._menu_text("发现新版本", "Update available"), tone="done")
+        elif manual:
+            self.say(self._menu_text(f"已是最新版本 v{current}",
+                                     f"You are up to date (v{current})"), 4000)
 
     # ---------- 平台 ----------
     def _all_platforms(self):
@@ -629,6 +680,21 @@ class Pet:
             languages.add_radiobutton(label=name, value=code, variable=language_choice,
                                       command=lambda: self._set_language(language_choice.get()))
         menu.add_cascade(label=self._menu_text("语言 / Language", "Language / 语言"), menu=languages)
+        menu.add_separator()
+        auto_update = tk.BooleanVar(value=self.config.get("update_check", "auto") != "off")
+
+        def _toggle_update_check():
+            self.config["update_check"] = "auto" if auto_update.get() else "off"
+            pet_config.save(self.config)
+        menu.add_checkbutton(label=self._menu_text("启动时检查更新", "Check for updates on launch"),
+                             variable=auto_update, command=_toggle_update_check)
+        menu.add_command(label=self._menu_text("检查更新…", "Check for updates…"),
+                         command=lambda: self._check_update(manual=True))
+        if self._update:
+            latest, url = self._update
+            menu.add_command(
+                label=self._menu_text(f"下载新版本 v{latest}…", f"Download v{latest}…"),
+                command=lambda: webbrowser.open(url))
         menu.add_command(label=self._menu_text("打开 GitHub 仓库", "Open GitHub repository"),
                          command=lambda: webbrowser.open("https://github.com/IvenKooLab/desktop-pet"))
         menu.add_command(label=_T["menu_exit"], command=self._quit)
@@ -1240,6 +1306,7 @@ class Pet:
         if self._state_cd <= 0:
             self._state_cd = 20
             control_api.write_state(control_api.state_path(), self._api_snapshot())
+        self._update_poll()
 
         # 站立类状态：吸附/跟随脚下的平台；平台消失 → 掉落（THROW 例外：抛物线自主飞行）
         if self.state not in ("FALL", "GRAB", "THROW"):

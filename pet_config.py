@@ -2,6 +2,7 @@
 
 字段（version 1）：
     notifications     "auto" | "always" | "off"   系统通知（auto=桌宠隐藏/内嵌时才弹）
+    update_check      "auto" | "off"              启动时检查 GitHub 新版本（默认 auto）
     remember_position bool                        重启后回到上次位置
     position          {"x": int, "y": int, "cs": "topleft"|"bottomleft"}
                       cs 标记坐标系：Tk 为屏幕左上原点，Swift/Cocoa 为左下原点；
@@ -16,11 +17,13 @@ from pathlib import Path
 
 VERSION = 1
 NOTIFICATION_MODES = ("auto", "always", "off")
+UPDATE_CHECK_MODES = ("auto", "off")
 COORD_SYSTEMS = ("topleft", "bottomleft")
 
 DEFAULTS = {
     "version": VERSION,
     "notifications": "auto",
+    "update_check": "auto",
     "remember_position": True,
     "position": None,
 }
@@ -37,6 +40,8 @@ def _normalize(raw):
         return cfg
     if raw.get("notifications") in NOTIFICATION_MODES:
         cfg["notifications"] = raw["notifications"]
+    if raw.get("update_check") in UPDATE_CHECK_MODES:
+        cfg["update_check"] = raw["update_check"]
     if isinstance(raw.get("remember_position"), bool):
         cfg["remember_position"] = raw["remember_position"]
     pos = raw.get("position")
