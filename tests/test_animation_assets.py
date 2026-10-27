@@ -142,10 +142,10 @@ class AnimationTests(unittest.TestCase):
         original = {frame for state in ("IDLE", "REVIEW", "SPIN", "WAITING", "BOUNCE", "FAILED", "GREET", "WORK")
                     for frame in clips[state]["frames"]}
         # Execute the pure composer without importing the build-time Pillow dependency.
-        tree = ast.parse((ROOT / "tools/export_iven_v2.py").read_text())
+        tree = ast.parse((ROOT / "tools/export_comi_v2.py").read_text())
         composer = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "themed_clips")
         namespace = {}
-        exec(compile(ast.Module(body=[composer], type_ignores=[]), "export_iven_v2.py", "exec"), namespace)
+        exec(compile(ast.Module(body=[composer], type_ignores=[]), "export_comi_v2.py", "exec"), namespace)
         rebuilt = namespace["themed_clips"](clips)
         long_performances = ("THINKING", "IMPATIENT", "TOKEN_LOW", "RELIEVED")
         life_actions = ("YAWN", "STOMP", "CELEBRATE", "SEARCH")

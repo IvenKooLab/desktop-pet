@@ -4,7 +4,7 @@
 > 在 Walk Sheet 通过 4 帧一致性压力测试之前：**不修改 pet.py、不实现 AnimationClip、不接入任何新帧**。
 >
 > **核心验收原则（项目级）**：「程序能播放 N 张图」≠ 动画完成。
-> Done = 同一个 Iven Pet 在连续帧中拥有稳定角色身份和可信的二维行走运动。
+> Done = 同一个 Comi Pet 在连续帧中拥有稳定角色身份和可信的二维行走运动。
 >
 > **职责分工**：生图 + 审稿由动画监督（GPT）直接负责——按 A–J 逐项打 PASS/FAIL，
 > 不做"差不多可以"；出现角色漂移/视角漂移/头发变化/耳机变化/脚底漂移/橡皮腿/
@@ -72,7 +72,7 @@ I 真实动作 / J 重心）仍归监督人工打分。详见 `tools/jev/README.
 
 ## 3. 豆包 Prompt 模板（直接复制使用）
 
-**参考图**：上传 `characters/iven-pet/master/character_master_sheet.png`
+**参考图**：上传 `characters/comi-pet/master/character_master_sheet.png`
 （职责：只提供"她是谁"；运动由本 Spec 约定。两者不混。）
 
 ### Prompt ① · 4 帧一致性压力测试

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Claude Code Hooks → Iven 桌宠桥接收件箱适配器。
+"""Claude Code Hooks → Comi 桌宠桥接收件箱适配器。
 
 用法（三处任选，合并已有配置别覆盖其他 Hook）：
 - 用户级 ~/.claude/settings.json

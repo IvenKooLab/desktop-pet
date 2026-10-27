@@ -1,4 +1,4 @@
-# iven-bridge bundle: 把 Iven 桌宠桥接插件挂进 profile。
+# comi-bridge bundle: 把 Comi 桌宠桥接插件挂进 profile。
 #
 # 官方安装：dsh plugin --profile <name> add <本目录绝对路径>
 # （写入 profile 的 package.json dependencies + bundles 列表，本文件由
@@ -6,11 +6,11 @@
 #
 # 需要覆盖默认配置时，在 profile 根 cordis.patch.yml 里加（或用环境变量）：
 #
-#   - id: iven-bridge
-#     name: 'iven-bridge'
+#   - id: comi-bridge
+#     name: 'comi-bridge'
 #     config:
-#       eventsDir: ''          # 默认 ~/.iven-pet/events
-#       summary: false         # 或 touch ~/.iven-pet/summary 统一开启
+#       eventsDir: ''          # 默认 ~/.comi-pet/events
+#       summary: false         # 或 touch ~/.comi-pet/summary 统一开启
 - insert:
-    - id: iven-bridge
-      name: 'iven-bridge'
+    - id: comi-bridge
+      name: 'comi-bridge'

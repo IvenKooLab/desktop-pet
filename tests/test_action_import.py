@@ -88,17 +88,17 @@ class ActionImportTests(unittest.TestCase):
             self.assertIn('new prop design',report['prop_reference'])
 
     def test_unreviewed_sheet_cannot_enter_default_export(self):
-        import export_iven_v2
+        import export_comi_v2
         from unittest.mock import patch
         with tempfile.TemporaryDirectory() as d:
             root=Path(d); folder,*_=self.fixture(root)
             spec,_=self.importer.build_sheet(folder,'TEST','none',0,180,None,
                                              root/'out',root/'meta.json',root/'profile.json')
-            target=root/'assets/iven-v2/actions';target.mkdir(parents=True)
+            target=root/'assets/comi-v2/actions';target.mkdir(parents=True)
             (target/'test.json').write_text(json.dumps(spec))
-            with patch.object(export_iven_v2,'ROOT',root):
+            with patch.object(export_comi_v2,'ROOT',root):
                 with self.assertRaisesRegex(ValueError,'requires recorded visual review'):
-                    export_iven_v2.export(ROOT/'assets/iven-v2/spritesheet.png',[root/'runtime'])
+                    export_comi_v2.export(ROOT/'assets/comi-v2/spritesheet.png',[root/'runtime'])
             self.assertFalse((root/'runtime').exists())
 
     def test_transparent_green_rgb_does_not_trigger_keying(self):

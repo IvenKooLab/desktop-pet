@@ -66,7 +66,7 @@
     }
   ],
   "inspiration": "https://github.com/PC2005-cloud/dsh-pet",
-  "artwork": "Iven v2, generated from shipped idle pose",
+  "artwork": "Comi v2, generated from shipped idle pose",
   "revision": 3,
   "model_reference": "frames3d/idle_0.png; preserve approved v2 head/body proportions",
   "calibration": "One shared isotropic scale for all 18 supplemental source poses; no per-frame scaling.",

@@ -11,7 +11,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
-ADAPTER = REPO / "adapters" / "opencode" / "iven_opencode.py"
+ADAPTER = REPO / "adapters" / "opencode" / "comi_opencode.py"
 
 EVENTS = [
     {"type": "session.status", "sessionID": "s1", "status": "busy"},
@@ -48,7 +48,7 @@ class OpencodeAdapterCase(unittest.TestCase):
         port = server.server_address[1]
         try:
             with tempfile.TemporaryDirectory() as tmp:
-                env = dict(os.environ, IVEN_BRIDGE_DIR=tmp)
+                env = dict(os.environ, COMI_BRIDGE_DIR=tmp)
                 proc = subprocess.run(
                     [sys.executable, str(ADAPTER),
                      "--base", f"http://127.0.0.1:{port}",

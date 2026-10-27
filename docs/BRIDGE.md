@@ -1,6 +1,6 @@
 # 桌宠桥接（宿主事件 → 桌宠动作）维护文档
 
-让 Iven 桌宠感知本地编码助手（ZCode、DSH 等）的工作状态。**事件感知是单向、
+让 Comi 桌宠感知本地编码助手（ZCode、DSH 等）的工作状态。**事件感知是单向、
 本地的**：宿主适配器 → 本地收件箱 → 桌宠。桌宠不能驱动宿主会话、不能自动
 批准工具；那是第二阶段的独立能力，不在本设计内。
 
@@ -9,9 +9,9 @@
 ```
 宿主 Hooks / 插件事件
         ↓ 适配器（adapters/…）：提取事件、状态与有限摘要
-本地收件箱（默认 ~/.iven-pet/events，仅本机文件）
+本地收件箱（默认 ~/.comi-pet/events，仅本机文件）
         ↓
-Iven 桌宠（Mac 原生 Swift / Windows Tk）轮询消费 → 状态动作 + 提醒 + 离线回退
+Comi 桌宠（Mac 原生 Swift / Windows Tk）轮询消费 → 状态动作 + 提醒 + 离线回退
 ```
 
 选择本地原子文件收件箱而非 HTTP：无监听端口、无令牌管理、宿主 Hook 写一个
@@ -44,7 +44,7 @@ Iven 桌宠（Mac 原生 Swift / Windows Tk）轮询消费 → 状态动作 + �
   toolCallID 等），不能只按工具名累加；消费端按 `event_id` 去重，调用 ID
   供并发归并与第二阶段使用。
 - **默认只传状态**：适配器不填 `task_label`/`summary`，用户显式开启
-  （ZCode/Claude/Cursor：`IVEN_BRIDGE_SUMMARY=1`；DSH：插件配置
+  （ZCode/Claude/Cursor：`COMI_BRIDGE_SUMMARY=1`；DSH：插件配置
   `summary: true`）才附带，且各自截断（80/160 字）并清洗控制字符。
 - 消费端约束：事件文本**只作数据展示，绝不当作指令执行**（提示注入防线）；
   未知字段忽略；`version`≠1 或 `kind` 不认识 → 丢弃。
@@ -52,8 +52,8 @@ Iven 桌宠（Mac 原生 Swift / Windows Tk）轮询消费 → 状态动作 + �
 ## 归约语义（三处实现必须一致）
 
 同一套语义有三个实现：`host_bridge.py`（Tk 端 + 测试）、
-`native/macos/IvenPet.swift` 的 `HostBridge`（Mac 原生端）、
-`adapters/dsh/iven-bridge/index.js` 的 `mapEvent`（DSH 侧半段）。改语义时
+`native/macos/ComiPet.swift` 的 `HostBridge`（Mac 原生端）、
+`adapters/dsh/comi-bridge/index.js` 的 `mapEvent`（DSH 侧半段）。改语义时
 三处同步改，并同步三份测试：
 
 - Python：`tests/test_host_bridge.py`、`tests/test_zcode_adapter.py`
@@ -115,7 +115,7 @@ goal 自动续跑轮次（`user/message` 的 `source.kind === 'goal'`）只算�
   新 session 验证。
 - 不读 `transcript_path`（临时 JSONL，Hook 后即清理）；不返回 block、
   不改权限、不调用模型；stdout 保持宿主协议输出，调试走 stderr
-  （`IVEN_BRIDGE_DEBUG=1`）。
+  （`COMI_BRIDGE_DEBUG=1`）。
 
 ### DSH（`adapters/dsh/`）
 
@@ -177,7 +177,7 @@ goal 自动续跑轮次（`user/message` 的 `source.kind === 'goal'`）只算�
 字段口径与"仅监测 vs 可驱动"的边界在接入前按当期文档重新核验，不在本仓
 预置配置。双向会话控制（`send_prompt`）是第二阶段独立提案，默认不做。
 
-## 对话通道（"和 Iven 说话"）
+## 对话通道（"和 Comi 说话"）
 
 对话与事件收件箱是**两条独立通道**，共用"仅本机文件 + 原子写"的约定：
 
@@ -186,7 +186,7 @@ goal 自动续跑轮次（`user/message` 的 `source.kind === 'goal'`）只算�
              ← chat/reply-<id>.json ← 气泡显示（可选情绪动作）
 ```
 
-- 请求/回复/记忆（`chat/memory.json`，默认 8 轮）都在 `~/.iven-pet/chat`。
+- 请求/回复/记忆（`chat/memory.json`，默认 8 轮）都在 `~/.comi-pet/chat`。
 - 语义与 dsh-pet（MIT）同构：模型候选链（插件配置 `chatProvider/chatModel`
   覆盖 → 当前会话默认模型）逐级回落；失败返回结构化 `reason`
   （provider-missing / no-text / generate-error / bad-request），**绝不伪造回复**；
@@ -210,7 +210,7 @@ goal 自动续跑轮次（`user/message` 的 `source.kind === 'goal'`）只算�
 
 ```bash
 python -m unittest discover -s tests        # 含 bridge/zcode 重放
-zsh tools/build_macos.sh && ./build/IvenPet.app/Contents/MacOS/IvenPet --self-test
+zsh tools/build_macos.sh && ./build/ComiPet.app/Contents/MacOS/ComiPet --self-test
 node adapters/dsh/self-test.mjs             # 有 node 环境时
 ```
 
@@ -225,7 +225,7 @@ node adapters/dsh/self-test.mjs             # 有 node 环境时
 
 Mac 使用独立、忽略鼠标事件的原生浮动气泡，自动换行并限制屏幕边界；Windows 使用同样的状态/正文层次与持续逻辑。拖拽、睡眠等人工操作保持优先。长任务不再因 45 秒静默误判为空闲；没有结束事件或心跳时使用 15/20 分钟保守兜底，不宣称精确在线检测。
 
-协议 v1 加性事件 `task.updated` 仅更新任务标签，不结束当前工作。DSH 的 todo/write 会发送它，摘要开关同时支持本机 `~/.iven-pet/summary` 标记。Python、Swift 与 DSH 映射需一并验证。
+协议 v1 加性事件 `task.updated` 仅更新任务标签，不结束当前工作。DSH 的 todo/write 会发送它，摘要开关同时支持本机 `~/.comi-pet/summary` 标记。Python、Swift 与 DSH 映射需一并验证。
 
 
 ## 当前跟随标识

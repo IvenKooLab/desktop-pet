@@ -3,14 +3,14 @@
 任何本机进程——其他 DSH 插件、shell 脚本、快捷指令——都可以通过一组
 **本地 JSON 文件**驱动桌宠：让它说话、点播动作、入睡/唤醒、读实况。
 与桥接事件、对话协议同风格：**零网络、零端口、原子写、读后即焚**，
-权限即文件系统权限（仅本机用户可写 `~/.iven-pet/`）。
+权限即文件系统权限（仅本机用户可写 `~/.comi-pet/`）。
 
-目录默认 `~/.iven-pet/api/`（环境变量 `IVEN_API_DIR` 可覆盖）。
-两端实现（Tk/`pet.py` 与 Swift/`IvenPet.swift`）语义一致。
+目录默认 `~/.comi-pet/api/`（环境变量 `COMI_API_DIR` 可覆盖）。
+两端实现（Tk/`pet.py` 与 Swift/`ComiPet.swift`）语义一致。
 
 ## 请求
 
-`~/.iven-pet/api/request-<id>.json`（原子写）：
+`~/.comi-pet/api/request-<id>.json`（原子写）：
 
 ```json
 {"version": 1, "id": "cli-1234-abc", "action": "say", "text": "休息一下吧"}
@@ -42,7 +42,7 @@
 
 ## 状态快照
 
-桌宠每 ~1 秒原子写 `~/.iven-pet/state.json`（无需发请求即可直接读）：
+桌宠每 ~1 秒原子写 `~/.comi-pet/state.json`（无需发请求即可直接读）：
 
 ```json
 {"version": 1, "updated": "2026-10-22T19:00:00+08:00", "state": "WORK",
@@ -58,10 +58,10 @@
 ## 命令行
 
 ```sh
-python tools/iven_cli.py say "休息一下吧"
-python tools/iven_cli.py play CHEER
-python tools/iven_cli.py state
-python tools/iven_cli.py wake
+python tools/comi_cli.py say "休息一下吧"
+python tools/comi_cli.py play CHEER
+python tools/comi_cli.py state
+python tools/comi_cli.py wake
 ```
 
 ## 边界

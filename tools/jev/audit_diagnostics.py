@@ -24,7 +24,7 @@ REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "tools"))
 from qa_walk8 import keyed_mask  # noqa: E402
 
-PNG_DIR = REPO / "characters" / "iven-pet" / "animations" / "walk" / "frames"
+PNG_DIR = REPO / "characters" / "comi-pet" / "animations" / "walk" / "frames"
 GIF_DIR = REPO / "frames3d"
 
 

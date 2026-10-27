@@ -1,4 +1,4 @@
-# Codex 适配器（Iven 桌宠桥接）
+# Codex 适配器（Comi 桌宠桥接）
 
 OpenAI Codex 的 App Server（stdio JSON-RPC）→ 统一事件 → 本地收件箱。
 
@@ -18,12 +18,12 @@ OpenAI Codex 的 App Server（stdio JSON-RPC）→ 统一事件 → 本地收件
 ## 用法
 
 ```bash
-python3 adapters/codex/iven_codex.py --list    # 诊断：握手 + 线程列表后退出
-python3 adapters/codex/iven_codex.py           # 常驻：转发 turn/approval 事件
+python3 adapters/codex/comi_codex.py --list    # 诊断：握手 + 线程列表后退出
+python3 adapters/codex/comi_codex.py           # 常驻：转发 turn/approval 事件
 ```
 
 `--server-cmd "codex app-server"` 可换自定义命令（测试替身用）；
-`--debug` 走 stderr。卸载：Ctrl-C 退出 + `rm -rf ~/.iven-pet`。
+`--debug` 走 stderr。卸载：Ctrl-C 退出 + `rm -rf ~/.comi-pet`。
 
 ## 事件映射
 

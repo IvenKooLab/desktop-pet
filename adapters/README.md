@@ -1,6 +1,6 @@
 # 适配器总览：能力矩阵与验收状态
 
-全部适配器共用同一套 bridge（协议 v1、收件箱 `~/.iven-pet/events`、桌宠端
+全部适配器共用同一套 bridge（协议 v1、收件箱 `~/.comi-pet/events`、桌宠端
 状态归约），见 [docs/BRIDGE.md](../docs/BRIDGE.md)。统一能力声明：
 `read_state` / `read_summary` / `send_prompt`——未核实或不支持就如实为 ❌，
 不提供会静默失效的按钮。第二阶段（`send_prompt`）统一设计，不逐家私造。

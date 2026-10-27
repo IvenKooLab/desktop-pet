@@ -4,7 +4,7 @@
 跟随 GitHub 的 302 跳转读取最终 URL 里的 tag（如 v1.0.1）——不调用 API、
 不占配额、不上传任何本机内容；网络不可用或被拦截时静默失败，绝不打扰。
 
-组合语义（Swift 端 UpdateCheck 在 IvenPet.swift 镜像同一套规则）：
+组合语义（Swift 端 UpdateCheck 在 ComiPet.swift 镜像同一套规则）：
     parse_version("v1.0.1")        -> (1, 0, 1)
     is_newer((1,0,2), (1,0,1))     -> True
     parse_tag(".../releases/tag/v1.0.1") -> "1.0.1"
@@ -17,7 +17,7 @@ from pathlib import Path
 
 RELEASES_URL = "https://github.com/IvenKooLab/desktop-pet/releases/latest"
 TAG_RE = re.compile(r"/releases/tag/v?(\d+(?:\.\d+)*)$")
-USER_AGENT = ("IvenPet-update-check/1 "
+USER_AGENT = ("ComiPet-update-check/1 "
               "(+https://github.com/IvenKooLab/desktop-pet)")
 
 

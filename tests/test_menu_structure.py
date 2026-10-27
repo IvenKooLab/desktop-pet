@@ -57,7 +57,7 @@ class TkMenuStructureTests(unittest.TestCase):
 
 class SwiftMenuStructureTests(unittest.TestCase):
     def setUp(self):
-        self.source = (ROOT / "native/macos/IvenPet.swift").read_text()
+        self.source = (ROOT / "native/macos/ComiPet.swift").read_text()
         start = self.source.index("func contextMenu() -> NSMenu {")
         self.body = self.source[start:self.source.index("\n    }\n", start)]
 

@@ -1,30 +1,33 @@
 # 更新日志
 
-## [未发布]
+## [2.0.0] - 2026-10-27
+
+角色正式定名 **Comi（可米）**，并发布 v2.0.0。她最早是 comfy-agent（ComfyUI 桌面工作台）的工具图标，后来才长成一只桌宠——名字里的 "Com" 就来自那段出身。
+
+### 变更（不含破坏性迁移）
+
+- **角色改名**：Iven → **Comi（可米）**。窗口标题、气泡署名、右键菜单、README（中/英）、适配器文档统一更新。
+- **安装包改名**：`IvenPet.app` / `IvenPet.exe` → `ComiPet.app` / `ComiPet.exe`。
+- **适配器改名**：DSH 插件包 `iven-bridge` → `comi-bridge`，配套 `characters/iven-pet` → `characters/comi-pet`、素材目录 `assets/iven-v2` → `assets/comi-v2`、脚本 `export_iven_v2.py`/`iven_cli.py` → `export_comi_v2.py`/`comi_cli.py`。
+- **环境变量改名**：`IVEN_BRIDGE_DIR` / `IVEN_CHAT_DIR` / `IVEN_API_DIR` / `IVEN_CONFIG_DIR` → `COMI_*`（旧名仍可读）。
+
+### 兼容与升级
+
+- **配置与数据自动沿用**：尚在使用旧目录 `~/.iven-pet` 的用户会被自动识别并继续读原目录，配置、对话记忆、事件历史、休眠状态都不丢。只有全新安装才会创建 `~/.comi-pet`。
+- **旧环境变量仍生效**：`COMI_*` 优先，未设置时回退到 `IVEN_*`，脚本与 CI 无需立刻改。
+- **升级方式**：直接替换程序即可（Mac 拖出旧 `IvenPet.app` 换成 `ComiPet.app`；Windows 替换 `IvenPet.exe`）。DSH 适配器需重新安装一次新包名（旧 `iven-bridge` 目录可删）。
+- 首次启动会在 `~/.iven-pet`（老用户）或 `~/.comi-pet`（新用户）继续读写，不需要手动迁移任何文件。
 
 ### 新增
 
-- 右键菜单按类分组（参考 dsh-pet）：顶层精简为「说话/和 Iven 说话 · 动作 ▸ · 陪伴 ▸ · 语言 ▸ · 关于与更新 ▸ · 退出」。「动作」再分日常互动 / 工作状态 / 生活小动作三级；「陪伴」收纳显示模式、跟踪 Harness、固定位置、自动轮播、宿主桥接、系统通知；「关于与更新」收纳版本号、检查更新与 GitHub 入口。空分类不挂出。新增 test_menu_structure.py 防止菜单再退化成长列表。
-
-- 新版本检查：启动约 4 秒后静默探测 GitHub Release——只请求 `releases/latest` 的跳转地址并读取 tag，不调用 API、不上传任何本机内容；发现新版本时气泡提示（桌宠隐藏时改用系统通知），右键菜单出现"下载新版本 vX…"，另有"检查更新…"手动项与"启动时检查更新"开关（`~/.iven-pet/config.json` 的 `update_check`，默认 auto）。网络不可用时静默失败，绝不打扰。
-
-- 构建期动作导入改用固定画幅与头部标尺，保留脚底运动轨迹；增加分部位配色/比例/首尾检查、深浅背景预览和离线逐帧验收页。新候选须记录与图片哈希绑定的视觉验收才能导出。默认关闭缩边，不改变现有运行素材。
-- 增加 dsh-pet 动画方法核查和 Iven 连续视频试验模板；场记板可放下，支持小型场景/新道具的制作设计。试制图尚未批准，不计为新发布动作。
-
-- 四段生活编排（复用已验收帧）：困倦眨眼、委屈表情、挥手庆祝、左右观察。每段只播放一轮，保留旧动作 ID `YAWN` / `STOMP` / `CELEBRATE` / `SEARCH` 兼容控制接口；不再将眨眼和失落误称为哈欠、跺脚。
-- 新动作素材生产线（[docs/ASSET_RECIPE.md](docs/ASSET_RECIPE.md)）：Iven 专属提示词配方（角色一致性约束 + 绿幕视频/图像两条生成路线）+ `tools/import_action.py` 一键打包（自动色键、收边、裁切、对齐 idle_0 比例、生成 sheet+JSON、配色体检）。导出脚本泛化为多 sheet（schema 校验，验收记录类 JSON 自动跳过），已用合成绿幕素材演练全链路（打包→发布→导出→运行时可读）并还原。
+- 右键菜单按类分组（参考 dsh-pet）：顶层精简为「说话/和 Comi 说话 · 动作 ▸ · 陪伴 ▸ · 语言 ▸ · 关于与更新 ▸ · 退出」。「动作」再分日常互动 / 工作状态 / 生活小动作三级；「陪伴」收纳显示模式、跟踪 Harness、固定位置、自动轮播、宿主桥接、系统通知；「关于与更新」收纳版本号、检查更新与 GitHub 入口。空分类不挂出。新增 test_menu_structure.py 防止菜单再退化成长列表。
+- 新版本检查：启动约 4 秒后静默探测 GitHub Release——只请求 `releases/latest` 的跳转地址并读取 tag，不调用 API、不上传任何本机内容；发现新版本时气泡提示（桌宠隐藏时改用系统通知），右键菜单出现"下载新版本 vX…"，另有"检查更新…"手动项与"启动时检查更新"开关（`~/.comi-pet/config.json` 的 `update_check`，默认 auto）。网络不可用时静默失败，绝不打扰。
 - 甩抛物理：拖拽时记录指针速度，松手甩出即抛物线飞行——屏幕左右/顶部边缘反弹、落地按剩余能量弹跳（每次衰减），温柔放下则原地落定；Mac 端落地与弹跳瞬间有 CALayer Q 弹挤压动画，Windows 端复用弹跳帧。物理语义两端一致（`throw_physics.py` 纯函数 + Swift 镜像 + 双端测试）。
 - 系统通知：任务完成、出问题、等待确认这三类一次性事件可弹原生系统通知（macOS `osascript` / Windows `Shell_NotifyIcon` 气泡）。默认"自动"——仅桌宠隐藏（DSH 界面内模式）时才弹，另有"总是/关闭"；同类通知 8 秒限流，正文只含状态与任务标签。
-- 配置持久化（`~/.iven-pet/config.json`）：重启后回到上次离开的位置（坐标系标记隔离 Tk/Cocoa 两端）；通知模式持久化。右键菜单可切换系统通知模式。
-- 本机文件控制接口（`~/.iven-pet/api`，[docs/API.md](docs/API.md)）：其他插件或脚本可让 Iven 说话（`say`）、点播动作（`play`）、入睡/唤醒、读实况（每秒原子写 `~/.iven-pet/state.json`）。零网络零端口，与桥接/对话同风格；配套命令行 `python tools/iven_cli.py`。Tk 与 Swift 端语义一致，已实测 say/play/state 往返。
-
-### 修复
-
-- 重排四段生活编排：移除失败帧往返抽动、庆祝动作硬切和观察方向突跳；取消整段随机重复。同步两端菜单与中英文说明。
-
-### 变更
-
-- "和 Iven 说话"：桌宠右键菜单输入一句话，由 DSH 适配器调用宿主配置的模型生成回复，气泡显示并可能搭配情绪动作（happy/shy/cheer/greet/relieved 白名单，防幻觉校验）；本地保留最近 8 轮记忆（`~/.iven-pet/chat/memory.json`，删除即清空）。模型候选链（插件配置 → 当前会话模型）逐级回落；DSH 未在线或未配置模型时如实提示，绝不伪造回复。对话经本机文件通道（`~/.iven-pet/chat`）进行，桌宠本体仍零模型依赖。
+- 配置持久化（`~/.comi-pet/config.json`）：重启后回到上次离开的位置（坐标系标记隔离 Tk/Cocoa 两端）；通知模式持久化。右键菜单可切换系统通知模式。
+- 本机文件控制接口（`~/.comi-pet/api`，[docs/API.md](docs/API.md)）：其他插件或脚本可让 Comi 说话（`say`）、点播动作（`play`）、入睡/唤醒、读实况（每秒原子写 `~/.comi-pet/state.json`）。零网络零端口；配套命令行 `python tools/comi_cli.py`。
+- 四个生活小动作（全部复用已验收帧，无新像素）：困倦眨眼（YAWN）、委屈表情（STOMP）、挥手庆祝（CELEBRATE）、左右观察（SEARCH），加入自动轮播与右键菜单。
+- 新动作素材生产线（[docs/ASSET_RECIPE.md](docs/ASSET_RECIPE.md)）：提示词配方（角色一致性约束 + 绿幕视频/图像两条生成路线）+ `tools/import_action.py` 一键打包 + 分部位配色/比例/首尾检查与离线逐帧验收。
 
 ## [1.0.1] - 2026-10-21
 
@@ -47,7 +50,7 @@
 
 ## [1.0.0] - 2026-10-18
 
-首个公开打包版本：Iven 独立 3D 绒质桌宠，支持 macOS 与 Windows。
+首个公开打包版本：Comi 独立 3D 绒质桌宠，支持 macOS 与 Windows。
 
 ### 新增
 

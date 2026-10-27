@@ -1,11 +1,11 @@
 /* DSH browser module: deliberately a side-effect script, not an ESM bundle.
  * It uses the host's React and the official shell.overlay slot. */
 window.__ModuleLoader__.load({
-  id: 'iven-bridge',
+  id: 'comi-bridge',
   factory(require) {
     const React = require('react')
     const { createElement: h, useEffect, useRef, useState } = React
-    const PREFIX = '/iven-pet'
+    const PREFIX = '/comi-pet'
     const SPEED = 0.75
     const zh = (navigator.language || '').toLowerCase().startsWith('zh')
     const text = (cn, en) => zh ? cn : en
@@ -19,8 +19,8 @@ window.__ModuleLoader__.load({
     }
     const clientId = (() => {
       try {
-        let value = sessionStorage.getItem('iven-pet-client')
-        if (!value) { value = `web_${crypto.randomUUID().replaceAll('-', '')}`; sessionStorage.setItem('iven-pet-client', value) }
+        let value = sessionStorage.getItem('comi-pet-client')
+        if (!value) { value = `web_${crypto.randomUUID().replaceAll('-', '')}`; sessionStorage.setItem('comi-pet-client', value) }
         return value
       } catch { return `web_${Date.now()}_${Math.random().toString(36).slice(2)}` }
     })()
@@ -57,7 +57,7 @@ window.__ModuleLoader__.load({
         let disposed = false
         Promise.all([request('manifest'), request('behaviors')]).then(([data, rules]) => {
           if (!disposed) { manifestRef.current = data; behavior.current = rules; setManifest(data) }
-        }).catch(() => { if (!disposed) setError(text('未能读取 Iven 动画素材', 'Could not load Iven’s animations')) })
+        }).catch(() => { if (!disposed) setError(text('未能读取 Comi 动画素材', 'Could not load Comi’s animations')) })
         const poll = async () => {
           try {
             const data = await request('state')
@@ -188,16 +188,16 @@ window.__ModuleLoader__.load({
       }, labels[name]))
       return h('div', { style: { position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 1000, fontFamily: 'system-ui, sans-serif' } },
         h('button', { type: 'button', disabled: !manifest, style: { ...button, position: 'absolute', right: 16, top: 76, pointerEvents: 'auto', opacity: manifest ? 1 : .6 },
-          title: error || text('切换 Iven 显示位置', 'Switch Iven’s display mode'),
+          title: error || text('切换 Comi 显示位置', 'Switch Comi’s display mode'),
           onClick: () => selectMode(embedded ? 'desktop' : 'embedded') },
-        error ? text('Iven · 连接中断', 'Iven · disconnected') : embedded ? text('Iven · 切到桌面 ↗', 'Iven · move to desktop ↗') : text('Iven · 移入界面 ↙', 'Iven · bring into DSH ↙')),
+        error ? text('Comi · 连接中断', 'Comi · disconnected') : embedded ? text('Comi · 切到桌面 ↗', 'Comi · move to desktop ↗') : text('Comi · 移入界面 ↙', 'Comi · bring into DSH ↙')),
         embedded && manifest ? h('div', { ref: card, style: { position: 'absolute', width: 200, height: 200, left: position.current.x, top: position.current.y, pointerEvents: 'auto' } },
           status ? h('div', { style: { position: 'absolute', bottom: 160, left: -35, width: 270, boxSizing: 'border-box', background: '#fffffff5', color: '#302638',
             padding: '11px 14px', border: '1px solid #ddd4e7', borderRadius: 16, boxShadow: '0 4px 20px #25122a24', fontSize: 12, pointerEvents: 'none', overflowWrap: 'anywhere' } },
           h('strong', { style: { display: 'block', color: '#7954a2', marginBottom: host.label || host.tool ? 5 : 0 } }, `DSH · ${status}`),
           host.label ? h('div', null, host.label) : null,
           host.tool ? h('div', { style: { marginTop: 3, opacity: .8 } }, `${text('当前工具', 'Tool')} · ${host.tool}`) : null) : null,
-          h('img', { ref: image, src: `${PREFIX}/frames/idle_0.png`, draggable: false, alt: 'Iven',
+          h('img', { ref: image, src: `${PREFIX}/frames/idle_0.png`, draggable: false, alt: 'Comi',
             style: { display: 'block', width: 200, height: 200, userSelect: 'none', touchAction: 'none', cursor: 'grab' },
             onPointerDown: startDrag, onPointerMove: moveDrag, onPointerUp: endDrag, onPointerCancel: endDrag,
             onContextMenu: event => { event.preventDefault(); setMenu(value => !value) } }),
@@ -206,10 +206,10 @@ window.__ModuleLoader__.load({
           h('button', { style: button, onClick: () => selectMode('desktop') }, text('移到独立桌面 ↗', 'Move to desktop ↗')), ...entries) : null) : null)
     }
     return {
-      name: 'iven-pet', inject: ['slots'],
+      name: 'comi-pet', inject: ['slots'],
       apply(ctx) {
         ctx.slots.inject('shell.overlay', function* () {
-          yield ctx.slots.register({ name: 'shell.overlay', id: 'iven-pet', order: 1000 }, () => h(Overlay))
+          yield ctx.slots.register({ name: 'shell.overlay', id: 'comi-pet', order: 1000 }, () => h(Overlay))
         })
       },
     }

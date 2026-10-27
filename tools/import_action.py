@@ -1,4 +1,4 @@
-"""import_action · 新动作素材一键打包（原始帧 → assets/iven-v2/actions 的 sheet 包）。
+"""import_action · 新动作素材一键打包（原始帧 → assets/comi-v2/actions 的 sheet 包）。
 
 输入一个帧目录（PNG 序列，绿幕/品红底或已透明），产出与 little-breaks 同构的
 <name>.png + <name>.json 动作 sheet：

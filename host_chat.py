@@ -1,13 +1,13 @@
-"""host_chat · "和 Iven 说话"：本地对话请求/回复文件协议（桌宠消费端）。
+"""host_chat · "和 Comi 说话"：本地对话请求/回复文件协议（桌宠消费端）。
 
-与 DSH 适配器（adapters/dsh/iven-bridge/chat-host.js）对齐的本机原子文件协议：
+与 DSH 适配器（adapters/dsh/comi-bridge/chat-host.js）对齐的本机原子文件协议：
 
     请求 <dir>/request-<id>.json   {"version": 1, "id": "...", "text": "..."}
     回复 <dir>/reply-<id>.json     {"version": 1, "id": "...", "ok": true,
                                     "text": "...", "mood": "happy"| null,
                                     或 {"ok": false, "reason": "...", "message": ...}}
 
-目录默认 ~/.iven-pet/chat（IVEN_CHAT_DIR 可覆盖）。适配器不在线时请求只会
+目录默认 ~/.comi-pet/chat（COMI_CHAT_DIR 可覆盖）。适配器不在线时请求只会
 安静地过期（15 分钟后由适配器/桌宠清理），桌宠按超时如实提示，绝不伪造回复。
 回复文本与宿主事件一样只作数据展示：清洗控制字符、截断，绝不当作指令执行。
 """
@@ -16,6 +16,7 @@ import os
 import re
 import time
 from pathlib import Path
+import comi_home
 
 MAX_TEXT = 2000          # 与适配器一致的单条上限
 REPLY_TTL = 300.0        # 回复停留 5 分钟，过期清理
@@ -23,8 +24,7 @@ REQUEST_TTL = 900.0      # 无人接手的请求 15 分钟后清理
 
 
 def chat_dir():
-    return Path(os.environ.get("IVEN_CHAT_DIR")
-                or Path.home() / ".iven-pet" / "chat")
+    return Path(comi_home.env("COMI_CHAT_DIR") or comi_home.subdir("chat"))
 
 
 def _atomic_write(path, payload):

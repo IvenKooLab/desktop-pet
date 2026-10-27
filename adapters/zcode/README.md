@@ -1,6 +1,6 @@
-# ZCode 适配器（Iven 桌宠桥接）
+# ZCode 适配器（Comi 桌宠桥接）
 
-把 ZCode Agent 的工作状态发给 Iven 桌宠：工作中 → 打字/工作动作，等待确认 →
+把 ZCode Agent 的工作状态发给 Comi 桌宠：工作中 → 打字/工作动作，等待确认 →
 等待提醒，本轮结束/失败/完成 → 相应动作。宿主离线或桌宠没开都不影响 ZCode 本身。
 
 ## 安装（二选一）
@@ -24,21 +24,21 @@
 
 ```bash
 echo '{"session_id":"t1","hook_event_name":"PreToolUse","tool_name":"Bash"}' \
-  | python3 adapters/zcode/iven_hook.py
-ls ~/.iven-pet/events/   # 应出现一个统一事件 JSON，桌宠会消费并进入工作状态
+  | python3 adapters/zcode/comi_hook.py
+ls ~/.comi-pet/events/   # 应出现一个统一事件 JSON，桌宠会消费并进入工作状态
 ```
 
 ## 卸载
 
-从 `config.json` 删除对应 hooks 条目（或移除插件），`rm -rf ~/.iven-pet`。
+从 `config.json` 删除对应 hooks 条目（或移除插件），`rm -rf ~/.comi-pet`。
 
 ## 隐私与边界
 
-- 默认**只传状态**：不含提示词、回复、工具内容。设 `IVEN_BRIDGE_SUMMARY=1`
+- 默认**只传状态**：不含提示词、回复、工具内容。设 `COMI_BRIDGE_SUMMARY=1`
   才附带任务标签（UserPromptSubmit 截断 80 字）与 Stop 回复摘要（截断 160 字）。
 - 不读 `transcript_path`（临时文件，Hook 后即清理）；不返回 block、不改权限、
   不调用任何模型。Hook 文本一律当数据清洗后转发，绝不执行。
-- 收件箱在本地（默认 `~/.iven-pet/events`，可用 `IVEN_BRIDGE_DIR` 改），无网络。
+- 收件箱在本地（默认 `~/.comi-pet/events`，可用 `COMI_BRIDGE_DIR` 改），无网络。
 
 ## 支持的事件
 

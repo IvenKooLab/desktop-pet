@@ -1,4 +1,4 @@
-"""control_api · 本机文件控制接口（~/.iven-pet/api，与桥接/对话同风格，零网络）。
+"""control_api · 本机文件控制接口（~/.comi-pet/api，与桥接/对话同风格，零网络）。
 
 让其他插件、脚本或快捷指令驱动桌宠：说话、点播动作、入睡/唤醒、读状态。
 协议与 host_chat 一致（原子 JSON、读后即焚、TTL 清理）：
@@ -20,6 +20,7 @@ import os
 import re
 import time
 from pathlib import Path
+import comi_home
 
 MAX_TEXT = 2000
 REPLY_TTL = 300.0
@@ -30,8 +31,7 @@ BUILTIN_PLAY = ("IDLE", "WALK", "RUN", "SLEEP", "BOUNCE", "HAPPY", "SHY", "SPIN"
 
 
 def api_dir():
-    return Path(os.environ.get("IVEN_API_DIR")
-                or Path.home() / ".iven-pet" / "api")
+    return Path(comi_home.env("COMI_API_DIR") or comi_home.subdir("api"))
 
 
 def state_path():

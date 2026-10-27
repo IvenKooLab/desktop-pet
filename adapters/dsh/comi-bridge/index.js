@@ -1,8 +1,8 @@
 /**
- * Iven 桌宠桥接 · DSH 宿主插件。
+ * Comi 桌宠桥接 · DSH 宿主插件。
  *
  * 订阅 dsh 的 session/event，归约为统一事件写入本地收件箱（默认
- * ~/.iven-pet/events），由 Iven 桌宠（Mac 原生版 / Windows Tk 版）消费。
+ * ~/.comi-pet/events），由 Comi 桌宠（Mac 原生版 / Windows Tk 版）消费。
  * 语义参考 dsh-pet（MIT）的 work-status 归约：turn/end 只是"本轮结束"，
  * 只有 update_goal 显式 complete/blocked 才算任务级结果；goal 自动续跑的
  * 轮次不误报任务完成。
@@ -16,17 +16,17 @@ import { homedir } from 'node:os'
 import { createWebIntegration } from './web.js'
 import { createChatIntegration, resolveChatDir } from './chat-host.js'
 
-export const name = 'iven-bridge'
+export const name = 'comi-bridge'
 export const inject = []
 
 export const DEFAULT_CONFIG = {
-  /** 收件箱目录；空 = IVEN_BRIDGE_DIR 环境变量或 ~/.iven-pet/events */
+  /** 收件箱目录；空 = COMI_BRIDGE_DIR 环境变量或 ~/.comi-pet/events */
   eventsDir: '',
   /** 摘要开关：默认只传状态；开启后附带 todo 提炼的任务标签 */
   summary: false,
-  /** 对话功能：桌宠"和 Iven 说话"经本插件用宿主 LLM 生成回复 */
+  /** 对话功能：桌宠"和 Comi 说话"经本插件用宿主 LLM 生成回复 */
   chat: true,
-  /** 对话目录；空 = IVEN_CHAT_DIR 环境变量或 ~/.iven-pet/chat */
+  /** 对话目录；空 = COMI_CHAT_DIR 环境变量或 ~/.comi-pet/chat */
   chatDir: '',
   /** 对话记忆保留轮数（一问一答为一轮） */
   chatMemoryRounds: 8,
@@ -123,9 +123,9 @@ function writeInbox(dir, kind, extra) {
 export function apply(ctx, config) {
   const cfg = { ...DEFAULT_CONFIG, ...(config ?? {}) }
   const eventsDir = cfg.eventsDir
-    || process.env.IVEN_BRIDGE_DIR
-    || join(homedir(), '.iven-pet', 'events')
-  const summary = () => cfg.summary || !['', '0', 'false'].includes(process.env.IVEN_BRIDGE_SUMMARY ?? '') || existsSync(join(homedir(), '.iven-pet', 'summary'))
+    || process.env.COMI_BRIDGE_DIR
+    || join(homedir(), '.comi-pet', 'events')
+  const summary = () => cfg.summary || !['', '0', 'false'].includes(process.env.COMI_BRIDGE_SUMMARY ?? '') || existsSync(join(homedir(), '.comi-pet', 'summary'))
   const flagsBySession = new Map()
   const web = createWebIntegration(ctx, {
     eventsDir,
@@ -151,11 +151,11 @@ export function apply(ctx, config) {
           })
         }
       } catch (error) {
-        ctx.logger?.warn?.(`[iven-bridge] ${error instanceof Error ? error.message : String(error)}`)
+        ctx.logger?.warn?.(`[comi-bridge] ${error instanceof Error ? error.message : String(error)}`)
       }
     })
     return () => { dispose?.(); flagsBySession.clear() }
-  }, 'iven-bridge: inbox writer')
+  }, 'comi-bridge: inbox writer')
 
   // 对话：动态注入 llm 服务；headless/未配置模型时自然跳过，插件其余功能不受影响
   if (cfg.chat) {
@@ -174,7 +174,7 @@ export function apply(ctx, config) {
       ctx.effect(() => {
         chat.start()
         return () => chat.stop()
-      }, 'iven-bridge: chat host')
+      }, 'comi-bridge: chat host')
     })
   }
 }

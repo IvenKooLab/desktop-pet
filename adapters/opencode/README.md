@@ -1,4 +1,4 @@
-# OpenCode 适配器（Iven 桌宠桥接）
+# OpenCode 适配器（Comi 桌宠桥接）
 
 OpenCode Server 的 HTTP SSE → 统一事件 → 本地收件箱。纯 Python 标准库，
 无额外依赖。
@@ -6,7 +6,7 @@ OpenCode Server 的 HTTP SSE → 统一事件 → 本地收件箱。纯 Python �
 ## 用法
 
 ```bash
-python3 adapters/opencode/iven_opencode.py --base http://127.0.0.1:4096
+python3 adapters/opencode/comi_opencode.py --base http://127.0.0.1:4096
 ```
 
 - 服务地址：`--base` 或 `OPENCODE_BASE_URL`（默认 `http://127.0.0.1:4096`，
@@ -16,7 +16,7 @@ python3 adapters/opencode/iven_opencode.py --base http://127.0.0.1:4096
   时才会让你显式选择 session——绝不固定用列表第一条。
 - 断线自动退避重连（1/2/5/10/15s 封顶）；重连后按事件 id/组合键去重，
   不重复提醒；服务长时间不在线时桌宠按断线回退到普通轮播。
-- 卸载：Ctrl-C 退出 + `rm -rf ~/.iven-pet`。
+- 卸载：Ctrl-C 退出 + `rm -rf ~/.comi-pet`。
 
 ## 事件映射
 

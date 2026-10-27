@@ -73,7 +73,7 @@ struct DisplayLease: Codable {
         return false
     }
 }
-// MARK: - 对话客户端（"和 Iven 说话"，协议见 adapters/dsh/iven-bridge/chat-host.js）
+// MARK: - 对话客户端（"和 Comi 说话"，协议见 adapters/dsh/comi-bridge/chat-host.js）
 struct ChatReply { let ok: Bool; let text: String; let mood: String?; let reason: String? }
 enum ChatClient {
     // 情绪白名单：键与 DSH 插件 chat.js 的 MOODS 对齐，值为桌宠 clip
@@ -88,7 +88,7 @@ enum ChatClient {
     static func writeRequest(_ dir: URL, text: String, id: String) throws {
         let cleaned = cleanText(text, limit: 2000)
         guard !cleaned.isEmpty else {
-            throw NSError(domain: "IvenChat", code: 1,
+            throw NSError(domain: "ComiChat", code: 1,
                           userInfo: [NSLocalizedDescriptionKey: "消息为空"])
         }
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
@@ -193,12 +193,36 @@ enum ThrowPhysics {
     }
 }
 
-// MARK: - 本地配置（~/.iven-pet/config.json，与 pet_config.py 共用；cs=cocoa 为本端坐标系）
+// MARK: - 数据根目录（与 comi_home.py 同语义：新名优先，旧 ~/.iven-pet 兜底）
+enum ComiHome {
+    static func root() -> URL {
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        if let override = ProcessInfo.processInfo.environment["COMI_HOME"], !override.isEmpty {
+            return URL(fileURLWithPath: override)
+        }
+        let current = home.appendingPathComponent(".comi-pet")
+        if FileManager.default.fileExists(atPath: current.path) { return current }
+        let legacy = home.appendingPathComponent(".iven-pet")
+        if FileManager.default.fileExists(atPath: legacy.path) { return legacy }
+        return current
+    }
+    static func env(_ name: String) -> String? {
+        let environment = ProcessInfo.processInfo.environment
+        if let value = environment[name], !value.isEmpty { return value }
+        if name.hasPrefix("COMI_") {
+            let legacy = "IVEN_" + name.dropFirst("COMI_".count)
+            if let value = environment[legacy], !value.isEmpty { return value }
+        }
+        return nil
+    }
+}
+
+// MARK: - 本地配置（~/.comi-pet/config.json，与 pet_config.py 共用；cs=cocoa 为本端坐标系）
 enum PetConfig {
     static let notifyKinds: Set<String> = ["permission.required", "turn.failed", "task.completed"]
 
     static func fileURL() -> URL {
-        FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".iven-pet/config.json")
+        ComiHome.root().appendingPathComponent("config.json")
     }
     static func load() -> [String: Any] {
         guard let data = try? Data(contentsOf: fileURL()),
@@ -304,7 +328,7 @@ enum UpdateCheck {
         var request = URLRequest(url: releasesURL)
         request.httpMethod = "HEAD"                // 只要跳转后的地址，不下载页面正文
         request.timeoutInterval = 6
-        request.setValue("IvenPet-update-check/1 (+https://github.com/IvenKooLab/desktop-pet)",
+        request.setValue("ComiPet-update-check/1 (+https://github.com/IvenKooLab/desktop-pet)",
                          forHTTPHeaderField: "User-Agent")
         URLSession.shared.dataTask(with: request) { _, response, _ in
             let latest = response?.url.flatMap { tag(from: $0) }
@@ -436,8 +460,8 @@ final class HostBridge {
 
     init(directory: URL? = nil, clock: @escaping () -> TimeInterval = { Date().timeIntervalSince1970 }) {
         if let directory { dir = directory }
-        else if let env = ProcessInfo.processInfo.environment["IVEN_BRIDGE_DIR"] { dir = URL(fileURLWithPath: env) }
-        else { dir = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".iven-pet/events") }
+        else if let env = ComiHome.env("COMI_BRIDGE_DIR") { dir = URL(fileURLWithPath: env) }
+        else { dir = ComiHome.root().appendingPathComponent("events") }
         self.clock = clock
     }
 
@@ -667,7 +691,7 @@ final class PetController: NSObject, NSApplicationDelegate {
     }
     private func menuText(_ title: String) -> String {
         if bridgeZh { return title }
-        let english = ["Iven Pet · 独立桌宠":"Iven Pet · Desktop companion",
+        let english = ["Comi Pet · 独立桌宠":"Comi Pet · Desktop companion",
             "跟踪 Harness":"Track Harness", "自动 · 全部已接入":"Automatic · All connected",
             "工作中":"Working", "等你确认":"Needs approval", "未收到事件":"No events received",
             "空闲（已收到事件）":"Idle (events received)", "自动：确认优先 → 最近活动":"Auto: approvals → recent activity",
@@ -679,8 +703,8 @@ final class PetController: NSObject, NSApplicationDelegate {
             "困倦眨眼":"Sleepy blink", "委屈表情":"Feeling down", "挥手庆祝":"Celebrate", "左右观察":"Look around",
             "弹跳":"Bounce", "开心":"Happy", "打板":"Clapperboard", "观察四周":"Look around",
             "小跳快走":"Quick walk", "害羞":"Shy", "睡觉":"Sleep", "唤醒":"Wake up",
-            "退出独立版":"Quit Iven Pet", "语言 / Language":"Language / 语言", "打开 GitHub 仓库":"Open GitHub repository", "启动时检查更新":"Check for updates on launch", "检查更新…":"Check for updates…", "动作":"Actions", "陪伴":"Companion", "关于与更新":"About & updates", "日常互动":"Everyday", "工作状态":"Work themes", "生活小动作":"Little breaks", "宿主桥接":"Host bridge", "显示模式":"Display mode", "苦思冥想":"Thinking hard", "等待不耐烦":"Getting impatient", "额度不足（表演）":"Low token budget (performance)", "松口气":"Relieved",
-            "和 Iven 说话…":"Talk to Iven…", "独立桌面":"Desktop", "DSH 界面内":"Inside DSH",
+            "退出独立版":"Quit Comi Pet", "语言 / Language":"Language / 语言", "打开 GitHub 仓库":"Open GitHub repository", "启动时检查更新":"Check for updates on launch", "检查更新…":"Check for updates…", "动作":"Actions", "陪伴":"Companion", "关于与更新":"About & updates", "日常互动":"Everyday", "工作状态":"Work themes", "生活小动作":"Little breaks", "宿主桥接":"Host bridge", "显示模式":"Display mode", "苦思冥想":"Thinking hard", "等待不耐烦":"Getting impatient", "额度不足（表演）":"Low token budget (performance)", "松口气":"Relieved",
+            "和 Comi 说话…":"Talk to Comi…", "独立桌面":"Desktop", "DSH 界面内":"Inside DSH",
             "内嵌需 DSH 网页接手；约 6 秒未接手自动回桌面":"Inside DSH needs its web page to take over; falls back to desktop after ~6s",
             "未连上 DSH：启动 dsh 并打开网页后再试内嵌":"DSH not reachable: start dsh and open its web page first"]
         return english[title] ?? title
@@ -738,7 +762,7 @@ final class PetController: NSObject, NSApplicationDelegate {
         anim.values = [layer.transform, squashed, layer.transform]
         anim.keyTimes = [0, 0.35, 1]
         anim.duration = 0.3
-        layer.add(anim, forKey: "iven-squash")
+        layer.add(anim, forKey: "comi-squash")
     }
     // ---------- 本地配置与系统通知 ----------
     func savePosition() {
@@ -749,7 +773,7 @@ final class PetController: NSObject, NSApplicationDelegate {
     private func maybeNotify(_ n: BridgeNotice) {
         guard SystemNotify.gate(n.kind, petHidden: displayHidden,
                                 mode: PetConfig.notifyMode(config)) else { return }
-        SystemNotify.send(title: "Iven · " + hostName(),
+        SystemNotify.send(title: "Comi · " + hostName(),
                           body: SystemNotify.text(n.kind, label: n.label, zh: bridgeZh))
     }
     func applicationWillTerminate(_ notification: Notification) { savePosition() }
@@ -844,7 +868,7 @@ final class PetController: NSObject, NSApplicationDelegate {
             badge.isOpaque = false; badge.backgroundColor = .clear; badge.hasShadow = false
             badge.ignoresMouseEvents = true; badge.level = .floating; badge.hidesOnDeactivate = false
             badge.collectionBehavior = [.canJoinAllSpaces,.fullScreenAuxiliary]
-            badge.title = "Iven · 当前跟随"
+            badge.title = "Comi · 当前跟随"
             let content = NSView(); content.wantsLayer = true
             content.layer?.cornerRadius = 12
             content.layer?.backgroundColor = NSColor(calibratedWhite:0.985,alpha:0.95).cgColor
@@ -934,7 +958,7 @@ final class PetController: NSObject, NSApplicationDelegate {
             card.isOpaque = false; card.backgroundColor = .clear; card.hasShadow = true
             card.level = .floating; card.ignoresMouseEvents = true; card.hidesOnDeactivate = false
             card.collectionBehavior = [.canJoinAllSpaces,.fullScreenAuxiliary]
-            card.title = "Iven · 任务状态"
+            card.title = "Comi · 任务状态"
             let content = NSView(); content.wantsLayer = true; content.layer?.backgroundColor = NSColor.clear.cgColor
             card.contentView = content
             let background = CALayer(); background.cornerRadius = 14
@@ -971,7 +995,7 @@ final class PetController: NSObject, NSApplicationDelegate {
         bubbleIsHost = persistent; bubbleKey = key
         bubbleHideAt = persistent ? 0 : ProcessInfo.processInfo.systemUptime+seconds
         bubblePanel?.orderFrontRegardless(); positionBubble()
-        if ProcessInfo.processInfo.environment["IVEN_BRIDGE_DEBUG"] == "1", !persistent || bubbleKey == key {
+        if ProcessInfo.processInfo.environment["COMI_BRIDGE_DEBUG"] == "1", !persistent || bubbleKey == key {
             if let id = bubblePanel?.windowNumber { print("[status-card] window=\(id)"); fflush(stdout) }
         }
     }
@@ -979,13 +1003,13 @@ final class PetController: NSObject, NSApplicationDelegate {
     init(directory: URL) throws {
         behaviors = BehaviorPolicy(directory:directory.deletingLastPathComponent())
         let manifest = try JSONDecoder().decode(Manifest.self, from: Data(contentsOf: directory.appendingPathComponent("animation.json")))
-        guard manifest.version == 1 else { throw NSError(domain:"IvenPet",code:1,userInfo:[NSLocalizedDescriptionKey:"Unsupported animation manifest"]) }
+        guard manifest.version == 1 else { throw NSError(domain:"ComiPet",code:1,userInfo:[NSLocalizedDescriptionKey:"Unsupported animation manifest"]) }
         clips = manifest.clips
         super.init()
         for (state, clip) in clips {
             guard !clip.frames.isEmpty, clip.frames.count == clip.durations.count,
                   clip.durations.allSatisfy({ $0 > 0 }) else {
-                throw NSError(domain:"IvenPet",code:2,userInfo:[NSLocalizedDescriptionKey:"Invalid clip: \(state)"])
+                throw NSError(domain:"ComiPet",code:2,userInfo:[NSLocalizedDescriptionKey:"Invalid clip: \(state)"])
             }
         }
         clips["FALL"] = Clip(frames:["fall_0"],durations:[1000])
@@ -994,7 +1018,7 @@ final class PetController: NSObject, NSApplicationDelegate {
             let path = directory.appendingPathComponent(name+".png")
             guard let source = NSImage(contentsOf: path),
                   let image = source.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
-                throw NSError(domain:"IvenPet",code:3,userInfo:[NSLocalizedDescriptionKey:"Missing transparent PNG: \(path.path)"])
+                throw NSError(domain:"ComiPet",code:3,userInfo:[NSLocalizedDescriptionKey:"Missing transparent PNG: \(path.path)"])
             }
             images[name] = image
         }
@@ -1004,7 +1028,7 @@ final class PetController: NSObject, NSApplicationDelegate {
         let screen = NSScreen.main!.visibleFrame
         panel = PetPanel(contentRect: NSRect(x:screen.maxX-320,y:screen.maxY-240,width:200,height:200),
                          styleMask:[.borderless,.nonactivatingPanel],backing:.buffered,defer:false)
-        panel.title = "Iven Pet · 独立桌宠"
+        panel.title = "Comi Pet · 独立桌宠"
         panel.isOpaque = false
         panel.backgroundColor = .clear
         panel.hasShadow = false
@@ -1074,7 +1098,7 @@ final class PetController: NSObject, NSApplicationDelegate {
                 ? "发现新版本 v\(latest)（当前 v\(currentVersion)）：右键 → 下载新版本"
                 : "Update v\(latest) available (current v\(currentVersion)): right-click → Download"
             if displayHidden {
-                SystemNotify.send(title: "Iven · " + (bridgeZh ? "发现新版本" : "Update available"),
+                SystemNotify.send(title: "Comi · " + (bridgeZh ? "发现新版本" : "Update available"),
                                   body: text)
             }
             showBubble(text, seconds: 9,
@@ -1169,14 +1193,14 @@ final class PetController: NSObject, NSApplicationDelegate {
         }
     }
 
-    // ---------- 和 Iven 说话 ----------
+    // ---------- 和 Comi 说话 ----------
     @objc private func chatInput() {
         if chatPendingId != nil {
-            showBubble(bridgeZh ? "Iven 还在想上一个问题…" : "Iven is still thinking…", seconds: 2.2)
+            showBubble(bridgeZh ? "Comi 还在想上一个问题…" : "Comi is still thinking…", seconds: 2.2)
             return
         }
         let alert = NSAlert()
-        alert.messageText = bridgeZh ? "和 Iven 说话" : "Talk to Iven"
+        alert.messageText = bridgeZh ? "和 Comi 说话" : "Talk to Comi"
         alert.informativeText = bridgeZh ? "说点什么（需要 DSH 在线并安装适配器）"
                                          : "Say something (needs DSH running with its adapter)"
         let input = NSTextField(frame: NSRect(x: 0, y: 0, width: 260, height: 24))
@@ -1546,12 +1570,12 @@ final class PetController: NSObject, NSApplicationDelegate {
 
     func contextMenu() -> NSMenu {
         let menu = NSMenu()
-        let heading = NSMenuItem(title:menuText("Iven Pet · 独立桌宠"),action:nil,keyEquivalent:"")
+        let heading = NSMenuItem(title:menuText("Comi Pet · 独立桌宠"),action:nil,keyEquivalent:"")
         heading.isEnabled = false
         menu.addItem(heading)
         menu.addItem(.separator())
         if clips["THINKING"] != nil {
-            let chat = NSMenuItem(title:menuText("和 Iven 说话…"),action:#selector(chatInput),keyEquivalent:"")
+            let chat = NSMenuItem(title:menuText("和 Comi 说话…"),action:#selector(chatInput),keyEquivalent:"")
             chat.target = self
             menu.addItem(chat)
         }
@@ -1598,7 +1622,7 @@ if CommandLine.arguments.contains("--self-test") {
     // 对话文件协议：请求写入 → 回复往返 → 读取即删 → 情绪白名单
     do {
         let tmp = FileManager.default.temporaryDirectory
-            .appendingPathComponent("iven-chat-selftest-\(UUID().uuidString)")
+            .appendingPathComponent("comi-chat-selftest-\(UUID().uuidString)")
         try ChatClient.writeRequest(tmp, text: "在吗", id: "t1")
         let reqObj = try JSONSerialization.jsonObject(with: Data(contentsOf: tmp.appendingPathComponent("request-t1.json"))) as? [String: Any]
         precondition(reqObj?["text"] as? String == "在吗", "request sanitized")
@@ -1649,7 +1673,7 @@ if CommandLine.arguments.contains("--self-test") {
     // 宿主桥接归约器：主场景重放（与 tests/test_host_bridge.py 同语义）
     do {
         let tmp = FileManager.default.temporaryDirectory
-            .appendingPathComponent("iven-selftest-\(UUID().uuidString)")
+            .appendingPathComponent("comi-selftest-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: tmp) }
         let epoch = 1_800_000_000.0
@@ -1764,10 +1788,10 @@ if CommandLine.arguments.contains("--self-test") {
     exit(0)
 }
 
-let lockPath = NSTemporaryDirectory()+"iven-desktop-pet-\(getuid()).lock"
+let lockPath = NSTemporaryDirectory()+"comi-desktop-pet-\(getuid()).lock"
 let lockFD = open(lockPath,O_CREAT|O_RDWR,0o600)
 if lockFD < 0 || flock(lockFD,LOCK_EX|LOCK_NB) != 0 {
-    print("Iven Pet independent app is already running.")
+    print("Comi Pet independent app is already running.")
     exit(0)
 }
 let supplied = CommandLine.arguments.dropFirst().first
@@ -1785,6 +1809,6 @@ do {
     app.run()
     withExtendedLifetime(controller) {}
 } catch {
-    fputs("Iven Pet: \(error.localizedDescription)\n",stderr)
+    fputs("Comi Pet: \(error.localizedDescription)\n",stderr)
     exit(1)
 }

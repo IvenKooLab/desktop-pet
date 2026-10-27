@@ -1,4 +1,4 @@
-"""构建 av_walk 真素材帧：characters/iven-pet/animations/walk/frames/walk_01..08.png
+"""构建 av_walk 真素材帧：characters/comi-pet/animations/walk/frames/walk_01..08.png
 → frames3d/av_walk_{l,r}_{00..07}.gif（200x200 品红画布，脚底线锚定，左向=镜像）。
 锚定规则：每帧以"内容末行"（真实接地线）对齐 FOOT_Y，保证脚底不上下跳。
 缩放规则：统一比例 = TARGET_H / 实测切图最高身高（measure_ref_h），禁止逐帧适配。
@@ -7,7 +7,7 @@ import numpy as np
 from PIL import Image
 from pathlib import Path
 
-SRC = Path('characters/iven-pet/animations/walk/frames')
+SRC = Path('characters/comi-pet/animations/walk/frames')
 OUT = Path('frames3d')
 SIZE = 200
 FOOT_Y = 194

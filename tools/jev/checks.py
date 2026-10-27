@@ -30,7 +30,7 @@ CHECKS = {
         "classification": None,
     },
     "asset.fps": {
-        "standard_source": "characters/iven-pet/animations/walk/animation.json fps=12 + pet.py:393 round(1000/12)",
+        "standard_source": "characters/comi-pet/animations/walk/animation.json fps=12 + pet.py:393 round(1000/12)",
         "classification": None,
     },
 

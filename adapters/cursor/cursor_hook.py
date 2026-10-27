@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Cursor Hooks → Iven 桌宠桥接收件箱适配器。
+"""Cursor Hooks → Comi 桌宠桥接收件箱适配器。
 
 配置在项目 `.cursor/hooks.json` 或用户 `~/.cursor/hooks.json`（两处脚本
 工作目录不同：相对路径按配置来源处理，示例统一建议绝对路径）。

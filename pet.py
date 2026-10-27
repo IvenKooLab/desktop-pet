@@ -1,6 +1,6 @@
-"""Iven Pet · macOS/Windows 独立 3D 绒质桌宠（运行时纯标准库）。
+"""Comi Pet · macOS/Windows 独立 3D 绒质桌宠（运行时纯标准库）。
 
-素材由批准的 Iven v2 母版导出，原版 3D 绒质风格。Mac 使用透明 PNG，
+素材由批准的 Comi v2 母版导出，原版 3D 绒质风格。Mac 使用透明 PNG，
 Windows 使用色键 GIF；时间轴来自 animation.json，观察四周不等于全身转体。
 
 状态机：GREET(落地打招呼) → IDLE(呼吸) → WALK(走动) / RUN(小短腿快走) →
@@ -48,7 +48,7 @@ except (ImportError, AttributeError):   # 非 Windows
 
 BASE = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
 def _load_profile():
-    """Use the bundled Iven artwork; environment override supports maintenance rollback."""
+    """Use the bundled Comi artwork; environment override supports maintenance rollback."""
     frames_dir = os.environ.get("PET_FRAMES_DIR") or os.path.join(BASE, "frames3d")
     language = load_language()
     return frames_dir, (_detect_lang() if language == "system" else language)
@@ -58,7 +58,7 @@ def _texts(lang):
     """5 语言 UI/台词表（zh 简中 / zh-Hant 繁中 / en / ko / ja）。"""
     if lang == "zh-Hant":
         return {
-            "menu_speak": "說句話", "menu_chat": "和 Iven 說話…", "menu_clap": "打個板 🎬",
+            "menu_speak": "說句話", "menu_chat": "和 Comi 說話…", "menu_clap": "打個板 🎬",
             "menu_spin": "轉一圈 🔄", "menu_run": "小短腿快走 🏃",
             "menu_shy": "害羞一下 😳", "menu_sleep": "睡一覺",
             "menu_exit": "退出",
@@ -83,7 +83,7 @@ def _texts(lang):
         }
     if lang == "en":
         return {
-            "menu_speak": "Say something", "menu_chat": "Talk to Iven…", "menu_clap": "Clap board 🎬",
+            "menu_speak": "Say something", "menu_chat": "Talk to Comi…", "menu_clap": "Clap board 🎬",
             "menu_spin": "Spin around 🔄", "menu_run": "Quick walk 🏃",
             "menu_shy": "Get shy 😳", "menu_sleep": "Sleep",
             "menu_exit": "Exit",
@@ -113,7 +113,7 @@ def _texts(lang):
         }
     if lang == "ko":
         return {
-            "menu_speak": "말 걸기", "menu_chat": "Iven와 대화…", "menu_clap": "클래퍼 🎬",
+            "menu_speak": "말 걸기", "menu_chat": "Comi와 대화…", "menu_clap": "클래퍼 🎬",
             "menu_spin": "빙글 돌기 🔄", "menu_run": "빠른 걸음 🏃",
             "menu_shy": "쑥스러움 😳", "menu_sleep": "자기",
             "menu_exit": "종료",
@@ -138,7 +138,7 @@ def _texts(lang):
         }
     if lang == "ja":
         return {
-            "menu_speak": "話しかける", "menu_chat": "Iven と話す…", "menu_clap": "カチンコ 🎬",
+            "menu_speak": "話しかける", "menu_chat": "Comi と話す…", "menu_clap": "カチンコ 🎬",
             "menu_spin": "ぐるっと回る 🔄", "menu_run": "ちょこ速歩き 🏃",
             "menu_shy": "照れちゃう 😳", "menu_sleep": "お昼寝",
             "menu_exit": "終了",
@@ -162,7 +162,7 @@ def _texts(lang):
             "wow": ["わー！", "楽しい！", "イェーイ！"],
         }
     return {
-        "menu_speak": "说句话", "menu_chat": "和 Iven 说话…", "menu_clap": "打个板 🎬",
+        "menu_speak": "说句话", "menu_chat": "和 Comi 说话…", "menu_clap": "打个板 🎬",
         "menu_spin": "转一圈 🔄", "menu_run": "小短腿快走 🏃",
         "menu_shy": "害羞一下 😳", "menu_sleep": "睡一觉",
         "menu_exit": "退出",
@@ -272,7 +272,7 @@ FRAMES = ["idle_0", "idle_1", "idle_2", "grab_0", "grab_1", "fall_0", "land_0",
 for _d in ("l", "r"):
     # legacy 24 相位程序步态（ASSET-FIRST 冻结：保留 fallback，优先级低于 av_walk）
     FRAMES += [f"walk_{_d}_{i}" for i in range(24)]
-    # av_walk：8 帧真素材（GPT 同视角步态循环，见 characters/iven-pet/animations/walk）
+    # av_walk：8 帧真素材（GPT 同视角步态循环，见 characters/comi-pet/animations/walk）
     FRAMES += [f"av_walk_{_d}_{i:02d}" for i in range(8)]
     FRAMES += [f"fast_{_d}_{i}" for i in range(2)]
 
@@ -366,7 +366,7 @@ class Pet:
         self.root = tk.Tk()
         self.root.overrideredirect(True)
         self.root.attributes("-topmost", True)
-        self.root.title("Iven Pet · 独立桌宠")
+        self.root.title("Comi Pet · 独立桌宠")
         self.background = configure_transparency(self.root)
 
         self.sw = self.root.winfo_screenwidth()
@@ -471,7 +471,7 @@ class Pet:
         self._embedded_display = False
         self._display_poll_at = 0
         self._embedded_requested_at = None   # 内嵌确认窗口起点（claim 前不隐藏）
-        # "和 Iven 说话"：等待 DSH 适配器生成的回复
+        # "和 Comi 说话"：等待 DSH 适配器生成的回复
         self.chat_dir = host_chat.chat_dir()
         self._chat_id = None
         self._chat_deadline = 0
@@ -537,7 +537,7 @@ class Pet:
                 f"发现新版本 v{latest}（当前 v{current}）：右键 → 下载新版本",
                 f"Update v{latest} available (current v{current}): right-click → Download update")
             if self._embedded_display:       # 桌面端隐藏时用系统通知兜底
-                system_notify.send("Iven · " + self._menu_text("发现新版本", "Update available"),
+                system_notify.send("Comi · " + self._menu_text("发现新版本", "Update available"),
                                    text[:120])
             self.say(text, 9000,
                      title=self._menu_text("发现新版本", "Update available"), tone="done")
@@ -586,7 +586,7 @@ class Pet:
         c.bind("<ButtonRelease-1>", self._release)
         menu = tk.Menu(self.root, tearoff=0)
         self._context_menu = menu
-        menu.add_command(label=self._menu_text("Iven Pet · 独立桌宠", "Iven Pet · Desktop companion"), state="disabled")
+        menu.add_command(label=self._menu_text("Comi Pet · 独立桌宠", "Comi Pet · Desktop companion"), state="disabled")
         menu.add_separator()
         menu.add_command(label=_T["menu_speak"], command=lambda: self.say(random.choice(LINES)))
         if "THINKING" in self.clips:
@@ -991,7 +991,7 @@ class Pet:
             return
         try:
             for notice in self.host.poll():
-                if os.environ.get("IVEN_BRIDGE_DEBUG"):
+                if os.environ.get("COMI_BRIDGE_DEBUG"):
                     print(f"[bridge] notice={notice.kind} label={notice.label} "
                           f"mode={self.host.mode}", flush=True)
                 self._host_notice(notice)
@@ -1010,7 +1010,7 @@ class Pet:
             return
         zh = LANG.startswith("zh")
         source = (getattr(self.host, "source", None) or "coding agent")
-        title = f"Iven · {source}"
+        title = f"Comi · {source}"
         system_notify.send(title, system_notify.notify_text(n.kind, n.label, zh),
                            hwnd=self.hwnd)
 
@@ -1149,13 +1149,13 @@ class Pet:
             self._update_display_mode(time.monotonic())
 
     # ---------- 主循环 ----------
-    # ---------- 和 Iven 说话 ----------
+    # ---------- 和 Comi 说话 ----------
     def _chat_input(self):
         if self._chat_id:
-            self.say(self._menu_text("Iven 还在想上一个问题…", "Iven is still thinking…"), 2200)
+            self.say(self._menu_text("Comi 还在想上一个问题…", "Comi is still thinking…"), 2200)
             return
         text = simpledialog.askstring(
-            "Iven Pet",
+            "Comi Pet",
             self._menu_text("说点什么（需要 DSH 在线并安装适配器）",
                             "Say something (needs DSH running with its adapter)"),
             parent=self.root)
@@ -1604,7 +1604,7 @@ class Pet:
         if self._embedded_display:
             return
         # Status cards persist until the reducer changes state, independent of animation.
-        title = title or "Iven"
+        title = title or "Comi"
         text = str(text)[:160]
         key = (title,text,tone,ms == 0)
         if key == self._bubble_key and self.bubble:
@@ -1641,7 +1641,7 @@ class Pet:
     def run(self):
         self.last_input = self.tick_n
         self.root.update_idletasks()
-        print("[start] Iven Pet standalone | platform=%s | Tk=%s | background=%s | frames=%s | bridge=%s" %
+        print("[start] Comi Pet standalone | platform=%s | Tk=%s | background=%s | frames=%s | bridge=%s" %
               (sys.platform, self.root.tk.call("info", "patchlevel"), self.background, len(self.frames),
                str(self.host.dir) if self.host else "off"), flush=True)
         self.root.after(800, lambda: print("[window] mapped=%s | canvas=%s | state=%s" %

@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""ZCode Hooks → Iven 桌宠桥接收件箱适配器。
+"""ZCode Hooks → Comi 桌宠桥接收件箱适配器。
 
 用法（~/.zcode/cli/config.json 或插件的 hooks/hooks.json，process 执行器）：
     {"type": "process", "command": "python3",
-     "args": ["<本仓库绝对路径>/adapters/zcode/iven_hook.py"]}
+     "args": ["<本仓库绝对路径>/adapters/zcode/comi_hook.py"]}
 
 映射与边界见 adapters/zcode/README.md 与 docs/BRIDGE.md：
 - stdin 一行 Hook JSON，映射为统一事件后立即退出；
-- 默认只传状态，IVEN_BRIDGE_SUMMARY=1 才附带任务标签/摘要；
+- 默认只传状态，COMI_BRIDGE_SUMMARY=1 才附带任务标签/摘要；
 - 不读 transcript_path；不返回 block、不改权限、不调用任何模型。
 """
 import os

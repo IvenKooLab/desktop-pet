@@ -16,13 +16,13 @@ class RequestTests(unittest.TestCase):
         self.now = 1_800_000_000.0
 
     def test_say_request_round_trip(self):
-        rid = control_api.write_request(self.tmp, "say", text="你好 Iven",
+        rid = control_api.write_request(self.tmp, "say", text="你好 Comi",
                                         now=self.now, request_id="r1")
         self.assertEqual(rid, "r1")
         (path, obj), = control_api.poll_requests(self.tmp)
         spec = control_api.parse_request(obj)
         self.assertEqual(spec["action"], "say")
-        self.assertEqual(spec["text"], "你好 Iven")
+        self.assertEqual(spec["text"], "你好 Comi")
 
     def test_play_whitelist(self):
         ok = control_api.parse_request(

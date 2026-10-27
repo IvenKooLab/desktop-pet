@@ -1,8 +1,8 @@
 {
-  "name": "iven-bridge",
+  "name": "comi-bridge",
   "version": "0.2.0",
   "license": "MIT",
-  "description": "Iven pet for DSH: session status, in-app overlay and standalone desktop handoff",
+  "description": "Comi pet for DSH: session status, in-app overlay and standalone desktop handoff",
   "type": "module",
   "main": "index.js",
   "exports": {

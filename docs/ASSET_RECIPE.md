@@ -1,6 +1,6 @@
-# Iven 动作素材生产与验收
+# Comi 动作素材生产与验收
 
-角色身份以 `frames3d/idle_0.png` 和已验收的 Iven v2 为准：保持脸、发型、青蓝耳机、原版服装配色、短身比例和绒质手办材质。**动作允许放下场记板，增加道具与小场景。** 这是一套维护者构建工具，不恢复面向用户的桌宠制作器。
+角色身份以 `frames3d/idle_0.png` 和已验收的 Comi v2 为准：保持脸、发型、青蓝耳机、原版服装配色、短身比例和绒质手办材质。**动作允许放下场记板，增加道具与小场景。** 这是一套维护者构建工具，不恢复面向用户的桌宠制作器。
 
 ## 先做三个样片
 
@@ -12,7 +12,7 @@
 
 首批是关键姿势样片，不等于已经制作完成的连续视频动画。先看三个样片能否稳定保持身份与衔接；未通过时停止扩大生成，评估固定 3D 模型和骨骼路线。
 
-研究更新：主线先试真实连续视频，图像 sheet 仅用于母版和分镜。已核实 dsh-pet 的视频与人工抠像流程，见[方法核查](research/DSH_PET_ANIMATION_2026-10-23.md)和[Iven 试验提示词](IVEN_VIDEO_PROMPTS.md)。静态 sheet 失败不足以判断视频路线不可行。
+研究更新：主线先试真实连续视频，图像 sheet 仅用于母版和分镜。已核实 dsh-pet 的视频与人工抠像流程，见[方法核查](research/DSH_PET_ANIMATION_2026-10-23.md)和[Comi 试验提示词](COMI_VIDEO_PROMPTS.md)。静态 sheet 失败不足以判断视频路线不可行。
 
 ## 1. 生成原始素材
 
@@ -25,7 +25,7 @@
 
 ## 2. 标注与固定标定
 
-导入要求 **逐帧标注** 与 **批准参考配置**。默认参考配置为 `assets/iven-v2/reference-profile.json`。区域是启发式色样，不是可靠的自动人体分割，需目测确认未采到皮肤、背景或其他道具。
+导入要求 **逐帧标注** 与 **批准参考配置**。默认参考配置为 `assets/comi-v2/reference-profile.json`。区域是启发式色样，不是可靠的自动人体分割，需目测确认未采到皮肤、背景或其他道具。
 
 逐帧标注示例：
 
@@ -67,7 +67,7 @@
 python tools/import_action.py \
   --frames-dir pet-work/raw/yawn --name YAWN_NEW \
   --annotations pet-work/raw/yawn-annotations.json \
-  --reference-profile assets/iven-v2/reference-profile.json \
+  --reference-profile assets/comi-v2/reference-profile.json \
   --key none --ms 180
 ```
 
@@ -97,10 +97,10 @@ python tools/import_action.py \
 
 验收必须涵盖：角色身份与原版服装配色；头身比例；深浅背景的透明边缘；首尾和中间动作衔接；脚接地/滑步；道具数量、形状与握持；200px 运行尺寸可读性。自动报告不能排除材质漂移或道具变形。
 
-通过后才将 sheet/JSON 放入 `assets/iven-v2/actions/`，导出、注册菜单与播放策略。旧验收素材格式保持兼容；新候选不要删除 `review` 字段绕过门槛。
+通过后才将 sheet/JSON 放入 `assets/comi-v2/actions/`，导出、注册菜单与播放策略。旧验收素材格式保持兼容；新候选不要删除 `review` 字段绕过门槛。
 
 ```sh
-python tools/export_iven_v2.py
+python tools/export_comi_v2.py
 python -m unittest discover -s tests
 node adapters/dsh/self-test.mjs
 zsh tools/build_macos.sh

@@ -69,14 +69,14 @@ jobs:
       - name: Build macOS universal
         if: runner.os == 'macOS'
         env:
-          IVEN_PET_ARCH: universal
+          COMI_PET_ARCH: universal
         run: |
           zsh tools/build_macos.sh
           python tools/package_release.py macos-universal
       - uses: actions/upload-artifact@v7.0.2
         with:
           name: ${{ matrix.platform }}
-          path: dist/IvenPet-*.zip
+          path: dist/ComiPet-*.zip
           if-no-files-found: error
 
   publish:
@@ -98,7 +98,7 @@ jobs:
           import hashlib
           from pathlib import Path
           root = Path('release-assets')
-          archives = sorted(root.glob('IvenPet-*.zip'))
+          archives = sorted(root.glob('ComiPet-*.zip'))
           assert len(archives) == 2, 'Both platform archives are required'
           (root / 'SHA256SUMS.txt').write_text(''.join(
               hashlib.sha256(path.read_bytes()).hexdigest() + '  ' + path.name + '\n'
@@ -109,6 +109,6 @@ jobs:
         shell: bash
         run: |
           tag="$GITHUB_REF_NAME"
-          gh release create "$tag" --verify-tag --draft --title "Iven Pet $tag" --notes-file "docs/releases/$tag.md"
+          gh release create "$tag" --verify-tag --draft --title "Comi Pet $tag" --notes-file "docs/releases/$tag.md"
           gh release upload "$tag" release-assets/*
           gh release edit "$tag" --draft=false --latest

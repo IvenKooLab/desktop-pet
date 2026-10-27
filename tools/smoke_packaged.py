@@ -8,7 +8,7 @@ root = Path(__file__).resolve().parents[1]
 with socket.socket() as probe:
     if probe.connect_ex(('127.0.0.1', 56570)) == 0:
         raise RuntimeError('Smoke test needs an unused desktop-pet instance port')
-process = subprocess.Popen([str(root / 'dist/IvenPet.exe')], cwd=root / 'dist')
+process = subprocess.Popen([str(root / 'dist/ComiPet.exe')], cwd=root / 'dist')
 try:
     deadline = time.monotonic() + 20
     listening = False

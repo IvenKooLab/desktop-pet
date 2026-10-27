@@ -57,10 +57,10 @@ class SendTests(unittest.TestCase):
         original = system_notify.send
         system_notify.send = fake
         try:
-            self.assertTrue(system_notify.send("Iven", "hi", platform="darwin"))
+            self.assertTrue(system_notify.send("Comi", "hi", platform="darwin"))
         finally:
             system_notify.send = original
-        self.assertEqual(sent, [("Iven", "hi", "darwin")])
+        self.assertEqual(sent, [("Comi", "hi", "darwin")])
 
     def test_unknown_platform_returns_false(self):
         self.assertFalse(system_notify.send("t", "b", platform="plan9"))

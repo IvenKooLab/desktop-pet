@@ -17,19 +17,19 @@ def main():
         raise ValueError('VERSION must be a semantic release version')
     output = ROOT / 'dist'
     output.mkdir(exist_ok=True)
-    archive = output / f'IvenPet-v{version}-{args.platform}.zip'
+    archive = output / f'ComiPet-v{version}-{args.platform}.zip'
     if args.platform == 'macos-universal':
-        app = ROOT / 'build/IvenPet.app'
-        binary = app / 'Contents/MacOS/IvenPet'
+        app = ROOT / 'build/ComiPet.app'
+        binary = app / 'Contents/MacOS/ComiPet'
         subprocess.run(['lipo', str(binary), '-verify_arch', 'arm64', 'x86_64'], check=True)
         subprocess.run(['codesign', '--verify', '--deep', '--strict', str(app)], check=True)
         subprocess.run(['ditto', '-c', '-k', '--sequesterRsrc', '--keepParent', str(app), str(archive)], check=True)
     else:
-        executable = output / 'IvenPet.exe'
+        executable = output / 'ComiPet.exe'
         if not executable.is_file() or executable.stat().st_size < 1_000_000:
             raise ValueError('Build the Windows executable before packaging')
         with zipfile.ZipFile(archive, 'w', zipfile.ZIP_DEFLATED) as bundle:
-            bundle.write(executable, 'IvenPet.exe')
+            bundle.write(executable, 'ComiPet.exe')
     with zipfile.ZipFile(archive, 'a', zipfile.ZIP_DEFLATED) as bundle:
         for name in ('README.md', 'README.en.md', 'LICENSE', 'CHANGELOG.md'):
             bundle.write(ROOT / name, name)

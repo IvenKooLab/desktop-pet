@@ -1,26 +1,26 @@
 {
-  "_comment": "ZCode 插件式 Hooks。把本目录作为插件安装后生效（不要同时在 plugin.json 里重复声明 hooks）。将 __IVER_REPO__ 替换为本仓库的绝对路径；python3 需在 PATH。开启摘要：在宿主环境设 IVEN_BRIDGE_SUMMARY=1。",
+  "_comment": "ZCode 插件式 Hooks。把本目录作为插件安装后生效（不要同时在 plugin.json 里重复声明 hooks）。将 __IVER_REPO__ 替换为本仓库的绝对路径；python3 需在 PATH。开启摘要：在宿主环境设 COMI_BRIDGE_SUMMARY=1。",
   "events": {
     "SessionStart": [
-      { "hooks": [ { "type": "process", "command": "python3", "args": [ "__IVER_REPO__/adapters/zcode/iven_hook.py" ] } ] }
+      { "hooks": [ { "type": "process", "command": "python3", "args": [ "__IVER_REPO__/adapters/zcode/comi_hook.py" ] } ] }
     ],
     "UserPromptSubmit": [
-      { "hooks": [ { "type": "process", "command": "python3", "args": [ "__IVER_REPO__/adapters/zcode/iven_hook.py" ] } ] }
+      { "hooks": [ { "type": "process", "command": "python3", "args": [ "__IVER_REPO__/adapters/zcode/comi_hook.py" ] } ] }
     ],
     "PreToolUse": [
-      { "hooks": [ { "type": "process", "command": "python3", "args": [ "__IVER_REPO__/adapters/zcode/iven_hook.py" ] } ] }
+      { "hooks": [ { "type": "process", "command": "python3", "args": [ "__IVER_REPO__/adapters/zcode/comi_hook.py" ] } ] }
     ],
     "PermissionRequest": [
-      { "hooks": [ { "type": "process", "command": "python3", "args": [ "__IVER_REPO__/adapters/zcode/iven_hook.py" ] } ] }
+      { "hooks": [ { "type": "process", "command": "python3", "args": [ "__IVER_REPO__/adapters/zcode/comi_hook.py" ] } ] }
     ],
     "PostToolUse": [
-      { "hooks": [ { "type": "process", "command": "python3", "args": [ "__IVER_REPO__/adapters/zcode/iven_hook.py" ] } ] }
+      { "hooks": [ { "type": "process", "command": "python3", "args": [ "__IVER_REPO__/adapters/zcode/comi_hook.py" ] } ] }
     ],
     "PostToolUseFailure": [
-      { "hooks": [ { "type": "process", "command": "python3", "args": [ "__IVER_REPO__/adapters/zcode/iven_hook.py" ] } ] }
+      { "hooks": [ { "type": "process", "command": "python3", "args": [ "__IVER_REPO__/adapters/zcode/comi_hook.py" ] } ] }
     ],
     "Stop": [
-      { "hooks": [ { "type": "process", "command": "python3", "args": [ "__IVER_REPO__/adapters/zcode/iven_hook.py" ] } ] }
+      { "hooks": [ { "type": "process", "command": "python3", "args": [ "__IVER_REPO__/adapters/zcode/comi_hook.py" ] } ] }
     ]
   }
 }

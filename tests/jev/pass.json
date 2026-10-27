@@ -1,5 +1,5 @@
 {
-  "project": "desktop-pet/iven-pet walk",
+  "project": "desktop-pet/comi-pet walk",
   "asset": {
     "walk_frames_total": 8,
     "left_frames": 8,
@@ -67,7 +67,7 @@
     ]
   },
   "_provenance": {
-    "identity_source": "characters/iven-pet/animations/walk/frames/*.png（gitignore，本地艺术源）",
+    "identity_source": "characters/comi-pet/animations/walk/frames/*.png（gitignore，本地艺术源）",
     "delivery_source": "frames3d/av_walk_r_*.gif（git 已跟踪交付物）",
     "gif_tops": [
       19,

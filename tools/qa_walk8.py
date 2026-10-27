@@ -66,7 +66,7 @@ def holes(fg):
 
 
 def main():
-    target = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "characters" / "iven-pet" / "animations" / "walk" / "frames"
+    target = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "characters" / "comi-pet" / "animations" / "walk" / "frames"
     frames = []
     if target.is_dir():
         frames = sorted(target.glob("*.png")) + sorted(target.glob("*.gif"))

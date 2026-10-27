@@ -1,7 +1,7 @@
 // DSH 适配器纯映射自测：node adapters/dsh/self-test.mjs
 // 场景与 tests/test_host_bridge.py / Swift self-test 同语义。
 import assert from 'node:assert/strict'
-import { mapEvent, newTurnFlags, currentTaskFromTodo, sessionIdOf } from './iven-bridge/index.js'
+import { mapEvent, newTurnFlags, currentTaskFromTodo, sessionIdOf } from './comi-bridge/index.js'
 
 let n = 0
 const check = (actual, expected, what) => {

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""OpenCode Server → Iven 桌宠桥接适配器（HTTP SSE 监听，纯标准库）。
+"""OpenCode Server → Comi 桌宠桥接适配器（HTTP SSE 监听，纯标准库）。
 
 连接【用户指定】的 OpenCode 服务（默认 http://127.0.0.1:4096，可用
 --base 或 OPENCODE_BASE_URL 覆盖；token 用 OPENCODE_TOKEN）订阅
@@ -13,7 +13,7 @@
     permission.asked → permission.required（replied 不映射，等状态流）
     tool.execute.before / after → tool.started / tool.finished（带调用 ID）
 断线退避重连；重连后按事件 id/组合键去重，不重复提醒。
-用法：python3 adapters/opencode/iven_opencode.py [--base URL] [--max-events N]
+用法：python3 adapters/opencode/comi_opencode.py [--base URL] [--max-events N]
 """
 import json
 import os
@@ -141,7 +141,7 @@ def main():
         kind, fields = mapped
         write_event(inbox, "opencode", kind, **fields)
         if debug:
-            print("[iven-opencode] →", kind, fields.get("session_id"),
+            print("[comi-opencode] →", kind, fields.get("session_id"),
                   file=sys.stderr)
         return True
 
@@ -154,14 +154,14 @@ def main():
             if max_events and total >= max_events:
                 return 0
             if debug:
-                print("[iven-opencode] stream ended, reconnecting",
+                print("[comi-opencode] stream ended, reconnecting",
                       file=sys.stderr)
             time.sleep(1)
         except KeyboardInterrupt:
             break
         except Exception as exc:
             if debug:
-                print(f"[iven-opencode] down ({exc}), retrying",
+                print(f"[comi-opencode] down ({exc}), retrying",
                       file=sys.stderr)
             time.sleep(BACKOFF[min(attempt, len(BACKOFF) - 1)])
             attempt += 1

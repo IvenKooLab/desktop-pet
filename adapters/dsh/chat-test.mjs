@@ -1,4 +1,4 @@
-// Iven 对话自测：node adapters/dsh/chat-test.mjs（无需启动 dsh）。
+// Comi 对话自测：node adapters/dsh/chat-test.mjs（无需启动 dsh）。
 // 覆盖：纯函数（记忆截断/情绪标记/流归拢）+ 假 llm 全流程（回落链/白名单防幻觉/结构化失败/记忆封顶）。
 import assert from 'node:assert/strict'
 import { mkdtempSync, readFileSync, readdirSync, writeFileSync, rmSync } from 'node:fs'
@@ -7,8 +7,8 @@ import { join } from 'node:path'
 import {
   MOODS, cleanText, sliceRounds, buildUserText, extractMood, collectText,
   buildMessages, systemPrompt,
-} from './iven-bridge/chat.js'
-import { createChatIntegration } from './iven-bridge/chat-host.js'
+} from './comi-bridge/chat.js'
+import { createChatIntegration } from './comi-bridge/chat-host.js'
 
 let n = 0
 const ok = (what) => { n++ }
@@ -54,10 +54,10 @@ const messages = buildMessages(history.slice(-2), '在吗')
 assert.equal(messages.length, 3)
 assert.equal(messages[0].role, 'user')
 assert.ok(messages[2].source.kind === 'user' && typeof messages[0].id === 'string'); ok()
-assert.ok(systemPrompt().includes('Iven')); ok()
+assert.ok(systemPrompt().includes('Comi')); ok()
 
 // ---------- 全流程（假 llm + 真文件协议） ----------
-const dir = mkdtempSync(join(tmpdir(), 'iven-chat-'))
+const dir = mkdtempSync(join(tmpdir(), 'comi-chat-'))
 try {
   const fakeLlm = (reply, failFirst = false) => ({
     stream(options) {
@@ -161,4 +161,4 @@ function chatStopCleanup(dir) {
   try { rmSync(dir, { recursive: true, force: true }) } catch {}
 }
 
-console.log(`PASS: iven chat (${n} checks)`)
+console.log(`PASS: comi chat (${n} checks)`)

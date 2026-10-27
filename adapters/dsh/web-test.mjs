@@ -5,12 +5,12 @@ import { mkdtempSync, rmSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { createRouteHandler, readDisplay, writeDisplay, reduceSession, currentSession, LEASE_MS } from './iven-bridge/web.js'
-import { isTrustedApiRequest } from './iven-bridge/trust-fence.js'
+import { createRouteHandler, readDisplay, writeDisplay, reduceSession, currentSession, LEASE_MS } from './comi-bridge/web.js'
+import { isTrustedApiRequest } from './comi-bridge/trust-fence.js'
 import vm from 'node:vm'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
-const temp = mkdtempSync(join(tmpdir(), 'iven-overlay-'))
+const temp = mkdtempSync(join(tmpdir(), 'comi-overlay-'))
 let now = 1_800_000_000_000
 let checks = 0
 const ok = (value, message) => { assert.ok(value, message); checks++ }
@@ -35,38 +35,38 @@ try {
   writeFileSync(displayPath, JSON.stringify({ version: 1, owner: 'dsh', mode: 'embedded', lease_until: now + 999_999 }))
   ok(readDisplay(displayPath, now).mode === 'desktop', 'unbounded future lease is refused')
   writeDisplay(displayPath, 'embedded', null, now)
-  let result = await call('POST', '/iven-pet/api/heartbeat', { client_id: 'browser_a' })
+  let result = await call('POST', '/comi-pet/api/heartbeat', { client_id: 'browser_a' })
   ok(result.status === 200 && result.json().display.client_id === 'browser_a', 'first DSH tab claims native menu intent')
-  result = await call('POST', '/iven-pet/api/heartbeat', { client_id: 'browser_b' })
+  result = await call('POST', '/comi-pet/api/heartbeat', { client_id: 'browser_b' })
   ok(result.status === 409, 'second tab cannot steal heartbeat lease')
-  result = await call('GET', '/iven-pet/api/state')
+  result = await call('GET', '/comi-pet/api/state')
   ok(result.json().display.lease_until === now + LEASE_MS, '30-second renewable lease returned')
   now += 31_000
-  result = await call('GET', '/iven-pet/api/state')
+  result = await call('GET', '/comi-pet/api/state')
   ok(result.json().display.mode === 'desktop', 'lost browser recovers independent desktop')
-  result = await call('POST', '/iven-pet/api/heartbeat', { client_id: 'browser_a' })
+  result = await call('POST', '/comi-pet/api/heartbeat', { client_id: 'browser_a' })
   ok(result.status === 409, 'expired heartbeat cannot re-hide independent pet')
-  result = await call('POST', '/iven-pet/api/display', { client_id: 'browser_b', mode: 'embedded' })
+  result = await call('POST', '/comi-pet/api/display', { client_id: 'browser_b', mode: 'embedded' })
   ok(result.status === 200 && result.json().display.client_id === 'browser_b', 'explicit mode selection may transfer tabs')
-  result = await call('POST', '/iven-pet/api/display', { client_id: 'browser_b', mode: 'desktop' })
+  result = await call('POST', '/comi-pet/api/display', { client_id: 'browser_b', mode: 'desktop' })
   ok(result.status === 200 && readDisplay(displayPath, now).mode === 'desktop', 'desktop selection releases lease')
-  result = await call('POST', '/iven-pet/api/display', { client_id: 'browser_b', mode: 'forever-hidden' })
+  result = await call('POST', '/comi-pet/api/display', { client_id: 'browser_b', mode: 'forever-hidden' })
   ok(result.status === 400, 'unknown display mode refused')
-  result = await call('POST', '/iven-pet/api/display', 'x'.repeat(5000))
+  result = await call('POST', '/comi-pet/api/display', 'x'.repeat(5000))
   ok(result.status === 400, 'oversized body refused')
-  result = await call('POST', '/iven-pet/api/display', { client_id: 'browser_b', mode: 'embedded' }, { origin: 'https://evil.example' })
+  result = await call('POST', '/comi-pet/api/display', { client_id: 'browser_b', mode: 'embedded' }, { origin: 'https://evil.example' })
   ok(result.status === 403, 'cross-origin display mutation refused')
   ok(!isTrustedApiRequest({ headers: { host: '127.0.0.1:3080', origin: 'http://127.0.0.1:4000' } }), 'different-port origin refused')
   ok(!isTrustedApiRequest({ headers: { host: 'evil.example' } }), 'DNS rebinding Host refused')
   ok(!isTrustedApiRequest({ headers: { host: 'localhost:3080', 'sec-fetch-site': 'cross-site' } }), 'cross-site browser marker refused')
   ok(isTrustedApiRequest({ headers: { host: 'harness.local:3080', origin: 'http://harness.local:3080' } }, ['harness.local:3080']), 'explicit trusted deployment accepted')
-  result = await call('GET', '/iven-pet/api/manifest')
+  result = await call('GET', '/comi-pet/api/manifest')
   ok(result.status === 200 && result.json().clips.STRETCH.frames.length > 0, 'approved animation manifest served')
-  result = await call('GET', '/iven-pet/frames/idle_0.png')
+  result = await call('GET', '/comi-pet/frames/idle_0.png')
   ok(result.status === 200 && result.headers['content-type'] === 'image/png' && Buffer.isBuffer(result.data), 'approved transparent PNG served')
-  result = await call('GET', '/iven-pet/frames/package.json.png')
+  result = await call('GET', '/comi-pet/frames/package.json.png')
   ok(result.status === 404, 'non-manifest file refused')
-  result = await call('GET', '/iven-pet/frames/%2e%2e%2fpackage.json.png')
+  result = await call('GET', '/comi-pet/frames/%2e%2e%2fpackage.json.png')
   ok(result.status === 404, 'encoded traversal refused')
   reduceSession(sessions, 's1', { kind: 'turn.started' }, undefined, now)
   reduceSession(sessions, 's1', { kind: 'tool.started', toolName: 'Read' }, '  Inspect\nproject ', now + 1)
@@ -84,7 +84,7 @@ try {
 
   // Verify the real DSH loader contract without a DOM or duplicating its internals.
   let moduleInfo, registration
-  const clientCode = readFileSync(new URL('./iven-bridge/client.js', import.meta.url), 'utf8')
+  const clientCode = readFileSync(new URL('./comi-bridge/client.js', import.meta.url), 'utf8')
   vm.runInNewContext(clientCode, { navigator: { language: 'en' }, window: { __ModuleLoader__: { load(info) { moduleInfo = info } } } })
   const plugin = moduleInfo.factory(name => {
     assert.equal(name, 'react')
@@ -95,7 +95,7 @@ try {
     register(info, component) { registration = { info, component }; return () => {} },
   }
   plugin.apply({ slots })
-  ok(moduleInfo.id === 'iven-bridge' && plugin.inject.includes('slots') && registration.info.name === 'shell.overlay', 'official shell.overlay registered through ModuleLoader factory')
+  ok(moduleInfo.id === 'comi-bridge' && plugin.inject.includes('slots') && registration.info.name === 'shell.overlay', 'official shell.overlay registered through ModuleLoader factory')
 
   // Run the production React component/RAF scheduler with actual exported
   // timelines. This catches native/browser behavior drifting independently.

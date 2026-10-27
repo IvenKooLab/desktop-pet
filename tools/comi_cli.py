@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""iven_cli · 桌宠本机控制命令行（协议见 docs/API.md，纯标准库）。
+"""comi_cli · 桌宠本机控制命令行（协议见 docs/API.md，纯标准库）。
 
 用法：
-    python tools/iven_cli.py say "休息一下吧"
-    python tools/iven_cli.py play CHEER        # 动作名见 frames3d/animation.json
-    python tools/iven_cli.py sleep | wake
-    python tools/iven_cli.py state             # 读状态快照（无需桌宠应答）
+    python tools/comi_cli.py say "休息一下吧"
+    python tools/comi_cli.py play CHEER        # 动作名见 frames3d/animation.json
+    python tools/comi_cli.py sleep | wake
+    python tools/comi_cli.py state             # 读状态快照（无需桌宠应答）
 
-桌宠独立应用需在运行（Mac：IvenPet.app；Windows：python pet.py）。
+桌宠独立应用需在运行（Mac：ComiPet.app；Windows：python pet.py）。
 请求 15 分钟无人消费会自动清理；回复默认等待 10 秒。
 """
 import argparse
@@ -22,8 +22,8 @@ import control_api  # noqa: E402
 
 
 def main():
-    parser = argparse.ArgumentParser(prog="iven_cli",
-                                     description="Iven Pet 本机控制命令行")
+    parser = argparse.ArgumentParser(prog="comi_cli",
+                                     description="Comi Pet 本机控制命令行")
     parser.add_argument("action", choices=["say", "play", "sleep", "wake", "state"],
                         help="say TEXT | play STATE | sleep | wake | state")
     parser.add_argument("value", nargs="?", default=None,

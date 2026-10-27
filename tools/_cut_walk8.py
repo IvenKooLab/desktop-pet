@@ -9,7 +9,7 @@ from scipy import ndimage
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from make_frames3d import rembg_fg  # noqa: E402
 
-SRC = Path('characters/iven-pet/animations/walk/source/walk_sheet_8f.png')
+SRC = Path('characters/comi-pet/animations/walk/source/walk_sheet_8f.png')
 OUT = Path('assets/cut')
 
 img = Image.open(SRC).convert('RGB')
@@ -39,7 +39,7 @@ for i in range(n):
     im = Image.fromarray(rgba)
     fig = im.crop(im.getbbox())
     figures.append(fig)
-    outdir = Path('characters/iven-pet/animations/walk/frames')
+    outdir = Path('characters/comi-pet/animations/walk/frames')
     outdir.mkdir(parents=True, exist_ok=True)
     fig.save(outdir / f'walk_{i+1:02d}.png')
     print(f'strip {i}: fg {int(a.sum())}px figure {im.size} -> walk_{i+1:02d}.png')
@@ -63,6 +63,6 @@ anim = {
     "frames": [f"walk_{i+1:02d}.png" for i in range(8)],
     "source": "sheet",
 }
-(OUT.parent / 'characters' / 'iven-pet' / 'animations' / 'walk' / 'animation.json').write_text(
+(OUT.parent / 'characters' / 'comi-pet' / 'animations' / 'walk' / 'animation.json').write_text(
     __import__('json').dumps(anim, ensure_ascii=False, indent=2), encoding='utf-8')
 print('animation.json ok')

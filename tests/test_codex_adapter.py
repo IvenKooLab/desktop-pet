@@ -9,7 +9,7 @@ import unittest
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
-ADAPTER = REPO / "adapters" / "codex" / "iven_codex.py"
+ADAPTER = REPO / "adapters" / "codex" / "comi_codex.py"
 MOCK = REPO / "tests" / "fixtures" / "mock_codex_server.py"
 
 
@@ -17,7 +17,7 @@ class CodexAdapterCase(unittest.TestCase):
     def test_mock_server_lifecycle(self):
         """握手 → turn/started → completed(本轮结束≠成功) → failed → approval。"""
         with tempfile.TemporaryDirectory() as tmp:
-            env = dict(os.environ, IVEN_BRIDGE_DIR=tmp)
+            env = dict(os.environ, COMI_BRIDGE_DIR=tmp)
             proc = subprocess.Popen(
                 [sys.executable, str(ADAPTER),
                  "--server-cmd", f"{sys.executable} {MOCK}", "--debug"],

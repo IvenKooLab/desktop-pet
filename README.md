@@ -1,4 +1,4 @@
-# Iven Pet 🐾
+# Comi Pet 🐾
 
 简体中文 | [English](README.en.md)
 
@@ -6,9 +6,13 @@
 ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows-487dc5)
 ![Runtime](https://img.shields.io/badge/runtime-zero%20dependency%20·%20local%20only-398c79)
 
-一只陪你工作、偶尔摸鱼的 3D 绒质桌宠。紫白短发、青蓝耳机、随身场记板——Iven 会在桌面上小跳漫游，挥手、打板、观察四周，也会在你点击和拖动时作出反应。
+一只陪你工作、偶尔摸鱼的 3D 绒质桌宠。紫白短发、青蓝耳机、随身场记板——Comi 会在桌面上小跳漫游，挥手、打板、观察四周，也会在你点击和拖动时作出反应。
 
 独立运行，无需 Codex、账号或模型 API。
+
+> **她是谁**：Comi（可米）最早是 [comfy-agent](https://github.com/IvenKooLab/comfy-agent)——一个 ComfyUI 桌面工作台——的工具图标。名字里的 "Com" 就来自那里。后来她长出动作、有了脾气，才变成现在这只住进桌面的小家伙。
+>
+> 1.x 版本里她叫 Iven，与作者同名；2.0 起正式定名 Comi，老用户的数据目录与环境变量会自动沿用，见[升级说明](docs/releases/v2.0.0.md)。
 
 [下载最新版本](https://github.com/IvenKooLab/desktop-pet/releases/latest) · [更新日志](CHANGELOG.md)
 
@@ -28,15 +32,15 @@
 
 **下载打包版（推荐）**：从[发布页](https://github.com/IvenKooLab/desktop-pet/releases/latest)下载对应平台的 zip，解压即用——
 
-- **macOS 13+**：打开 `IvenPet.app`。Mac 包为临时签名、未做公证，若提示"无法验证开发者"，右键 App 选"打开"，或执行 `xattr -d com.apple.quarantine IvenPet.app` 后再打开。
-- **Windows**：运行 `IvenPet.exe`，无需安装 Python。
+- **macOS 13+**：打开 `ComiPet.app`。Mac 包为临时签名、未做公证，若提示"无法验证开发者"，右键 App 选"打开"，或执行 `xattr -d com.apple.quarantine ComiPet.app` 后再打开。
+- **Windows**：运行 `ComiPet.exe`，无需安装 Python。
 
 **从源码运行**（体验最新动作）：
 
 ```bash
 # macOS：双击 start-mac.command，或
 zsh tools/build_macos.sh   # 首次构建需要 Apple 命令行工具（xcode-select --install）
-open build/IvenPet.app
+open build/ComiPet.app
 
 # Windows：Python 3.8+（自带 tkinter）
 python pet.py
@@ -52,23 +56,23 @@ python pet.py
 - **鼠标互动**：单击弹跳，双击开心，拖拽时有抓取反应，松手后重力下落并落地。
 - **甩抛物理**：快速甩出会抛物线飞行——屏幕左右/顶部边缘反弹，落地按剩余能量弹跳、逐次衰减直到停稳；温柔放下则原地落定。Mac 端落地瞬间有 Q 弹挤压动画，两端物理语义一致。
 - **流畅透明**：约 60fps 渲染，统一角色比例和动作时间轴；Mac 使用原生透明窗口。
-- **位置记忆与系统通知**：重启后回到上次离开的位置（`~/.iven-pet/config.json`）；任务完成、出问题、等待确认时可弹原生系统通知——默认只在桌宠隐藏（DSH 界面内）时打扰，可改为总是/关闭。
-- **脚本可驱动**：本机文件控制接口（[docs/API.md](docs/API.md)）让其他插件或命令行让 Iven 说话、点播动作、读实况：`python tools/iven_cli.py say "休息一下"`。零网络零端口。
+- **位置记忆与系统通知**：重启后回到上次离开的位置（`~/.comi-pet/config.json`）；任务完成、出问题、等待确认时可弹原生系统通知——默认只在桌宠隐藏（DSH 界面内）时打扰，可改为总是/关闭。
+- **脚本可驱动**：本机文件控制接口（[docs/API.md](docs/API.md)）让其他插件或命令行让 Comi 说话、点播动作、读实况：`python tools/comi_cli.py say "休息一下"`。零网络零端口。
 - **新版本提示**：启动后静默检查 GitHub Release（只读跳转地址，不上传任何内容，可在右键关闭）；发现新版会气泡提示并提供下载入口，也可手动“检查更新…”。
 - **右键菜单分组**：顶层只留说话与几个分类，「动作」（日常互动 / 工作状态 / 生活小动作）、「陪伴」（显示模式、跟踪来源、轮播、桥接、通知）、「语言」、「关于与更新」各自展开，不再是一条长列表。
 
 ## 两种显示模式
 
 - **独立桌面**：macOS 原生窗口 / Windows 桌宠，脱离编码助手也能运行。
-- **DSH 界面内**：安装 [DSH 适配器](adapters/dsh/README.md) 后，在 DSH 的 Iven 入口将角色移入界面；支持拖拽、动作点播和状态气泡。独立桌宠的"显示模式"菜单也可发起切换。
+- **DSH 界面内**：安装 [DSH 适配器](adapters/dsh/README.md) 后，在 DSH 的 Comi 入口将角色移入界面；支持拖拽、动作点播和状态气泡。独立桌宠的"显示模式"菜单也可发起切换。
 
-切换会协调两端显示，避免同时出现两个 Iven。只有 DSH 网页确认接手显示后桌宠才会隐藏；无人接手约 6 秒自动退回桌面并提示，DSH 页面关闭或失联后最长约 30 秒恢复桌面显示。首次启用前端插件需要重新加载 DSH；此模式目前只适用于 DSH，其他 Harness 仍通过适配器联动独立桌宠。
+切换会协调两端显示，避免同时出现两个 Comi。只有 DSH 网页确认接手显示后桌宠才会隐藏；无人接手约 6 秒自动退回桌面并提示，DSH 页面关闭或失联后最长约 30 秒恢复桌面显示。首次启用前端插件需要重新加载 DSH；此模式目前只适用于 DSH，其他 Harness 仍通过适配器联动独立桌宠。
 
 ## 工作时，她也在身边
 
-Iven 首先是一只独立桌宠，也可以通过可选适配器跟随本地编码助手。接入后，工作时显示状态卡，等待权限确认时保留提醒，本轮结束或失败时给出反馈。开启摘要后，还可显示适配器提供的任务标签或回复摘要；可显示的内容取决于来源，不是所有助手都提供完整上下文。
+Comi 首先是一只独立桌宠，也可以通过可选适配器跟随本地编码助手。接入后，工作时显示状态卡，等待权限确认时保留提醒，本轮结束或失败时给出反馈。开启摘要后，还可显示适配器提供的任务标签或回复摘要；可显示的内容取决于来源，不是所有助手都提供完整上下文。
 
-![跟随 ZCode 工作中的 Iven：状态气泡显示来源、任务标签与当前步骤，右下角是"跟随 · ZCode"徽章](docs/images/bridge-zcode-working.png)
+![跟随 ZCode 工作中的 Comi：状态气泡显示来源、任务标签与当前步骤，右下角是"跟随 · ZCode"徽章](docs/images/bridge-zcode-working.png)
 
 ### 选择跟踪来源
 
@@ -99,11 +103,11 @@ Iven 首先是一只独立桌宠，也可以通过可选适配器跟随本地编
 
 协议与开发说明见 [docs/BRIDGE.md](docs/BRIDGE.md)。
 
-### 和 Iven 说话
+### 和 Comi 说话
 
-右键菜单 → **"和 Iven 说话…"**，输入一句话，Iven 会用你 DSH 里配置的模型
+右键菜单 → **"和 Comi 说话…"**，输入一句话，Comi 会用你 DSH 里配置的模型
 生成回复：气泡显示，偶尔搭配一个表情动作，本地保留最近 8 轮记忆
-（清空即删 `~/.iven-pet/chat/memory.json`）。需要 DSH 在线且装好适配器；
+（清空即删 `~/.comi-pet/chat/memory.json`）。需要 DSH 在线且装好适配器；
 没接通时她会如实告诉你，而不是假装聊天。对话同样只在本机进行，
 桌宠本体保持零模型依赖。
 
@@ -115,7 +119,7 @@ Iven 首先是一只独立桌宠，也可以通过可选适配器跟随本地编
 | 双击 | 开心反应 |
 | 按住拖动 | 移动桌宠，松手后自然下落 |
 | 按住甩出 | 抛物线飞行，屏幕边缘反弹、落地弹跳 |
-| 右键 | 和 Iven 说话、点播动作、切换自动轮播、系统通知、选择跟踪来源、睡觉、退出 |
+| 右键 | 和 Comi 说话、点播动作、切换自动轮播、系统通知、选择跟踪来源、睡觉、退出 |
 | Control + 点击（Mac） | 打开菜单 |
 | 固定在当前位置（Mac） | 停止漫游，保留原地动画 |
 
@@ -136,7 +140,7 @@ tools\build_exe.bat
 zsh tools/build_macos.sh
 ```
 
-运行时无需第三方 Python 包。素材导出、GIF 生成和验证方法见[维护说明](docs/IVEN_V2_MIGRATION.md)。
+运行时无需第三方 Python 包。素材导出、GIF 生成和验证方法见[维护说明](docs/COMI_V2_MIGRATION.md)。
 
 ## 致谢
 
@@ -144,4 +148,4 @@ zsh tools/build_macos.sh
 
 ## License
 
-[MIT](LICENSE) · Iven 角色素材由 AI 生成，归 IvenKooLab 所有。
+[MIT](LICENSE) · Comi 角色素材由 AI 生成，归 IvenKooLab 所有。

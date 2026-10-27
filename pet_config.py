@@ -1,4 +1,4 @@
-"""pet_config · 桌宠本地配置（~/.iven-pet/config.json，Tk 与 Swift 端共用同一文件）。
+"""pet_config · 桌宠本地配置（~/.comi-pet/config.json，Tk 与 Swift 端共用同一文件）。
 
 字段（version 1）：
     notifications     "auto" | "always" | "off"   系统通知（auto=桌宠隐藏/内嵌时才弹）
@@ -14,6 +14,7 @@
 import json
 import os
 from pathlib import Path
+import comi_home
 
 VERSION = 1
 NOTIFICATION_MODES = ("auto", "always", "off")
@@ -30,8 +31,7 @@ DEFAULTS = {
 
 
 def config_path():
-    return Path(os.environ.get("IVEN_CONFIG_DIR")
-                or Path.home() / ".iven-pet") / "config.json"
+    return Path(comi_home.env("COMI_CONFIG_DIR") or comi_home.data_dir()) / "config.json"
 
 
 def _normalize(raw):

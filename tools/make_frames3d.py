@@ -548,7 +548,7 @@ def build_frames(cuts):
 if __name__ == "__main__":
     if "--frames" in sys.argv and (FRAMES / "animation.json").exists():
         if "--legacy" not in sys.argv:
-            raise SystemExit("默认角色已改用批准的 Iven v2 素材。请运行 tools/export_iven_v2.py；旧管线试验加 --legacy（输出 frames3d_legacy）。")
+            raise SystemExit("默认角色已改用批准的 Comi v2 素材。请运行 tools/export_comi_v2.py；旧管线试验加 --legacy（输出 frames3d_legacy）。")
         FRAMES = ROOT / "frames3d_legacy"
     cuts = load_cuts()
     if "--frames" in sys.argv:

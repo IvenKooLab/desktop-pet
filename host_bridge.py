@@ -1,7 +1,7 @@
 """host_bridge · 宿主（编码助手）事件桥接，收件箱消费端。运行时纯标准库。
 
 桌宠与宿主适配器（adapters/zcode、adapters/dsh 等）之间的唯一通道是本地
-收件箱目录（默认 ~/.iven-pet/events）：适配器把统一事件 JSON 原子写入，
+收件箱目录（默认 ~/.comi-pet/events）：适配器把统一事件 JSON 原子写入，
 桌宠轮询消费后删除。协议 v1 字段：
 
     version event_id source session_id turn_id timestamp kind
@@ -28,6 +28,7 @@ import re
 import time
 from datetime import datetime, timezone
 from pathlib import Path
+import comi_home
 
 PROTOCOL_VERSION = 1
 KINDS = frozenset(("session.started", "turn.started", "tool.started",
@@ -47,8 +48,7 @@ SESSION_QUIET = 900.0        # 长任务保持状态，不再 45 秒误判空闲
 
 
 def default_dir():
-    return Path(os.environ.get("IVEN_BRIDGE_DIR")
-                or Path.home() / ".iven-pet" / "events")
+    return Path(comi_home.env("COMI_BRIDGE_DIR") or comi_home.subdir("events"))
 
 
 def write_event(directory, source, kind, session_id="unknown", turn_id=None,

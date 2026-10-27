@@ -1,6 +1,6 @@
-# Claude Code 适配器（Iven 桌宠桥接）
+# Claude Code 适配器（Comi 桌宠桥接）
 
-把 Claude Code CLI 的 Hooks 转成统一事件写入本地收件箱（`~/.iven-pet/events`），
+把 Claude Code CLI 的 Hooks 转成统一事件写入本地收件箱（`~/.comi-pet/events`），
 桌宠据此显示工作/等待/本轮结束/失败/完成等状态。
 
 ## 安装
@@ -19,7 +19,7 @@
 ```bash
 echo '{"session_id":"t1","hook_event_name":"PreToolUse","tool_name":"Bash"}' \
   | python3 adapters/claude-code/claude_hook.py
-ls ~/.iven-pet/events/
+ls ~/.comi-pet/events/
 ```
 
 真实验收（自动测试替代不了）：启动真实 CLI 新会话，执行一次工具、触发一次
@@ -28,11 +28,11 @@ ls ~/.iven-pet/events/
 
 ## 卸载
 
-从 settings 删除对应 hooks 条目；`rm -rf ~/.iven-pet`。
+从 settings 删除对应 hooks 条目；`rm -rf ~/.comi-pet`。
 
 ## 隐私与边界
 
-- 默认**只传状态**；`IVEN_BRIDGE_SUMMARY=1` 才附带任务标签（截断 80 字）与
+- 默认**只传状态**；`COMI_BRIDGE_SUMMARY=1` 才附带任务标签（截断 80 字）与
   Stop 回复摘要（截断 160 字）。
 - `transcript_path` 只是本地会话记录路径且并非模型全部请求上下文：本适配器
   **不读取**它。

@@ -7,7 +7,7 @@ import { dirname, resolve, basename } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { isTrustedApiRequest } from './trust-fence.js'
 
-export const PREFIX = '/iven-pet'
+export const PREFIX = '/comi-pet'
 export const LEASE_MS = 30_000
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../..')
 const clean = (value, limit = 80) => typeof value === 'string'
@@ -139,7 +139,7 @@ export function createWebIntegration(ctx, options) {
     wctx.effect(() => wctx.webServer.register({
       kind: 'prefix', path: PREFIX,
       handler: createRouteHandler({ ...options, sessions, trustedHosts: () => wctx.webRuntime?.trustedHosts ?? [] }),
-    }), 'iven-bridge: approved pet frames and display lease')
+    }), 'comi-bridge: approved pet frames and display lease')
   })
   return { record: (id, event, label) => reduceSession(sessions, id, event, label) }
 }

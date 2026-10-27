@@ -1,7 +1,7 @@
 /**
- * Iven 桌宠对话 · DSH 宿主半边：监听本地对话目录，用宿主 LLM 服务生成回复。
+ * Comi 桌宠对话 · DSH 宿主半边：监听本地对话目录，用宿主 LLM 服务生成回复。
  *
- * 协议（与桌宠端 host_chat.py / IvenPet.swift 对齐，均为本机原子文件）：
+ * 协议（与桌宠端 host_chat.py / ComiPet.swift 对齐，均为本机原子文件）：
  *   请求 chat/request-<id>.json  {version:1, id, text}
  *   回复 chat/reply-<id>.json    {version:1, id, ok, text?, mood?, reason?, message?}
  *   记忆 chat/memory.json        {version:1, messages:[{role,text,provider?,model?,ts}]}
@@ -18,7 +18,7 @@ import {
 } from './chat.js'
 
 export function resolveChatDir(explicit) {
-  return explicit || process.env.IVEN_CHAT_DIR || join(homedir(), '.iven-pet', 'chat')
+  return explicit || process.env.COMI_CHAT_DIR || join(homedir(), '.comi-pet', 'chat')
 }
 
 function atomicWrite(path, payload) {
@@ -36,7 +36,7 @@ export function createChatIntegration({ services, dir, config = {}, logger }) {
     staleReplyMs: 5 * 60_000,
     ...config,
   }
-  const log = (level, message) => logger?.[level]?.(`[iven-bridge:chat] ${message}`)
+  const log = (level, message) => logger?.[level]?.(`[comi-bridge:chat] ${message}`)
   const memoryPath = join(dir, 'memory.json')
   const inFlight = new Set()
   let chain = Promise.resolve()      // 串行化请求处理，防记忆交错
@@ -83,7 +83,7 @@ export function createChatIntegration({ services, dir, config = {}, logger }) {
         const stream = services.llm.stream({
           provider: candidate.provider,
           model: candidate.model,
-          sessionId: 'iven-pet-chat',
+          sessionId: 'comi-pet-chat',
           system,
           messages,
           temperature: 1,

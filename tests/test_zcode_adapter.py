@@ -12,7 +12,7 @@ import unittest
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
-HOOK = REPO / "adapters" / "zcode" / "iven_hook.py"
+HOOK = REPO / "adapters" / "zcode" / "comi_hook.py"
 
 
 def payload(event, **kw):
@@ -27,9 +27,9 @@ class ZcodeHookCase(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         # HOME 隔离：summary 开关文件等本机状态不得影响测试
-        self.env = dict(os.environ, IVEN_BRIDGE_DIR=self.tmp.name,
+        self.env = dict(os.environ, COMI_BRIDGE_DIR=self.tmp.name,
                         HOME=self.tmp.name)
-        self.env.pop("IVEN_BRIDGE_SUMMARY", None)
+        self.env.pop("COMI_BRIDGE_SUMMARY", None)
 
     def tearDown(self):
         self.tmp.cleanup()
@@ -84,7 +84,7 @@ class ZcodeHookCase(unittest.TestCase):
             self.assertIsNone(ev["summary"])
 
     def test_summary_opt_in(self):
-        self.env["IVEN_BRIDGE_SUMMARY"] = "1"
+        self.env["COMI_BRIDGE_SUMMARY"] = "1"
         self.run_hook(payload("UserPromptSubmit", prompt="修复登录页 " + "细" * 200))
         self.run_hook(payload("Stop", last_assistant_message="回复内容" + "长" * 300))
         events = self.inbox()
@@ -107,7 +107,7 @@ class ZcodeHookCase(unittest.TestCase):
         self.assertEqual(proc.returncode, 0)
 
     def test_control_chars_stripped_from_label(self):
-        self.env["IVEN_BRIDGE_SUMMARY"] = "1"
+        self.env["COMI_BRIDGE_SUMMARY"] = "1"
         self.run_hook(payload("UserPromptSubmit",
                               prompt="A\x00B\nC\x1b[31m"))
         ev = self.inbox()[0]

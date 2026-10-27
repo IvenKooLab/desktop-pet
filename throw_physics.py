@@ -1,4 +1,4 @@
-"""throw_physics · 甩抛物理（纯函数，Tk 端实现；Swift 端在 IvenPet.swift 镜像同一语义）。
+"""throw_physics · 甩抛物理（纯函数，Tk 端实现；Swift 端在 ComiPet.swift 镜像同一语义）。
 
 坐标系：屏幕坐标 y 向下（Tk 约定）。Swift 为 Cocoa y 向上，调用侧自行翻转换算，
 常量（重力/弹性/摩擦/落地阈值）保持一致换算，两端手感相同。

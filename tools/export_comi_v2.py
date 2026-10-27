@@ -11,7 +11,7 @@ from pathlib import Path
 from PIL import Image
 
 ROOT = Path(__file__).resolve().parent.parent
-SOURCE = ROOT / "assets/iven-v2/spritesheet.png"
+SOURCE = ROOT / "assets/comi-v2/spritesheet.png"
 STATES = [("idle",6,[280,110,110,140,140,320]),
           ("right",8,[120]*7+[220]), ("left",8,[120]*7+[220]),
           ("wave",4,[140]*3+[280]), ("jump",5,[140]*4+[280]),
@@ -131,7 +131,7 @@ def export(source, destinations, manifest_only=False):
         encoded[name] = canvas
     # Additional actions share one scale and baseline; no per-pose resizing.
     # Every validated sheet (JSON+PNG pair, schema见 docs/ASSET_RECIPE.md) participates.
-    extra_dir = ROOT / "assets/iven-v2/actions"
+    extra_dir = ROOT / "assets/comi-v2/actions"
     extra_sheets = {}
     for sheet_path in sorted(extra_dir.glob("*.json")):
         spec = json.loads(sheet_path.read_text())
@@ -201,7 +201,7 @@ def main():
         raise ValueError("Source atlas must match its successful validation.json report")
     targets = [ROOT/"frames3d"]
     for target in targets:
-        archive = ROOT/"assets/legacy-pre-iven-v2/builtin"
+        archive = ROOT/"assets/legacy-pre-comi-v2/builtin"
         if not (target/"animation.json").exists():
             archive.mkdir(parents=True,exist_ok=True)
             for image in target.glob("*.gif"):

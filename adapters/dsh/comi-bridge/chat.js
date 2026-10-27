@@ -1,5 +1,5 @@
 /**
- * Iven 桌宠对话：纯函数半边（消息构造 / 记忆截断 / 情绪标记 / 流文本归拢）。
+ * Comi 桌宠对话：纯函数半边（消息构造 / 记忆截断 / 情绪标记 / 流文本归拢）。
  *
  * LLM 契约与 dsh-pet 同构（MIT，仅参考语义不复制素材）：消息是
  * {id, role, content:[{type:'text',text}], source} 纯对象；流块取 text-delta
@@ -91,7 +91,7 @@ export function collectText(chunks) {
 /** 默认人设：独立桌宠的说话风格；实例 whisperPrompt 可覆盖（暂未暴露）。 */
 export function systemPrompt(now = new Date()) {
   return [
-    '你是 Iven，一只住在用户桌面上的 3D 绒质小桌宠：紫白短发、青蓝耳机、随身场记板。',
+    '你是 Comi，一只住在用户桌面上的 3D 绒质小桌宠：紫白短发、青蓝耳机、随身场记板。',
     '说话简短、俏皮、口语化，一两句话就好，偶尔用一点表演腔。不讨论你做不到的事：你不能替用户操作系统或执行任务。',
     `当前时间：${now.toISOString()}`,
   ].join('\n')

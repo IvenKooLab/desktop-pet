@@ -1,7 +1,7 @@
-# Cursor 适配器（Iven 桌宠桥接）
+# Cursor 适配器（Comi 桌宠桥接）
 
 把 Cursor 的本地 Agent Chat Hooks 转成统一事件写入本地收件箱
-（`~/.iven-pet/events`），桌宠据此显示工作/等待/本轮结束等状态。
+（`~/.comi-pet/events`），桌宠据此显示工作/等待/本轮结束等状态。
 
 ## 安装
 
@@ -15,7 +15,7 @@
 ```bash
 echo '{"sessionId":"t1","hookEventName":"preToolUse","toolName":"terminal"}' \
   | python3 adapters/cursor/cursor_hook.py
-ls ~/.iven-pet/events/
+ls ~/.comi-pet/events/
 ```
 
 真实验收：在真实本地 Agent Chat 里触发一次工具调用与最终回复；错误或停止
@@ -24,11 +24,11 @@ ls ~/.iven-pet/events/
 
 ## 卸载
 
-从 hooks.json 删除对应条目；`rm -rf ~/.iven-pet`。
+从 hooks.json 删除对应条目；`rm -rf ~/.comi-pet`。
 
 ## 隐私与边界
 
-- 默认**只传状态**；`IVEN_BRIDGE_SUMMARY=1` 才附带任务标签与最终回复摘要
+- 默认**只传状态**；`COMI_BRIDGE_SUMMARY=1` 才附带任务标签与最终回复摘要
   （afterAgentResponse，截断 160 字）。**不接 afterAgentThought**——内部
   推理不当作用户摘要。
 - `stop.status`：completed → 本轮结束（不是任务成功）、aborted → 中断、

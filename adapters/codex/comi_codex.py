@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Codex App Server → Iven 桌宠桥接适配器（stdio JSON-RPC 客户端）。
+"""Codex App Server → Comi 桌宠桥接适配器（stdio JSON-RPC 客户端）。
 
 本机已验证：codex-cli 0.162.1，spawn `codex app-server` 后 initialize /
 initialized / thread/list 握手与推送均正常（行分隔 JSON，通知带 emittedAtMs）。
@@ -8,9 +8,9 @@ initialized / thread/list 握手与推送均正常（行分隔 JSON，通知带 
 （"仅支持本客户端会话"）；驱动接口（turn/start）属第二阶段，此处不实现。
 
 用法：
-    python3 adapters/codex/iven_codex.py            # 常驻：握手后转发事件
-    python3 adapters/codex/iven_codex.py --list     # 只做握手 + 线程列表（诊断/验收）
-    python3 adapters/codex/iven_codex.py --server-cmd "python3 mock.py"  # 测试替身
+    python3 adapters/codex/comi_codex.py            # 常驻：握手后转发事件
+    python3 adapters/codex/comi_codex.py --list     # 只做握手 + 线程列表（诊断/验收）
+    python3 adapters/codex/comi_codex.py --server-cmd "python3 mock.py"  # 测试替身
 
 事件映射（宽容提取，未实机确认的字段按当期 schema 核验）：
     turn/started                          → turn.started
@@ -61,7 +61,7 @@ class CodexBridge:
 
     def log(self, *msg):
         if self.debug:
-            print("[iven-codex]", *msg, file=sys.stderr)
+            print("[comi-codex]", *msg, file=sys.stderr)
 
     def start(self):
         argv = shlex.split(self.server_cmd)
@@ -81,7 +81,7 @@ class CodexBridge:
     def handshake(self):
         init_id = self.request("initialize", {
             "protocolVersion": 1, "capabilities": {},
-            "clientInfo": {"name": "iven-bridge", "version": "0.1.0"}})
+            "clientInfo": {"name": "comi-bridge", "version": "0.1.0"}})
         self.proc.stdin.write(json.dumps(
             {"jsonrpc": "2.0", "method": "initialized"}) + "\n")
         self.proc.stdin.flush()

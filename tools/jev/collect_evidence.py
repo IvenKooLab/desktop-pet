@@ -26,7 +26,7 @@ sys.path.insert(0, str(ROOT / "tools"))
 from qa_walk8 import fragments as find_fragments  # noqa: E402
 from qa_walk8 import holes as find_holes  # noqa: E402
 
-WALK_DIR = ROOT / "characters" / "iven-pet" / "animations" / "walk"
+WALK_DIR = ROOT / "characters" / "comi-pet" / "animations" / "walk"
 RUNTIME_DIR = ROOT / "frames3d"
 
 
@@ -146,7 +146,7 @@ def collect() -> dict:
     character_height = st.mode(gifs["heights"]) if gifs["heights"] else 0
 
     return {
-        "project": "desktop-pet/iven-pet walk",
+        "project": "desktop-pet/comi-pet walk",
         "asset": {
             "walk_frames_total": len(frames),
             "left_frames": len(lefts),
@@ -179,7 +179,7 @@ def collect() -> dict:
             "strides": strides,
         },
         "_provenance": {
-            "identity_source": "characters/iven-pet/animations/walk/frames/*.png（gitignore，本地艺术源）",
+            "identity_source": "characters/comi-pet/animations/walk/frames/*.png（gitignore，本地艺术源）",
             "delivery_source": "frames3d/av_walk_r_*.gif（git 已跟踪交付物）",
             "gif_tops": gifs["tops"],
             "gif_heights": gifs["heights"],
