@@ -120,12 +120,21 @@ function writeInbox(dir, kind, extra) {
   renameSync(tmp, final)
 }
 
+/** 数据根目录：与 comi_home.py 同规则——旧 ~/.iven-pet 存在则沿用，避免升级后数据分叉。 */
+function dataRoot() {
+  const home = homedir()
+  const current = join(home, '.comi-pet')
+  const legacy = join(home, '.iven-pet')
+  return existsSync(legacy) ? legacy : current
+}
+
 export function apply(ctx, config) {
   const cfg = { ...DEFAULT_CONFIG, ...(config ?? {}) }
   const eventsDir = cfg.eventsDir
     || process.env.COMI_BRIDGE_DIR
-    || join(homedir(), '.comi-pet', 'events')
-  const summary = () => cfg.summary || !['', '0', 'false'].includes(process.env.COMI_BRIDGE_SUMMARY ?? '') || existsSync(join(homedir(), '.comi-pet', 'summary'))
+    || process.env.IVEN_BRIDGE_DIR
+    || join(dataRoot(), 'events')
+  const summary = () => cfg.summary || !['', '0', 'false'].includes(process.env.COMI_BRIDGE_SUMMARY ?? process.env.IVEN_BRIDGE_SUMMARY ?? '') || existsSync(join(dataRoot(), 'summary'))
   const flagsBySession = new Map()
   const web = createWebIntegration(ctx, {
     eventsDir,

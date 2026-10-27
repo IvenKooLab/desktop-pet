@@ -193,18 +193,17 @@ enum ThrowPhysics {
     }
 }
 
-// MARK: - 数据根目录（与 comi_home.py 同语义：新名优先，旧 ~/.iven-pet 兜底）
+// MARK: - 数据根目录（与 comi_home.py 同语义：旧 ~/.iven-pet 存在即优先沿用）
 enum ComiHome {
     static func root() -> URL {
         let home = FileManager.default.homeDirectoryForCurrentUser
         if let override = ProcessInfo.processInfo.environment["COMI_HOME"], !override.isEmpty {
             return URL(fileURLWithPath: override)
         }
-        let current = home.appendingPathComponent(".comi-pet")
-        if FileManager.default.fileExists(atPath: current.path) { return current }
+        // 旧目录一旦存在就优先沿用：老用户数据不迁走，也不会被误建的新目录抢走
         let legacy = home.appendingPathComponent(".iven-pet")
         if FileManager.default.fileExists(atPath: legacy.path) { return legacy }
-        return current
+        return home.appendingPathComponent(".comi-pet")
     }
     static func env(_ name: String) -> String? {
         let environment = ProcessInfo.processInfo.environment

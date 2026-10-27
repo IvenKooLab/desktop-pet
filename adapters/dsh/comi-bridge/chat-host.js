@@ -9,7 +9,7 @@
  * 语义与 dsh-pet（MIT）同构：模型候选链（配置覆盖 → 当前会话模型）逐级回落；
  * 失败返回结构化原因，绝不伪造回复；情绪标记只认白名单，防幻觉。
  */
-import { mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, unlinkSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, unlinkSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { homedir } from 'node:os'
 import {
@@ -18,7 +18,12 @@ import {
 } from './chat.js'
 
 export function resolveChatDir(explicit) {
-  return explicit || process.env.COMI_CHAT_DIR || join(homedir(), '.comi-pet', 'chat')
+  // 与 comi_home.py 同规则：旧 ~/.iven-pet 存在则沿用，避免升级后数据分叉
+  const root = existsSync(join(homedir(), '.iven-pet'))
+    ? join(homedir(), '.iven-pet')
+    : join(homedir(), '.comi-pet')
+  return explicit || process.env.COMI_CHAT_DIR || process.env.IVEN_CHAT_DIR
+    || join(root, 'chat')
 }
 
 function atomicWrite(path, payload) {

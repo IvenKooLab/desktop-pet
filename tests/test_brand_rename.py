@@ -76,16 +76,16 @@ class CompatibilityTests(unittest.TestCase):
                             os.environ[key] = saved[key]
 
     def test_data_dir_prefers_existing_legacy_directory(self):
-        """旧 ~/.iven-pet 存在时继续用它，老用户数据不丢。"""
+        """旧 ~/.iven-pet 一旦存在就优先沿用——即使新目录也被建出来，数据不分叉。"""
         home = Path(tempfile.mkdtemp())
         saved_home = os.environ.get("HOME")
         saved_override = os.environ.pop("COMI_HOME", None)
         try:
             os.environ["HOME"] = str(home)
+            (home / ".comi-pet").mkdir()                 # 新目录先存在也不抢
+            self.assertEqual(comi_home.data_dir(), home / ".comi-pet")
             (home / ".iven-pet").mkdir()
             self.assertEqual(comi_home.data_dir(), home / ".iven-pet")
-            (home / ".comi-pet").mkdir()
-            self.assertEqual(comi_home.data_dir(), home / ".comi-pet")
         finally:
             if saved_home is not None:
                 os.environ["HOME"] = saved_home
