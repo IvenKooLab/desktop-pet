@@ -591,33 +591,67 @@ class Pet:
         menu.add_command(label=_T["menu_speak"], command=lambda: self.say(random.choice(LINES)))
         if "THINKING" in self.clips:
             menu.add_command(label=_T["menu_chat"], command=self._chat_input)
+
+        # ---------- 动作（分类子菜单，避免顶层菜单过长） ----------
+        actions = tk.Menu(menu, tearoff=0)
+
+        def _clip_item(parent, state, zh, en):
+            """只有素材真的存在才加项；返回是否加上了（用来判断子菜单是否为空）。"""
+            if state not in self.clips:
+                return False
+            parent.add_command(label=self._menu_text(zh, en),
+                               command=lambda s=state: self._menu_clip(s))
+            return True
+
+        everyday = tk.Menu(actions, tearoff=0)
         if {"cheer_0", "cheer_1"} <= self.frames.keys():
-            menu.add_command(label=_T["menu_clap"], command=self._to_cheer)
+            everyday.add_command(label=_T["menu_clap"], command=self._to_cheer)
         if {"spin_0", "spin_1", "spin_2", "spin_3"} <= self.frames.keys():
             label = ({"zh": "四处看看 👀", "zh-TW": "四處看看 👀", "en": "Look around 👀",
                       "ja": "見回す 👀", "ko": "둘러보기 👀"}.get(LANG, "Look around 👀")
                      if "SPIN" in self.clips else _T["menu_spin"])
-            menu.add_command(label=label, command=self._to_spin)
+            everyday.add_command(label=label, command=self._to_spin)
         if "fast_l_0" in self.frames:
-            menu.add_command(label=_T["menu_run"], command=self._to_run)
+            everyday.add_command(label=_T["menu_run"], command=self._to_run)
         if "shy_0" in self.frames:
-            menu.add_command(label=_T["menu_shy"], command=self._to_shy)
-        auto = tk.BooleanVar(value=self.autoplay)
-        menu.add_checkbutton(label=self._menu_text("自动轮播动作", "Automatic animations"), variable=auto,
-                             command=lambda: setattr(self, "autoplay", auto.get()))
-        notify = tk.Menu(menu, tearoff=0)
-        notify_choice = tk.StringVar(value=self.config.get("notifications", "auto"))
+            everyday.add_command(label=_T["menu_shy"], command=self._to_shy)
+        for state, zh, en in (("BOUNCE", "弹跳", "Bounce"),
+                              ("HAPPY", "开心", "Happy"),
+                              ("GREET", "挥手打招呼", "Wave hello")):
+            _clip_item(everyday, state, zh, en)
+        everyday.add_separator()
+        everyday.add_command(label=_T["menu_sleep"], command=self._to_sleep)
+        actions.add_cascade(label=self._menu_text("日常互动", "Everyday"), menu=everyday)
 
-        def _set_notifications():
-            self.config["notifications"] = notify_choice.get()
-            pet_config.save(self.config)
-        for mode, zh, en in (("auto", "自动（桌宠隐藏时）", "Auto (when hidden)"),
-                             ("always", "总是通知", "Always"),
-                             ("off", "关闭", "Off")):
-            notify.add_radiobutton(label=self._menu_text(zh, en), variable=notify_choice,
-                                   value=mode, command=_set_notifications)
-        menu.add_cascade(label=self._menu_text("系统通知", "System notifications"), menu=notify)
-        display = tk.Menu(menu, tearoff=0)
+        work = tk.Menu(actions, tearoff=0)
+        work_count = sum(_clip_item(work, state, zh, en) for state, zh, en in (
+            ("THINKING", "苦思冥想", "Deep in thought"),
+            ("WORK", "工作", "Working"),
+            ("REVIEW", "检查", "Reviewing"),
+            ("WAITING", "等待", "Waiting"),
+            ("IMPATIENT", "等待不耐烦", "Getting impatient"),
+            ("TOKEN_LOW", "额度不足（手动表演）", "Low budget (manual)"),
+            ("RELIEVED", "松口气", "Relieved"),
+            ("FAILED", "失落", "Sad")))
+        if work_count:
+            actions.add_cascade(label=self._menu_text("工作状态", "Work themes"), menu=work)
+
+        life = tk.Menu(actions, tearoff=0)
+        life_count = sum(_clip_item(life, state, zh, en) for state, zh, en in (
+            ("STRETCH", "伸懒腰", "Stretch"),
+            ("DOZE", "打瞌睡", "Doze"),
+            ("RUBIK", "玩魔方", "Rubik's cube"),
+            ("YAWN", "困倦眨眼", "Sleepy blink"),
+            ("STOMP", "委屈表情", "Feeling down"),
+            ("CELEBRATE", "挥手庆祝", "Celebrate"),
+            ("SEARCH", "左右观察", "Look around")))
+        if life_count:
+            actions.add_cascade(label=self._menu_text("生活小动作", "Little breaks"), menu=life)
+        menu.add_cascade(label=self._menu_text("动作", "Actions"), menu=actions)
+
+        # ---------- 陪伴（显示/跟踪/桥接/轮播/通知） ----------
+        companion = tk.Menu(menu, tearoff=0)
+        display = tk.Menu(companion, tearoff=0)
         display_choice = tk.StringVar(value="embedded" if self._embedded_display else "desktop")
         display.configure(postcommand=lambda: display_choice.set("embedded" if self._embedded_display else "desktop"))
         for mode, zh, en in (("desktop", "独立桌面", "Desktop"), ("embedded", "DSH 界面内", "Inside DSH")):
@@ -626,24 +660,16 @@ class Pet:
         display.add_separator()
         display.add_command(label=self._menu_text("内嵌需 DSH 网页接手；约 6 秒未接手自动回桌面", "Inside DSH needs its web page to take over; falls back to desktop after ~6s"),
                             state="disabled")
-        menu.add_cascade(label=self._menu_text("显示模式", "Display mode"), menu=display)
+        companion.add_cascade(label=self._menu_text("显示模式", "Display mode"), menu=display)
         if self.host is not None:
-            def _toggle_bridge():
-                self._bridge_on = bool(bridge.get())
-                if not self._bridge_on and (self._host_action or self._host_dwell):
-                    self._set_state("IDLE", random.randint(40, 80))
-                    if self._bubble_persistent:
-                        self._hide_bubble()
-            bridge = tk.BooleanVar(value=self._bridge_on)
-            menu.add_checkbutton(label=self._menu_text("宿主桥接", "Host bridge"), variable=bridge,
-                                 command=_toggle_bridge)
-        if self.host is not None:
-            tracking = tk.Menu(menu, tearoff=0)
+            tracking = tk.Menu(companion, tearoff=0)
             choice = tk.StringVar(value=self.host.selected_source or "")
+
             def select_source():
                 self.host.select_source(choice.get() or None)
                 self._sleep_queue.clear()
                 self._hide_bubble()
+
             def refresh_sources():
                 from bridge_display import SOURCES
                 tracking.delete(0, "end")
@@ -659,19 +685,37 @@ class Pet:
                 tracking.add_separator()
                 tracking.add_command(label=self._menu_text("自动：确认优先 → 最近活动", "Auto: approvals → recent activity"), state="disabled")
             tracking.configure(postcommand=refresh_sources)
-            menu.add_cascade(label=self._menu_text("跟踪 Harness", "Track Harness"), menu=tracking)
-        for state, title in (("STRETCH", "伸懒腰 / Stretch"), ("DOZE", "打瞌睡 / Doze"),
-                             ("RUBIK", "玩魔方 / Rubik cube"), ("WAITING", "等待 / Waiting"), ("WORK", "工作 / Working"),
-                             ("REVIEW", "检查 / Reviewing"), ("FAILED", "失落 / Sad"),
-                             ("THINKING", "苦思冥想 / Deep in thought"), ("IMPATIENT", "等待不耐烦 / Getting impatient"),
-                             ("TOKEN_LOW", "额度不足（手动表演） / Low budget (manual performance)"),
-                             ("RELIEVED", "松口气 / Relieved"),
-                             ("YAWN", "困倦眨眼 / Sleepy blink"), ("STOMP", "委屈表情 / Feeling down"),
-                             ("CELEBRATE", "挥手庆祝 / Celebrate"), ("SEARCH", "左右观察 / Look around")):
-            if state in self.clips:
-                menu.add_command(label=title.split(" / ")[0 if LANG.startswith("zh") else 1], command=lambda s=state: self._menu_clip(s))
-        menu.add_command(label=_T["menu_sleep"], command=self._to_sleep)
-        menu.add_separator()
+            companion.add_cascade(label=self._menu_text("跟踪 Harness", "Track Harness"), menu=tracking)
+
+            self._var_bridge = tk.BooleanVar(value=self._bridge_on)
+
+            def _toggle_bridge():
+                self._bridge_on = bool(self._var_bridge.get())
+                if not self._bridge_on and (self._host_action or self._host_dwell):
+                    self._set_state("IDLE", random.randint(40, 80))
+                    if self._bubble_persistent:
+                        self._hide_bubble()
+            companion.add_checkbutton(label=self._menu_text("宿主桥接", "Host bridge"), variable=self._var_bridge,
+                                      command=_toggle_bridge)
+        self._var_autoplay = tk.BooleanVar(value=self.autoplay)
+        companion.add_checkbutton(label=self._menu_text("自动轮播动作", "Automatic animations"),
+                                  variable=self._var_autoplay,
+                                  command=lambda: setattr(self, "autoplay", self._var_autoplay.get()))
+        notify = tk.Menu(companion, tearoff=0)
+        notify_choice = tk.StringVar(value=self.config.get("notifications", "auto"))
+
+        def _set_notifications():
+            self.config["notifications"] = notify_choice.get()
+            pet_config.save(self.config)
+        for mode, zh, en in (("auto", "自动（桌宠隐藏时）", "Auto (when hidden)"),
+                             ("always", "总是通知", "Always"),
+                             ("off", "关闭", "Off")):
+            notify.add_radiobutton(label=self._menu_text(zh, en), variable=notify_choice,
+                                   value=mode, command=_set_notifications)
+        companion.add_cascade(label=self._menu_text("系统通知", "System notifications"), menu=notify)
+        menu.add_cascade(label=self._menu_text("陪伴", "Companion"), menu=companion)
+
+        # ---------- 语言 ----------
         languages = tk.Menu(menu, tearoff=0)
         preference = getattr(self, "_ui_language", load_language())
         language_choice = tk.StringVar(value=preference)
@@ -680,23 +724,32 @@ class Pet:
             languages.add_radiobutton(label=name, value=code, variable=language_choice,
                                       command=lambda: self._set_language(language_choice.get()))
         menu.add_cascade(label=self._menu_text("语言 / Language", "Language / 语言"), menu=languages)
-        menu.add_separator()
+
+        # ---------- 关于与更新 ----------
+        about = tk.Menu(menu, tearoff=0)
+        version = self._current_version()
+        about.add_command(label=self._menu_text(f"当前版本 v{version}", f"Version v{version}"),
+                          state="disabled")
+        about.add_separator()
         auto_update = tk.BooleanVar(value=self.config.get("update_check", "auto") != "off")
 
         def _toggle_update_check():
             self.config["update_check"] = "auto" if auto_update.get() else "off"
             pet_config.save(self.config)
-        menu.add_checkbutton(label=self._menu_text("启动时检查更新", "Check for updates on launch"),
-                             variable=auto_update, command=_toggle_update_check)
-        menu.add_command(label=self._menu_text("检查更新…", "Check for updates…"),
-                         command=lambda: self._check_update(manual=True))
+        about.add_checkbutton(label=self._menu_text("启动时检查更新", "Check for updates on launch"),
+                              variable=auto_update, command=_toggle_update_check)
+        about.add_command(label=self._menu_text("检查更新…", "Check for updates…"),
+                          command=lambda: self._check_update(manual=True))
         if self._update:
             latest, url = self._update
-            menu.add_command(
+            about.add_command(
                 label=self._menu_text(f"下载新版本 v{latest}…", f"Download v{latest}…"),
                 command=lambda: webbrowser.open(url))
-        menu.add_command(label=self._menu_text("打开 GitHub 仓库", "Open GitHub repository"),
-                         command=lambda: webbrowser.open("https://github.com/IvenKooLab/desktop-pet"))
+        about.add_command(label=self._menu_text("打开 GitHub 仓库", "Open GitHub repository"),
+                          command=lambda: webbrowser.open("https://github.com/IvenKooLab/desktop-pet"))
+        menu.add_cascade(label=self._menu_text("关于与更新", "About & updates"), menu=about)
+
+        menu.add_separator()
         menu.add_command(label=_T["menu_exit"], command=self._quit)
         c.bind("<Button-3>", lambda e: menu.tk_popup(e.x_root, e.y_root))
         if sys.platform == "darwin":

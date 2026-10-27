@@ -643,6 +643,7 @@ final class PetController: NSObject, NSApplicationDelegate {
     private var autoplay = UserDefaults.standard.object(forKey:"Autoplay") as? Bool ?? true
     // 宿主桥接
     private var bridge = HostBridge()
+    private var bridgeEnabled = UserDefaults.standard.object(forKey: "BridgeEnabled") as? Bool ?? true
     private var bridgeFrame = 0
     private var manualUntil: TimeInterval = 0        // 手动点播的宿主抑制窗口
     private var sleepQueue: [BridgeNotice] = []      // 睡眠期间的重要提醒
@@ -678,7 +679,7 @@ final class PetController: NSObject, NSApplicationDelegate {
             "困倦眨眼":"Sleepy blink", "委屈表情":"Feeling down", "挥手庆祝":"Celebrate", "左右观察":"Look around",
             "弹跳":"Bounce", "开心":"Happy", "打板":"Clapperboard", "观察四周":"Look around",
             "小跳快走":"Quick walk", "害羞":"Shy", "睡觉":"Sleep", "唤醒":"Wake up",
-            "退出独立版":"Quit Iven Pet", "语言 / Language":"Language / 语言", "打开 GitHub 仓库":"Open GitHub repository", "启动时检查更新":"Check for updates on launch", "检查更新…":"Check for updates…", "显示模式":"Display mode", "苦思冥想":"Thinking hard", "等待不耐烦":"Getting impatient", "额度不足（表演）":"Low token budget (performance)", "松口气":"Relieved",
+            "退出独立版":"Quit Iven Pet", "语言 / Language":"Language / 语言", "打开 GitHub 仓库":"Open GitHub repository", "启动时检查更新":"Check for updates on launch", "检查更新…":"Check for updates…", "动作":"Actions", "陪伴":"Companion", "关于与更新":"About & updates", "日常互动":"Everyday", "工作状态":"Work themes", "生活小动作":"Little breaks", "宿主桥接":"Host bridge", "显示模式":"Display mode", "苦思冥想":"Thinking hard", "等待不耐烦":"Getting impatient", "额度不足（表演）":"Low token budget (performance)", "松口气":"Relieved",
             "和 Iven 说话…":"Talk to Iven…", "独立桌面":"Desktop", "DSH 界面内":"Inside DSH",
             "内嵌需 DSH 网页接手；约 6 秒未接手自动回桌面":"Inside DSH needs its web page to take over; falls back to desktop after ~6s",
             "未连上 DSH：启动 dsh 并打开网页后再试内嵌":"DSH not reachable: start dsh and open its web page first"]
@@ -753,6 +754,7 @@ final class PetController: NSObject, NSApplicationDelegate {
     }
     func applicationWillTerminate(_ notification: Notification) { savePosition() }
     private func hostTick() {
+        guard bridgeEnabled else { return }
         bridgeFrame += 1
         if bridgeFrame >= 60 {                       // 每秒轮询一次收件箱
             bridgeFrame = 0
@@ -1324,6 +1326,15 @@ final class PetController: NSObject, NSApplicationDelegate {
             NSWorkspace.shared.open(URL(string:"https://github.com/IvenKooLab/desktop-pet")!)
             return
         }
+        if action == "TOGGLE_BRIDGE" {
+            bridgeEnabled.toggle()
+            UserDefaults.standard.set(bridgeEnabled, forKey: "BridgeEnabled")
+            if !bridgeEnabled {
+                if mode == "HOST" { play("IDLE", mode: "IDLE", seconds: 3) }
+                if bubbleIsHost { bubblePanel?.orderOut(nil); bubbleKey = ""; bubbleIsHost = false }
+            }
+            return
+        }
         if action == "CHECK_UPDATE" { checkForUpdate(manual: true); return }
         if action == "DOWNLOAD_UPDATE" { NSWorkspace.shared.open(UpdateCheck.releasesURL); return }
         if action == "TOGGLE_UPDATE_CHECK" {
@@ -1387,17 +1398,59 @@ final class PetController: NSObject, NSApplicationDelegate {
         }
     }
     @objc private func menuAction(_ item: NSMenuItem) { perform(item.representedObject as! String) }
-    func contextMenu() -> NSMenu {
-        let menu = NSMenu()
-        let heading = NSMenuItem(title:menuText("Iven Pet · 独立桌宠"),action:nil,keyEquivalent:"")
-        heading.isEnabled = false
-        menu.addItem(heading)
-        menu.addItem(.separator())
-        if clips["THINKING"] != nil {
-            let chat = NSMenuItem(title:menuText("和 Iven 说话…"),action:#selector(chatInput),keyEquivalent:"")
-            chat.target = self
-            menu.addItem(chat)
+    private func clipItem(_ title: String, _ action: String) -> NSMenuItem {
+        let item = NSMenuItem(title: menuText(title), action: #selector(menuAction), keyEquivalent: "")
+        item.target = self
+        item.representedObject = action
+        return item
+    }
+
+    /// 动作按类别分组（日常互动 / 工作状态 / 生活小动作），避免顶层菜单过长。
+    private func actionsSubmenu() -> NSMenu {
+        let actions = NSMenu()
+        let everyday = NSMenu()
+        for (title, action) in [("打板","CHEER"),("观察四周","SPIN"),("小跳快走","RUN"),
+                                ("害羞","SHY"),("弹跳","BOUNCE"),("开心","HAPPY"),
+                                ("挥手打招呼","GREET")] {
+            if clips[action] != nil { everyday.addItem(clipItem(title, action)) }
         }
+        everyday.addItem(.separator())
+        everyday.addItem(clipItem("睡觉", "SLEEP"))
+        everyday.addItem(clipItem("唤醒", "IDLE"))
+        let everydayItem = NSMenuItem(title: menuText("日常互动"), action: nil, keyEquivalent: "")
+        everydayItem.submenu = everyday
+        actions.addItem(everydayItem)
+
+        let work = NSMenu()
+        for (title, action) in [("苦思冥想","THINKING"),("工作","WORK"),("检查","REVIEW"),
+                                ("等待","WAITING"),("等待不耐烦","IMPATIENT"),
+                                ("额度不足（表演）","TOKEN_LOW"),("松口气","RELIEVED"),
+                                ("失落","FAILED")] {
+            if clips[action] != nil { work.addItem(clipItem(title, action)) }
+        }
+        if work.numberOfItems > 0 {
+            let workItem = NSMenuItem(title: menuText("工作状态"), action: nil, keyEquivalent: "")
+            workItem.submenu = work
+            actions.addItem(workItem)
+        }
+
+        let life = NSMenu()
+        for (title, action) in [("伸懒腰","STRETCH"),("打瞌睡","DOZE"),("玩魔方","RUBIK"),
+                                ("困倦眨眼","YAWN"),("委屈表情","STOMP"),
+                                ("挥手庆祝","CELEBRATE"),("左右观察","SEARCH")] {
+            if clips[action] != nil { life.addItem(clipItem(title, action)) }
+        }
+        if life.numberOfItems > 0 {
+            let lifeItem = NSMenuItem(title: menuText("生活小动作"), action: nil, keyEquivalent: "")
+            lifeItem.submenu = life
+            actions.addItem(lifeItem)
+        }
+        return actions
+    }
+
+    /// 陪伴：显示位置 / 跟踪来源 / 固定 / 桥接 / 轮播 / 通知。
+    private func companionSubmenu() -> NSMenu {
+        let companion = NSMenu()
         let displayItem = NSMenuItem(title:menuText("显示模式"),action:nil,keyEquivalent:"")
         let displays = NSMenu()
         for (code,title) in [("desktop","独立桌面"),("embedded","DSH 界面内")] {
@@ -1408,17 +1461,17 @@ final class PetController: NSObject, NSApplicationDelegate {
         }
         let displayHint = NSMenuItem(title:menuText("内嵌需 DSH 网页接手；约 6 秒未接手自动回桌面"),action:nil,keyEquivalent:"")
         displayHint.isEnabled = false; displays.addItem(.separator()); displays.addItem(displayHint)
-        displayItem.submenu = displays; menu.addItem(displayItem)
+        displayItem.submenu = displays; companion.addItem(displayItem)
+
         let tracking = NSMenuItem(title:menuText("跟踪 Harness"),action:nil,keyEquivalent:"")
         let sources = NSMenu()
         sources.minimumWidth = 320
         for (source,name) in [("","自动 · 全部已接入"),("dsh","DSH"),("zcode","ZCode"),("codex","Codex"),("claude-code","Claude Code"),("cursor","Cursor"),("opencode","OpenCode")] {
             let title = source.isEmpty ? menuText(name) : name+" · "+menuText(bridge.sourceStatus(source))
-            let item = NSMenuItem(title:menuText(title),action:#selector(menuAction),keyEquivalent:"")
+            let item = NSMenuItem(title:title,action:#selector(menuAction),keyEquivalent:"")
             item.target = self
             item.representedObject = "TRACK:"+source
             item.state = (bridge.selectedSource ?? "") == source ? .on : .off
-            // Leave room for the checkmark and native menu margins at any font size.
             let textWidth = (title as NSString).size(withAttributes: [.font: NSFont.menuFont(ofSize: 0)]).width
             sources.minimumWidth = max(sources.minimumWidth, ceil(textWidth)+72)
             sources.addItem(item)
@@ -1428,17 +1481,20 @@ final class PetController: NSObject, NSApplicationDelegate {
         hint.isEnabled = false
         sources.addItem(hint)
         tracking.submenu = sources
-        menu.addItem(tracking)
+        companion.addItem(tracking)
+
         let pin = NSMenuItem(title:menuText("固定在当前位置"),action:#selector(menuAction),keyEquivalent:"")
         pin.target = self
         pin.representedObject = "PIN"
         pin.state = pinned ? .on : .off
-        menu.addItem(pin)
+        companion.addItem(pin)
+
         let auto = NSMenuItem(title:menuText("自动轮播动作"),action:#selector(menuAction),keyEquivalent:"")
         auto.target = self
         auto.representedObject = "AUTOPLAY"
         auto.state = autoplay ? .on : .off
-        menu.addItem(auto)
+        companion.addItem(auto)
+
         let notifyItem = NSMenuItem(title:menuText("系统通知"),action:nil,keyEquivalent:"")
         let notifyMenu = NSMenu()
         let currentNotify = PetConfig.notifyMode(config)
@@ -1450,16 +1506,61 @@ final class PetController: NSObject, NSApplicationDelegate {
             notifyMenu.addItem(item)
         }
         notifyItem.submenu = notifyMenu
-        menu.addItem(notifyItem)
-        for (title,action) in [("苦思冥想","THINKING"),("等待不耐烦","IMPATIENT"),("额度不足（表演）","TOKEN_LOW"),("松口气","RELIEVED"),("困倦眨眼","YAWN"),("委屈表情","STOMP"),("挥手庆祝","CELEBRATE"),("左右观察","SEARCH"),("伸懒腰","STRETCH"),("打瞌睡","DOZE"),("玩魔方","RUBIK"),("等待","WAITING"),("工作","WORK"),("检查","REVIEW"),("失落","FAILED"),("挥手打招呼","GREET"),("弹跳","BOUNCE"),("开心","HAPPY"),
-                               ("打板","CHEER"),("观察四周","SPIN"),("小跳快走","RUN"),
-                               ("害羞","SHY"),("睡觉","SLEEP"),("唤醒","IDLE")] {
-            let item = NSMenuItem(title:menuText(title),action:#selector(menuAction),keyEquivalent:"")
-            item.target = self
-            item.representedObject = action
-            menu.addItem(item)
+        companion.addItem(notifyItem)
+
+        let bridgeItem = NSMenuItem(title:menuText("宿主桥接"),action:#selector(menuAction),keyEquivalent:"")
+        bridgeItem.target = self
+        bridgeItem.representedObject = "TOGGLE_BRIDGE"
+        bridgeItem.state = bridgeEnabled ? .on : .off
+        companion.addItem(bridgeItem)
+        return companion
+    }
+
+    /// 关于与更新：版本 / 检查更新 / 下载 / GitHub。
+    private func aboutSubmenu() -> NSMenu {
+        let about = NSMenu()
+        let version = NSMenuItem(title: menuText("当前版本 v\(currentVersion)"), action: nil, keyEquivalent: "")
+        version.isEnabled = false
+        about.addItem(version)
+        about.addItem(.separator())
+
+        let autoUpdate = NSMenuItem(title: menuText("启动时检查更新"), action: #selector(menuAction), keyEquivalent: "")
+        autoUpdate.target = self
+        autoUpdate.representedObject = "TOGGLE_UPDATE_CHECK"
+        autoUpdate.state = PetConfig.updateCheckEnabled(config) ? .on : .off
+        about.addItem(autoUpdate)
+        let checkUpdate = NSMenuItem(title: menuText("检查更新…"), action: #selector(menuAction), keyEquivalent: "")
+        checkUpdate.target = self
+        checkUpdate.representedObject = "CHECK_UPDATE"
+        about.addItem(checkUpdate)
+        if let updateVersion {
+            let download = NSMenuItem(title: bridgeZh ? "下载新版本 v\(updateVersion)…" : "Download v\(updateVersion)…", action: #selector(menuAction), keyEquivalent: "")
+            download.target = self
+            download.representedObject = "DOWNLOAD_UPDATE"
+            about.addItem(download)
         }
+        let github = NSMenuItem(title:menuText("打开 GitHub 仓库"),action:#selector(menuAction),keyEquivalent:"")
+        github.target = self; github.representedObject = "GITHUB"; about.addItem(github)
+        return about
+    }
+
+    func contextMenu() -> NSMenu {
+        let menu = NSMenu()
+        let heading = NSMenuItem(title:menuText("Iven Pet · 独立桌宠"),action:nil,keyEquivalent:"")
+        heading.isEnabled = false
+        menu.addItem(heading)
         menu.addItem(.separator())
+        if clips["THINKING"] != nil {
+            let chat = NSMenuItem(title:menuText("和 Iven 说话…"),action:#selector(chatInput),keyEquivalent:"")
+            chat.target = self
+            menu.addItem(chat)
+        }
+        let actionsItem = NSMenuItem(title: menuText("动作"), action: nil, keyEquivalent: "")
+        actionsItem.submenu = actionsSubmenu()
+        menu.addItem(actionsItem)
+        let companionItem = NSMenuItem(title: menuText("陪伴"), action: nil, keyEquivalent: "")
+        companionItem.submenu = companionSubmenu()
+        menu.addItem(companionItem)
         let languageItem = NSMenuItem(title:menuText("语言 / Language"),action:nil,keyEquivalent:"")
         let languages = NSMenu()
         for (code,name) in [("system",bridgeZh ? "跟随系统" : "System default"),("zh","简体中文"),("en","English")] {
@@ -1469,24 +1570,9 @@ final class PetController: NSObject, NSApplicationDelegate {
             languages.addItem(item)
         }
         languageItem.submenu = languages; menu.addItem(languageItem)
-        menu.addItem(.separator())
-        let autoUpdate = NSMenuItem(title: menuText("启动时检查更新"), action: #selector(menuAction), keyEquivalent: "")
-        autoUpdate.target = self
-        autoUpdate.representedObject = "TOGGLE_UPDATE_CHECK"
-        autoUpdate.state = PetConfig.updateCheckEnabled(config) ? .on : .off
-        menu.addItem(autoUpdate)
-        let checkUpdate = NSMenuItem(title: menuText("检查更新…"), action: #selector(menuAction), keyEquivalent: "")
-        checkUpdate.target = self
-        checkUpdate.representedObject = "CHECK_UPDATE"
-        menu.addItem(checkUpdate)
-        if let updateVersion {
-            let download = NSMenuItem(title: bridgeZh ? "下载新版本 v\(updateVersion)…" : "Download v\(updateVersion)…", action: #selector(menuAction), keyEquivalent: "")
-            download.target = self
-            download.representedObject = "DOWNLOAD_UPDATE"
-            menu.addItem(download)
-        }
-        let github = NSMenuItem(title:menuText("打开 GitHub 仓库"),action:#selector(menuAction),keyEquivalent:"")
-        github.target = self; github.representedObject = "GITHUB"; menu.addItem(github)
+        let aboutItem = NSMenuItem(title: menuText("关于与更新"), action: nil, keyEquivalent: "")
+        aboutItem.submenu = aboutSubmenu()
+        menu.addItem(aboutItem)
         menu.addItem(.separator())
         let quit = NSMenuItem(title:menuText("退出独立版"),action:#selector(menuAction),keyEquivalent:"")
         quit.target = self; quit.representedObject = "QUIT"; menu.addItem(quit)
