@@ -22,13 +22,14 @@ class BrandTests(unittest.TestCase):
         for name in ("pet.py", "native/macos/ComiPet.swift", "docs/API.md"):
             text = (ROOT / name).read_text(encoding="utf-8")
             self.assertNotIn("IvenPet", text, f"{name} 仍残留 IvenPet")
-        # README 正文不该再把角色叫 Iven（旧账号名 IvenKooLab 除外）
+        # README 正文不该再把角色叫 Iven；"1.x 曾叫 Iven"这类改名说明允许保留
         for name in ("README.md", "README.en.md"):
             text = (ROOT / name).read_text(encoding="utf-8")
             text = text.replace("IvenKooLab", "").replace("ivenkoolab", "")
             for compat in ("~/.iven-pet", "IVEN_", "iven-bridge", "iven-v2",
                            "iven-pet", "IvenPet.app", "IvenPet.exe"):
                 text = text.replace(compat, "")
+            text = text.replace("她叫 Iven", "").replace("was called Iven", "")
             self.assertNotIn("Iven", text, f"{name} 仍残留旧角色名 Iven")
         # 更新日志允许对照，但必须已经写明新名字
         changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
