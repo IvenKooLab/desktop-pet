@@ -21,3 +21,4 @@ asset-audit-contact.png
 frames3d_legacy/
 crash.log
 .DS_Store
+.comi-debug.log

@@ -5,9 +5,16 @@
 import { readFileSync, writeFileSync, renameSync, mkdirSync } from 'node:fs'
 import { dirname, resolve, basename } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { appendFileSync } from 'node:fs'
 import { isTrustedApiRequest } from './trust-fence.js'
 
+function note(stage, error) {
+  try { appendFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '../../../.comi-debug.log'),
+    `${new Date().toISOString()} ${stage}: ${error?.stack || error}\n`) } catch { /* 调试通道失败不影响服务 */ }
+}
+
 export const PREFIX = '/comi-pet'
+export const CODE_VERSION = 'fix-webruntime-1'
 export const LEASE_MS = 30_000
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../..')
 const clean = (value, limit = 80) => typeof value === 'string'
@@ -136,10 +143,36 @@ export function createRouteHandler({ eventsDir, root = ROOT, sessions = new Map(
 export function createWebIntegration(ctx, options) {
   const sessions = new Map()
   if (typeof ctx.inject === 'function') ctx.inject(['webServer'], wctx => {
-    wctx.effect(() => wctx.webServer.register({
-      kind: 'prefix', path: PREFIX,
-      handler: createRouteHandler({ ...options, sessions, trustedHosts: () => wctx.webRuntime?.trustedHosts ?? [] }),
-    }), 'comi-bridge: approved pet frames and display lease')
+    wctx.effect(() => {
+      // cordis 服务代理对未 inject 的服务读取会抛错（可选链拦不住），
+      // 所以这里 try/catch 后回退空数组：本机 loopback 本来就放行，
+      // trustedHosts 只在局域网部署时才需要。
+      const safeTrustedHosts = () => {
+        try {
+          const list = wctx.webRuntime?.trustedHosts
+          return Array.isArray(list) ? list : []
+        } catch { return [] }
+      }
+      let handler
+      try {
+        handler = createRouteHandler({ ...options, sessions, trustedHosts: safeTrustedHosts })
+      } catch (error) {
+        note('构造失败', error); throw error
+      }
+      // 宿主会把 handler 异常吞成裸 400（空 body），这里兜一层：落盘并回 500 带原因
+      const guarded = async (req, res) => {
+        try {
+          return await handler(req, res)
+        } catch (error) {
+          note('处理异常', error)
+          try { return json(res, 500, { ok: false, version: CODE_VERSION, error: String(error?.stack || error).slice(0, 500) }) }
+          catch { res.destroy() }
+        }
+      }
+      wctx.webServer.register({
+        kind: 'prefix', path: PREFIX, handler: guarded,
+      }, 'comi-bridge: approved pet frames and display lease')
+    })
   })
   return { record: (id, event, label) => reduceSession(sessions, id, event, label) }
 }
