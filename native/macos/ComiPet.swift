@@ -1612,7 +1612,10 @@ if CommandLine.arguments.contains("--self-test") {
     let now = 100000.0
     precondition(DisplayLease(version:1,mode:"embedded",owner:"dsh",lease_until:now+30000).isEmbedded(now:now))
     precondition(!DisplayLease(version:1,mode:"embedded",owner:"dsh",lease_until:now).isEmbedded(now:now))
-    precondition(!DisplayLease(version:1,mode:"embedded",owner:"dsh",lease_until:now+36000).isEmbedded(now:now))
+    // 租约上限 90 秒（v2.1.0 起，为后台定时器节流留余量）：60 秒合法、超过上限拒绝
+    precondition(DisplayLease(version:1,mode:"embedded",owner:"dsh",lease_until:now+60000).isEmbedded(now:now))
+    precondition(DisplayLease(version:1,mode:"embedded",owner:"dsh",lease_until:now+90000).isEmbedded(now:now))
+    precondition(!DisplayLease(version:1,mode:"embedded",owner:"dsh",lease_until:now+90001).isEmbedded(now:now))
     precondition(!DisplayLease(version:1,mode:"embedded",owner:"other",lease_until:now+30000).isEmbedded(now:now))
     // 两段式租约：请求（client_id 空）不隐藏，claim 后才隐藏
     precondition(!DisplayLease(version:1,mode:"embedded",owner:"dsh",lease_until:now+30000,client_id:nil).isClaimed)
