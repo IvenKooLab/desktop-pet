@@ -319,6 +319,11 @@ window.__ModuleLoader__.load({
 .comi-menu-item:hover{background:#2f6bd8;color:#fff}
 .comi-menu-section{padding:5px 14px 2px;font-size:11px;line-height:14px;color:#8a8a8e;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif}
 .comi-menu-sep{height:1px;margin:5px 12px;background:#e3e3e3;border:none}
+.comi-item-has{position:relative}
+.comi-sub{display:none;position:absolute;right:100%;top:-5px;margin-right:2px;padding:5px 0;width:200px;background:#fff;border:1px solid #d9d9de;border-radius:12px;box-shadow:0 10px 34px #0000002e}
+.comi-item-has:hover>.comi-sub{display:block}
+.comi-arrow{float:right;opacity:.45;font-size:11px;line-height:20px}
+.comi-check{display:inline-block;width:16px}
 .comi-pet-img{transform-origin:50% 96%;transition:transform .16s cubic-bezier(.2,.7,.4,1.4)}
 `),
         h('button', { type: 'button', disabled: !manifest, style: { ...button, position: 'absolute', right: 16, top: 76, pointerEvents: 'auto', opacity: manifest ? 1 : .6 },
@@ -340,7 +345,7 @@ window.__ModuleLoader__.load({
               if (!img.src.endsWith('idle_0.png')) img.src = `${PREFIX}/frames/idle_0.png`
             },
             onContextMenu: event => { event.preventDefault(); setMenu(value => !value) } }),
-          menu ? h('div', { style: { position: 'absolute', bottom: 180, right: 0, width: 200, maxHeight: '55vh', overflowY: 'auto', padding: '5px 0',
+          menu ? h('div', { style: { position: 'absolute', bottom: 180, right: 0, width: 200, padding: '5px 0',
             background: '#fff', border: '1px solid #d9d9de', borderRadius: 12, boxShadow: '0 10px 34px #0000002e' } },
           h('button', { className: 'comi-menu-item', onClick: () => selectMode('desktop') }, label('MOVE_DESKTOP')),
           ...[
