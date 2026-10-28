@@ -64,7 +64,7 @@ struct DisplayLease: Codable {
     var client_id: String?
     func isEmbedded(now: Double) -> Bool {
         version == 1 && mode == "embedded" && owner == "dsh" && lease_until.isFinite
-            && now < lease_until && lease_until <= now+35000
+            && now < lease_until && lease_until <= now+90000
     }
     // 两段式租约：请求租约（确认窗口）没有 client_id = 还没有 DSH 网页接手，
     // 桌宠不能藏——否则 dsh 没开时就会白藏一整个租期。

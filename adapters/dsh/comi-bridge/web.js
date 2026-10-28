@@ -15,7 +15,7 @@ function note(stage, error) {
 
 export const PREFIX = '/comi-pet'
 export const CODE_VERSION = 'fix-webruntime-1'
-export const LEASE_MS = 30_000
+export const LEASE_MS = 60_000
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../..')
 const clean = (value, limit = 80) => typeof value === 'string'
   ? value.replace(/[\x00-\x1f\x7f]/g, ' ').trim().slice(0, limit) : ''
@@ -24,7 +24,7 @@ export function readDisplay(path, now = Date.now()) {
   try {
     const value = JSON.parse(readFileSync(path, 'utf8'))
     if (value?.version === 1 && value.owner === 'dsh' && value.mode === 'embedded'
-      && Number.isFinite(value.lease_until) && value.lease_until > now && value.lease_until <= now + 35_000) {
+      && Number.isFinite(value.lease_until) && value.lease_until > now && value.lease_until <= now + 90_000) {
       return { version: 1, owner: 'dsh', mode: 'embedded', lease_until: value.lease_until,
         client_id: clean(value.client_id, 96) || null }
     }

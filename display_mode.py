@@ -23,7 +23,7 @@ def read_display_mode(events_directory, now_ms=None):
     until = data.get("lease_until")
     if (data.get("mode") == "embedded" and data.get("owner") == "dsh"
             and type(until) in (int, float) and math.isfinite(until)
-            and now_ms < until <= now_ms + 35000):
+            and now_ms < until <= now_ms + 90000):
         return "embedded"
     return "desktop"
 
@@ -46,13 +46,13 @@ def display_claimed(events_directory, now_ms=None):
     return isinstance(client, str) and 0 < len(client) <= 128
 
 
-def write_display_mode(events_directory, mode, now_ms=None, lease_ms=30000):
+def write_display_mode(events_directory, mode, now_ms=None, lease_ms=60000):
     """Request DSH takeover. 默认 30 秒；桌宠端请求时用短确认窗口（约 6 秒），
     只有网页客户端 claim 并心跳续租（写 client_id + 完整租期）后桌宠才隐藏。"""
     if mode not in ("desktop", "embedded"):
         raise ValueError("Unknown pet display mode")
-    if not isinstance(lease_ms, int) or not 0 < lease_ms <= 30000:
-        lease_ms = 30000
+    if not isinstance(lease_ms, int) or not 0 < lease_ms <= 90000:
+        lease_ms = 60000
     now_ms = time.time() * 1000 if now_ms is None else now_ms
     parent = Path(events_directory).parent
     temporary = None

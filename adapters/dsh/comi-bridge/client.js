@@ -148,8 +148,10 @@ window.__ModuleLoader__.load({
         const pollTimer = setInterval(poll, 1500)
         const expiryTimer = setInterval(() => setNow(Date.now()), 1000)
         const leaseTimer = setInterval(async () => {
+          // 续租不看 document.hidden：DSH 窗口被遮挡/最小化时页面会进入 hidden，
+          // 若停跳，30 秒后租约到期、桌宠自己弹回桌面（用户实测的两分钟回归就是这个）。
           const current = leaseRef.current
-          if (document.hidden || current.mode !== 'embedded' || current.client_id !== clientId) return
+          if (current.mode !== 'embedded' || current.client_id !== clientId) return
           try { const data = await request('heartbeat', { client_id: clientId }); if (!disposed) setDisplay(data.display) }
           catch (failure) { if (!disposed && failure.data?.display) setDisplay(failure.data.display) }
         }, 5000)

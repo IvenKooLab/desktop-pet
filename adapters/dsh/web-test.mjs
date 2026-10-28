@@ -40,8 +40,8 @@ try {
   result = await call('POST', '/comi-pet/api/heartbeat', { client_id: 'browser_b' })
   ok(result.status === 409, 'second tab cannot steal heartbeat lease')
   result = await call('GET', '/comi-pet/api/state')
-  ok(result.json().display.lease_until === now + LEASE_MS, '30-second renewable lease returned')
-  now += 31_000
+  ok(result.json().display.lease_until === now + LEASE_MS, '60-second renewable lease returned')
+  now += 61_000
   result = await call('GET', '/comi-pet/api/state')
   ok(result.json().display.mode === 'desktop', 'lost browser recovers independent desktop')
   result = await call('POST', '/comi-pet/api/heartbeat', { client_id: 'browser_a' })

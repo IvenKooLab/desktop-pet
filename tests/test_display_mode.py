@@ -14,9 +14,9 @@ class DisplayModeTests(unittest.TestCase):
             self.assertTrue(write_display_mode(events, "embedded", 100000))
             payload = json.loads((Path(directory) / "display.json").read_text())
             self.assertNotIn("client_id", payload)
-            self.assertEqual(payload["lease_until"], 130000)
-            self.assertEqual(read_display_mode(events, 129999), "embedded")
-            self.assertEqual(read_display_mode(events, 130000), "desktop")
+            self.assertEqual(payload["lease_until"], 160000)
+            self.assertEqual(read_display_mode(events, 159999), "embedded")
+            self.assertEqual(read_display_mode(events, 160000), "desktop")
             self.assertTrue(write_display_mode(events, "desktop", 100001))
             self.assertEqual(read_display_mode(events, 100002), "desktop")
 
@@ -34,7 +34,7 @@ class DisplayModeTests(unittest.TestCase):
             self.assertTrue(write_display_mode(events, "embedded", 100000,
                                                lease_ms=99999))
             payload = json.loads((Path(directory) / "display.json").read_text())
-            self.assertEqual(payload["lease_until"], 130000)
+            self.assertEqual(payload["lease_until"], 160000)
 
     def test_claimed_requires_live_client_id(self):
         """隐藏条件：租约有效且 client_id 已写（有客户端真的接手）。"""
@@ -62,9 +62,9 @@ class DisplayModeTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             events = Path(directory) / "events"
             path = Path(directory) / "display.json"
-            good = {"version": 1, "mode": "embedded", "owner": "dsh", "lease_until": 125000}
+            good = {"version": 1, "mode": "embedded", "owner": "dsh", "lease_until": 155000}
             for replacement in ({"owner": "unknown"}, {"lease_until": True},
-                                {"lease_until": 135001}, {"lease_until": float("nan")},
+                                {"lease_until": 195001}, {"lease_until": float("nan")},
                                 {"lease_until": float("inf")}, {"version": 2}):
                 path.write_text(json.dumps(dict(good, **replacement)))
                 self.assertEqual(read_display_mode(events, 100000), "desktop")
