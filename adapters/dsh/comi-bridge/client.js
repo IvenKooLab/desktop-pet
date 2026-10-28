@@ -295,6 +295,11 @@ window.__ModuleLoader__.load({
           h('img', { ref: image, className: 'comi-pet-img', src: `${PREFIX}/frames/idle_0.png`, draggable: false, alt: 'Comi',
             style: { display: 'block', width: 200, height: 200, userSelect: 'none', touchAction: 'none', cursor: 'grab' },
             onPointerDown: startDrag, onPointerMove: moveDrag, onPointerUp: endDrag, onPointerCancel: endDrag,
+            onError: event => {
+              // 任何帧加载失败都回落待机帧，绝不显示裂图
+              const img = event.currentTarget
+              if (!img.src.endsWith('idle_0.png')) img.src = `${PREFIX}/frames/idle_0.png`
+            },
             onContextMenu: event => { event.preventDefault(); setMenu(value => !value) } }),
           menu ? h('div', { style: { position: 'absolute', bottom: 180, right: 0, width: 192, maxHeight: '55vh', overflowY: 'auto', padding: '8px 6px',
             background: '#fff', border: '1px solid #ddd5ea', borderRadius: 14, boxShadow: '0 6px 25px #24122a30' } },
