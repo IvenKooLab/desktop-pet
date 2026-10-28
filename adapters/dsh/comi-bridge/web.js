@@ -32,6 +32,19 @@ export function readDisplay(path, now = Date.now()) {
   return { version: 1, owner: 'dsh', mode: 'desktop', lease_until: 0, client_id: null }
 }
 
+const LANGUAGES = ['system', 'zh', 'en']
+export function readLanguage(path) {
+  try {
+    const value = readFileSync(path, 'utf8').trim()
+    return LANGUAGES.includes(value) ? value : 'system'
+  } catch { return 'system' }
+}
+export function writeLanguage(path, value) {
+  mkdirSync(dirname(path), { recursive: true })
+  writeFileSync(path, `${value}\n`)
+  return value
+}
+
 export function writeDisplay(path, mode, clientId, now = Date.now()) {
   const value = { version: 1, owner: 'dsh', mode, lease_until: mode === 'embedded' ? now + LEASE_MS : 0,
     client_id: mode === 'embedded' ? clientId : null }
@@ -97,15 +110,27 @@ async function readBody(req) {
 
 export function createRouteHandler({ eventsDir, root = ROOT, sessions = new Map(), trustedHosts = () => [], clock = Date.now }) {
   const displayPath = resolve(dirname(eventsDir), 'display.json')
+  const languagePath = resolve(dirname(eventsDir), 'language')
   const manifestPath = resolve(root, 'frames3d/animation.json')
   const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'))
+  let version = null
+  try { version = readFileSync(resolve(root, 'VERSION'), 'utf8').trim() } catch { /* 打包目录外跳过 */ }
   // 桌面端运行时合成的 FALL/LAND 帧也在服务白名单里（与 client.js 的合成剪辑一致）
   const frames = new Set([...Object.values(manifest.clips).flatMap(clip => clip.frames), 'fall_0', 'land_0'])
   return async function handler(req, res) {
     if (!isTrustedApiRequest(req, trustedHosts())) return json(res, 403, { ok: false, error: 'forbidden' })
     const path = new URL(req.url ?? '/', 'http://dsh.internal').pathname
     if (req.method === 'GET' && path === `${PREFIX}/api/state`) {
-      return json(res, 200, { ok: true, display: readDisplay(displayPath, clock()), state: currentSession(sessions, clock()) })
+      return json(res, 200, { ok: true, display: readDisplay(displayPath, clock()), state: currentSession(sessions, clock()),
+        language: readLanguage(languagePath), version })
+    }
+    if (req.method === 'POST' && path === `${PREFIX}/api/language`) {
+      let body
+      try { body = await readBody(req) } catch { return json(res, 400, { ok: false, error: 'invalid body' }) }
+      const value = clean(body?.value, 16)
+      if (!LANGUAGES.includes(value)) return json(res, 400, { ok: false, error: 'invalid language' })
+      writeLanguage(languagePath, value)
+      return json(res, 200, { ok: true, language: value })
     }
     if (req.method === 'GET' && path === `${PREFIX}/api/manifest`) return json(res, 200, manifest)
     if (req.method === 'GET' && path === `${PREFIX}/api/behaviors`) {

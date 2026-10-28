@@ -7,24 +7,34 @@ window.__ModuleLoader__.load({
     const { createElement: h, useEffect, useRef, useState } = React
     const PREFIX = '/comi-pet'
     const SPEED = 0.75
-    const zh = (navigator.language || '').toLowerCase().startsWith('zh')
-    const text = (cn, en) => zh ? cn : en
-    const labels = {
-      IDLE: text('眨眼休息', 'Rest'), GREET: text('挥手', 'Wave'), BOUNCE: text('小跳', 'Bounce'),
-      HAPPY: text('开心', 'Happy'), SHY: text('害羞', 'Shy'), CHEER: text('打板', 'Clapperboard'),
-      SPIN: text('观察四周', 'Look around'), STRETCH: text('伸懒腰', 'Stretch'),
-      DOZE: text('打瞌睡', 'Doze'), RUBIK: text('玩魔方', 'Rubik’s cube'),
-      WORK: text('工作', 'Working'), REVIEW: text('检查', 'Reviewing'), WAITING: text('等待', 'Waiting'),
-      FAILED: text('失落', 'Sad'), THINKING: text('苦思冥想', 'Deep thinking'), IMPATIENT: text('等待不耐烦', 'Getting impatient'),
-      TOKEN_LOW: text('额度不足（表演）', 'Low tokens (performance)'), RELIEVED: text('松口气', 'A sigh of relief'),
-      YAWN: text('困倦眨眼', 'Sleepy blink'), STOMP: text('委屈表情', 'Feeling down'),
-      CELEBRATE: text('挥手庆祝', 'Celebrate'), SEARCH: text('左右观察', 'Search around'),
+    const navigatorZh = (navigator.language || '').toLowerCase().startsWith('zh')
+    const LABEL_PAIRS = {
+      IDLE: ['眨眼休息', 'Rest'], GREET: ['挥手', 'Wave'], BOUNCE: ['小跳', 'Bounce'],
+      HAPPY: ['开心', 'Happy'], SHY: ['害羞', 'Shy'], CHEER: ['打板', 'Clapperboard'],
+      SPIN: ['观察四周', 'Look around'], STRETCH: ['伸懒腰', 'Stretch'],
+      DOZE: ['打瞌睡', 'Doze'], RUBIK: ['玩魔方', 'Rubik’s cube'],
+      WORK: ['工作', 'Working'], REVIEW: ['检查', 'Reviewing'], WAITING: ['等待', 'Waiting'],
+      FAILED: ['失落', 'Sad'], THINKING: ['苦思冥想', 'Deep thinking'], IMPATIENT: ['等待不耐烦', 'Getting impatient'],
+      TOKEN_LOW: ['额度不足（表演）', 'Low tokens (performance)'], RELIEVED: ['松口气', 'A sigh of relief'],
+      YAWN: ['困倦眨眼', 'Sleepy blink'], STOMP: ['委屈表情', 'Feeling down'],
+      CELEBRATE: ['挥手庆祝', 'Celebrate'], SEARCH: ['左右观察', 'Search around'],
+      SLEEP: ['睡觉', 'Sleep'], WAKE: ['唤醒', 'Wake up'],
+      MOVE_DESKTOP: ['移到独立桌面 ↗', 'Move to desktop ↗'],
+      DISPLAY_MODE: ['显示模式', 'Display mode'], DESKTOP: ['独立桌面', 'Desktop'],
+      EMBEDDED: ['DSH 界面内', 'Inside DSH'], AUTOPLAY: ['自动轮播动作', 'Automatic animations'],
+      ACTIONS: ['动作', 'Actions'], COMPANION: ['陪伴', 'Companion'],
+      EVERYDAY: ['日常互动', 'Everyday'], WORK_THEMES: ['工作状态', 'Work themes'],
+      LITTLE_BREAKS: ['生活小动作', 'Little breaks'],
+      LANGUAGE: ['语言 / Language', 'Language / 语言'], FOLLOW_SYSTEM: ['跟随系统', 'System default'],
+      ZH: ['简体中文', '简体中文'], EN: ['English', 'English'],
+      ABOUT: ['关于与更新', 'About & updates'], CURRENT_VERSION: ['当前版本', 'Version'],
+      GITHUB: ['打开 GitHub 仓库', 'Open GitHub repository'],
     }
     // 菜单分组与桌面端（pet.py / ComiPet.swift）保持同一套分类
     const menuGroups = [
-      { title: text('日常互动', 'Everyday'), items: ['CHEER', 'SPIN', 'BOUNCE', 'HAPPY', 'GREET', 'SHY'] },
-      { title: text('工作状态', 'Work themes'), items: ['THINKING', 'WORK', 'REVIEW', 'WAITING', 'IMPATIENT', 'TOKEN_LOW', 'RELIEVED', 'FAILED'] },
-      { title: text('生活小动作', 'Little breaks'), items: ['STRETCH', 'DOZE', 'RUBIK', 'YAWN', 'STOMP', 'CELEBRATE', 'SEARCH'] },
+      { key: 'EVERYDAY', items: ['CHEER', 'SPIN', 'BOUNCE', 'HAPPY', 'GREET', 'SHY'] },
+      { key: 'WORK_THEMES', items: ['THINKING', 'WORK', 'REVIEW', 'WAITING', 'IMPATIENT', 'TOKEN_LOW', 'RELIEVED', 'FAILED'] },
+      { key: 'LITTLE_BREAKS', items: ['STRETCH', 'DOZE', 'RUBIK', 'YAWN', 'STOMP', 'CELEBRATE', 'SEARCH'] },
     ]
     const clientId = (() => {
       try {
@@ -88,14 +98,25 @@ window.__ModuleLoader__.load({
       const [error, setError] = useState('')
       const [now, setNow] = useState(Date.now())
       const [menu, setMenu] = useState(false)
+      const [lang, setLang] = useState('system')
+      const [version, setVersion] = useState(null)
+      const [autoplay, setAutoplay] = useState(true)
       const image = useRef(null), card = useRef(null), stateRef = useRef(host), manifestRef = useRef(null)
       const behavior = useRef({ actions: {} }), leaseRef = useRef(display), drag = useRef(null)
       const position = useRef({ x: Math.max(0, innerWidth - 235), y: Math.max(100, innerHeight - 235) })
       const action = useRef(null)
       const flying = useRef(null)
+      const autoplayRef = useRef(true)
+      autoplayRef.current = autoplay
       stateRef.current = host
       leaseRef.current = display
       const embedded = display.mode === 'embedded' && display.client_id === clientId && display.lease_until > now
+      const langZh = lang === 'zh' || (lang === 'system' && navigatorZh)
+      const text = (cn, en) => langZh ? cn : en
+      const label = name => {
+        const pair = LABEL_PAIRS[name]
+        return pair ? (langZh ? pair[0] : pair[1]) : name
+      }
       const selectMode = async mode => {
         if (mode === 'embedded' && !manifestRef.current) return
         try { const data = await request('display', { mode, client_id: clientId }); setDisplay(data.display); setError(''); setMenu(false) }
@@ -112,6 +133,8 @@ window.__ModuleLoader__.load({
             if (disposed) return
             setHost(data.state)
             setDisplay(data.display)
+            if (data.language) setLang(data.language)
+            if (data.version) setVersion(data.version)
             setError('')
             // A native-menu request has no client id. The first visible DSH tab
             // claims it atomically; other tabs cannot prolong that lease.
@@ -176,7 +199,11 @@ window.__ModuleLoader__.load({
           }
           if (phase === 'failed') return choose('FAILED')
           // TOKEN_LOW is a manual performance, never an inferred account state.
-          const choices = ['IDLE', 'IDLE', 'IDLE', 'WALK', ...Object.keys(labels).filter(name => name !== 'IDLE' && name !== 'TOKEN_LOW' && name !== lastAction && clips[name])]
+          const playable = name => name !== 'IDLE' && name !== 'TOKEN_LOW' && name !== 'SLEEP' && name !== 'WAKE'
+            && !['MOVE_DESKTOP', 'DISPLAY_MODE', 'DESKTOP', 'EMBEDDED', 'AUTOPLAY', 'ACTIONS', 'COMPANION',
+                 'EVERYDAY', 'WORK_THEMES', 'LITTLE_BREAKS', 'LANGUAGE', 'FOLLOW_SYSTEM', 'ZH', 'EN',
+                 'ABOUT', 'CURRENT_VERSION', 'GITHUB'].includes(name) && clips[name]
+          const choices = ['IDLE', 'IDLE', 'IDLE', 'WALK', ...Object.keys(LABEL_PAIRS).filter(name => playable(name) && name !== lastAction)]
           let name = choices[Math.floor(Math.random() * choices.length)]
           if (name === 'WALK') { direction = Math.random() > .5 ? 1 : -1; name = direction > 0 ? 'WALK_r' : 'WALK_l' }
           lastAction = name
@@ -206,7 +233,7 @@ window.__ModuleLoader__.load({
           let selected = clips[clip] || clips.IDLE
           let duration = selected.durations.reduce((a, b) => a + b, 0)
           // 飞行中不做自动轮播：保持 FALL 直到落地
-          if (!flying.current && elapsed >= duration * repeats) { next(); selected = clips[clip] || clips.IDLE; duration = selected.durations.reduce((a, b) => a + b, 0) }
+          if (!flying.current && autoplayRef.current && elapsed >= duration * repeats) { next(); selected = clips[clip] || clips.IDLE; duration = selected.durations.reduce((a, b) => a + b, 0) }
           let phaseTime = elapsed % duration, index = 0
           while (index < selected.frames.length - 1 && phaseTime >= selected.durations[index]) { phaseTime -= selected.durations[index]; index++ }
           if (!drag.current && clip.startsWith('WALK')) {
@@ -274,7 +301,19 @@ window.__ModuleLoader__.load({
           flying.current = { vx: velocity.vx, vy: velocity.vy, bounces: 0 }
         }
       }
-      return h('div', { style: { position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 1000, fontFamily: 'system-ui, sans-serif' } },
+      const renderItem = (entry, depth) => {
+      if (entry.sep) return h('div', { key: entry.key, className: 'comi-menu-sep' })
+      const item = h('button', { key: entry.key,
+        className: 'comi-menu-item' + (entry.hasSub ? ' comi-item-has' : ''),
+        style: entry.disabled ? { opacity: .45, cursor: 'default' } : null,
+        onClick: entry.disabled ? undefined : entry.onClick },
+      h('span', { className: 'comi-check' }, entry.check ? '✓' : ''),
+      entry.label, entry.hasSub ? h('span', { className: 'comi-arrow' }, '▸') : null,
+      entry.sub ? h('div', { className: 'comi-sub' },
+        ...entry.sub.map(child => renderItem(child, depth + 1))) : null)
+      return item
+    }
+    return h('div', { style: { position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 1000, fontFamily: 'system-ui, sans-serif' } },
         h('style', null, `
 .comi-menu-item{display:block;width:100%;text-align:left;padding:3px 14px;border:none;background:transparent;color:#1d1d1f;font-size:13px;line-height:20px;border-radius:0;cursor:default;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif}
 .comi-menu-item:hover{background:#2f6bd8;color:#fff}
@@ -303,17 +342,42 @@ window.__ModuleLoader__.load({
             onContextMenu: event => { event.preventDefault(); setMenu(value => !value) } }),
           menu ? h('div', { style: { position: 'absolute', bottom: 180, right: 0, width: 200, maxHeight: '55vh', overflowY: 'auto', padding: '5px 0',
             background: '#fff', border: '1px solid #d9d9de', borderRadius: 12, boxShadow: '0 10px 34px #0000002e' } },
-          h('button', { className: 'comi-menu-item', onClick: () => selectMode('desktop') }, text('移到独立桌面 ↗', 'Move to desktop ↗')),
-          ...menuGroups.flatMap((group, index) => {
-            const items = group.items.filter(name => manifest?.clips[name])
-            if (!items.length) return []
-            return [
-              h('div', { className: 'comi-menu-sep', key: `sep-${group.title}` }),
-              h('div', { className: 'comi-menu-section', key: `head-${group.title}` }, group.title),
-              ...items.map(name => h('button', { key: name, className: 'comi-menu-item',
-                onClick: () => { action.current = name; setMenu(false) } }, labels[name])),
-            ]
-          })) : null) : null)
+          h('button', { className: 'comi-menu-item', onClick: () => selectMode('desktop') }, label('MOVE_DESKTOP')),
+          ...[
+            // 层级与桌面端一致：动作 ▸（日常互动/工作状态/生活小动作 + 睡觉/唤醒）
+            { key: 'ACTIONS', hasSub: true, label: label('ACTIONS'), sub: [
+                ...menuGroups.map(group => ({
+                  key: group.key, hasSub: true, label: label(group.key),
+                  sub: group.items.filter(name => manifest?.clips[name]).map(name => ({
+                    key: name, label: label(name), onClick: () => { action.current = name; setMenu(false) } })),
+                })),
+                { key: 'sep-sleep', sep: true },
+                { key: 'SLEEP', label: label('SLEEP'), onClick: () => { action.current = 'SLEEP'; setMenu(false) } },
+                { key: 'WAKE', label: label('WAKE'), onClick: () => { action.current = 'IDLE'; setMenu(false) } },
+            ] },
+            // 陪伴 ▸（显示模式 / 自动轮播；宿主桥接与系统通知为桌面端专属）
+            { key: 'COMPANION', hasSub: true, label: label('COMPANION'), sub: [
+                { key: 'DISPLAY_MODE', hasSub: true, label: label('DISPLAY_MODE'), sub: [
+                    { key: 'desktop', label: label('DESKTOP'), check: display.mode === 'desktop', onClick: () => selectMode('desktop') },
+                    { key: 'embedded', label: label('EMBEDDED'), check: display.mode === 'embedded', onClick: () => selectMode('embedded') },
+                ] },
+                { key: 'AUTOPLAY', label: label('AUTOPLAY'), check: autoplay, onClick: () => setAutoplay(value => !value) },
+            ] },
+            // 语言 ▸（与桌面端共用同一份语言偏好文件）
+            { key: 'LANGUAGE', hasSub: true, label: label('LANGUAGE'), sub: [
+                { key: 'system', label: label('FOLLOW_SYSTEM'), check: lang === 'system',
+                  onClick: () => request('language', { value: 'system' }).then(d => setLang(d.language)).catch(() => {}) },
+                { key: 'zh', label: label('ZH'), check: lang === 'zh',
+                  onClick: () => request('language', { value: 'zh' }).then(d => setLang(d.language)).catch(() => {}) },
+                { key: 'en', label: label('EN'), check: lang === 'en',
+                  onClick: () => request('language', { value: 'en' }).then(d => setLang(d.language)).catch(() => {}) },
+            ] },
+            // 关于与更新 ▸
+            { key: 'ABOUT', hasSub: true, label: label('ABOUT'), sub: [
+                { key: 'ver', label: `${label('CURRENT_VERSION')} v${version || '?.?.?'}`, disabled: true },
+                { key: 'GITHUB', label: label('GITHUB'), onClick: () => window.open('https://github.com/IvenKooLab/desktop-pet', '_blank') },
+            ] },
+          ].map(entry => renderItem(entry, 1))) : null) : null)
     }
     return {
       name: 'comi-pet', inject: ['slots'],

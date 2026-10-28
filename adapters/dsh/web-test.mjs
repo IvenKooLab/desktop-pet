@@ -70,6 +70,13 @@ try {
   ok(result.status === 200, 'runtime-synthesized fall frame is served for web fling physics')
   result = await call('GET', '/comi-pet/frames/land_0.png')
   ok(result.status === 200, 'runtime-synthesized land frame is served for web landing')
+  result = await call('GET', '/comi-pet/api/state')
+  ok(typeof result.json().language === 'string' && result.json().version === '2.0.2',
+     'state exposes language preference and app version for web menu parity')
+  result = await call('POST', '/comi-pet/api/language', { value: 'zh' })
+  ok(result.status === 200 && result.json().language === 'zh', 'language preference can be set from the web menu')
+  result = await call('POST', '/comi-pet/api/language', { value: 'klingon' })
+  ok(result.status === 400, 'invalid language values refused')
   result = await call('GET', '/comi-pet/frames/%2e%2e%2fpackage.json.png')
   ok(result.status === 404, 'encoded traversal refused')
   reduceSession(sessions, 's1', { kind: 'turn.started' }, undefined, now)
