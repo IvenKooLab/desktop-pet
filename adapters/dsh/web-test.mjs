@@ -70,8 +70,9 @@ try {
   ok(result.status === 200, 'runtime-synthesized fall frame is served for web fling physics')
   result = await call('GET', '/comi-pet/frames/land_0.png')
   ok(result.status === 200, 'runtime-synthesized land frame is served for web landing')
+  const appVersion = readFileSync(join(root, 'VERSION'), 'utf8').trim()
   result = await call('GET', '/comi-pet/api/state')
-  ok(typeof result.json().language === 'string' && result.json().version === '2.0.2',
+  ok(typeof result.json().language === 'string' && result.json().version === appVersion,
      'state exposes language preference and app version for web menu parity')
   result = await call('POST', '/comi-pet/api/language', { value: 'zh' })
   ok(result.status === 200 && result.json().language === 'zh', 'language preference can be set from the web menu')
