@@ -14,9 +14,18 @@ window.__ModuleLoader__.load({
       HAPPY: text('开心', 'Happy'), SHY: text('害羞', 'Shy'), CHEER: text('打板', 'Clapperboard'),
       SPIN: text('观察四周', 'Look around'), STRETCH: text('伸懒腰', 'Stretch'),
       DOZE: text('打瞌睡', 'Doze'), RUBIK: text('玩魔方', 'Rubik’s cube'),
-      THINKING: text('苦思冥想', 'Deep thinking'), IMPATIENT: text('等待不耐烦', 'Getting impatient'),
+      WORK: text('工作', 'Working'), REVIEW: text('检查', 'Reviewing'), WAITING: text('等待', 'Waiting'),
+      FAILED: text('失落', 'Sad'), THINKING: text('苦思冥想', 'Deep thinking'), IMPATIENT: text('等待不耐烦', 'Getting impatient'),
       TOKEN_LOW: text('额度不足（表演）', 'Low tokens (performance)'), RELIEVED: text('松口气', 'A sigh of relief'),
+      YAWN: text('困倦眨眼', 'Sleepy blink'), STOMP: text('委屈表情', 'Feeling down'),
+      CELEBRATE: text('挥手庆祝', 'Celebrate'), SEARCH: text('左右观察', 'Search around'),
     }
+    // 菜单分组与桌面端（pet.py / ComiPet.swift）保持同一套分类
+    const menuGroups = [
+      { title: text('日常互动', 'Everyday'), items: ['CHEER', 'SPIN', 'BOUNCE', 'HAPPY', 'GREET', 'SHY'] },
+      { title: text('工作状态', 'Work themes'), items: ['THINKING', 'WORK', 'REVIEW', 'WAITING', 'IMPATIENT', 'TOKEN_LOW', 'RELIEVED', 'FAILED'] },
+      { title: text('生活小动作', 'Little breaks'), items: ['STRETCH', 'DOZE', 'RUBIK', 'YAWN', 'STOMP', 'CELEBRATE', 'SEARCH'] },
+    ]
     const clientId = (() => {
       try {
         let value = sessionStorage.getItem('comi-pet-client')
@@ -26,6 +35,44 @@ window.__ModuleLoader__.load({
     })()
     const button = { border: '1px solid #ddd5ea', background: '#fff', color: '#514261', borderRadius: 10,
       padding: '7px 11px', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', boxShadow: '0 2px 10px #21132a12' }
+    // 甩抛物理：与 throw_physics.py / ComiPet.swift 同一套常量与语义（屏幕坐标 y 向下）
+    const PHYS = { G: 1200, RESTITUTION: 0.55, FRICTION: 0.72, LAND_SPEED: 260, THROW_MIN: 280,
+      MAX_BOUNCES: 4, WINDOW_MS: 120, MIN_SPAN_MS: 20, MAX_SPEED: 2600 }
+    function estimateVelocity(samples, now, windowMs = PHYS.WINDOW_MS, minSpanMs = PHYS.MIN_SPAN_MS, maxSpeed = PHYS.MAX_SPEED) {
+      const usable = (samples || []).filter(s => now - s.t <= windowMs).sort((a, b) => a.t - b.t)
+      if (usable.length < 2) return null
+      const first = usable[0], last = usable[usable.length - 1]
+      const dt = last.t - first.t
+      if (dt < minSpanMs) return null
+      let vx = (last.x - first.x) / dt * 1000, vy = (last.y - first.y) / dt * 1000
+      const speed = Math.hypot(vx, vy)
+      if (speed < 1e-6) return null
+      if (speed > maxSpeed) { const scale = maxSpeed / speed; vx *= scale; vy *= scale }
+      return { vx, vy }
+    }
+    function stepPhysics(x, y, vx, vy, dt, minX, maxX, minY, floorY, size = 200) {
+      if (!(dt > 0) || !Number.isFinite(x + y + vx + vy)) return { x, y, vx, vy, event: 'fly' }
+      vy += PHYS.G * dt
+      x += vx * dt
+      y += vy * dt
+      let event = 'fly'
+      if (x < minX) { x = minX; vx = -vx * PHYS.RESTITUTION }
+      else if (x > maxX) { x = maxX; vx = -vx * PHYS.RESTITUTION }
+      if (y < minY) { y = minY; vy = -vy * PHYS.RESTITUTION }
+      if (y + size >= floorY) {
+        if (Math.abs(vy) > PHYS.LAND_SPEED || Math.abs(vx) > PHYS.LAND_SPEED) {
+          y = floorY - size
+          vy = -vy * PHYS.RESTITUTION
+          vx = vx * PHYS.FRICTION
+          event = 'bounce'
+        } else {
+          y = floorY - size
+          vx = 0; vy = 0
+          event = 'land'
+        }
+      }
+      return { x, y, vx, vy, event }
+    }
     const request = async (path, body) => {
       const response = await fetch(`${PREFIX}/api/${path}`, body === undefined
         ? { credentials: 'same-origin', cache: 'no-store' }
@@ -45,6 +92,7 @@ window.__ModuleLoader__.load({
       const behavior = useRef({ actions: {} }), leaseRef = useRef(display), drag = useRef(null)
       const position = useRef({ x: Math.max(0, innerWidth - 235), y: Math.max(100, innerHeight - 235) })
       const action = useRef(null)
+      const flying = useRef(null)
       stateRef.current = host
       leaseRef.current = display
       const embedded = display.mode === 'embedded' && display.client_id === clientId && display.lease_until > now
@@ -88,9 +136,15 @@ window.__ModuleLoader__.load({
       }, [])
       useEffect(() => {
         if (!embedded || !manifest) return
-        const clips = manifest.clips
+        // 桌面端（pet.py / ComiPet.swift）在运行时合成 FALL/LAND；manifest 只存
+        // 素材剪辑。Web 端同样补齐，甩抛物理与落地动画才能工作。
+        const clips = { ...manifest.clips }
+        if (!clips.FALL) clips.FALL = { frames: ['fall_0'], durations: [1000] }
+        if (!clips.LAND) clips.LAND = { frames: ['land_0'], durations: [350] }
         let raf, previous = performance.now(), clip = 'IDLE', elapsed = 0, repeats = 1, shown = '', lastAction = ''
         let previousPhase = 'idle', previousHostKey = '', terminalPlayed = false, direction = Math.random() > .5 ? 1 : -1
+        let previousSelected = null
+        let squashTimer = 0
         const randomInt = (range, fallback) => {
           const pair = Array.isArray(range) && range.length === 2 ? range : fallback
           return Math.floor(pair[0] + Math.random() * (pair[1] - pair[0] + 1))
@@ -98,11 +152,18 @@ window.__ModuleLoader__.load({
         const choose = name => {
           clip = clips[name] ? name : 'IDLE'; elapsed = 0
           const configured = behavior.current.actions?.[clip]?.cycles
-          if (['THINKING', 'IMPATIENT', 'TOKEN_LOW', 'RELIEVED'].includes(clip)
+          if (['THINKING', 'IMPATIENT', 'TOKEN_LOW', 'RELIEVED', 'LAND', 'FALL'].includes(clip)
             || (stateRef.current.phase === 'working' && clip === 'WORK')) repeats = 1
           else if (clip === 'IDLE') repeats = Math.max(1, Math.round(randomInt(behavior.current.idle_seconds, [3, 5]) * 1000 * SPEED / clips.IDLE.durations.reduce((a, b) => a + b, 0)))
           else if (clip.startsWith('WALK')) repeats = randomInt(behavior.current.walk_cycles, [5, 8])
           else repeats = randomInt(configured, ['GREET', 'BOUNCE', 'HAPPY', 'CHEER'].includes(clip) ? [3, 5] : [2, 3])
+        }
+        const squash = () => {
+          const img = image.current
+          if (!img) return
+          img.style.transform = 'scale(1.16, 0.82)'
+          clearTimeout(squashTimer)
+          squashTimer = setTimeout(() => { if (image.current) image.current.style.transform = '' }, 180)
         }
         const next = () => {
           const phase = stateRef.current.phase
@@ -138,22 +199,44 @@ window.__ModuleLoader__.load({
           if (phase === 'waiting' && clip === 'WAITING' && Date.now() - (stateRef.current.phase_since || Date.now()) >= 30_000) choose('IMPATIENT')
           if (action.current) { choose(action.current); action.current = null }
           if (drag.current) {
+            if (flying.current) flying.current = null        // 抓住即停飞
             if (clip !== 'GRAB') choose('GRAB')
           } else if (clip === 'GRAB') choose('IDLE')
           elapsed += dt * SPEED
           let selected = clips[clip] || clips.IDLE
           let duration = selected.durations.reduce((a, b) => a + b, 0)
-          if (elapsed >= duration * repeats) { next(); selected = clips[clip] || clips.IDLE; duration = selected.durations.reduce((a, b) => a + b, 0) }
+          // 飞行中不做自动轮播：保持 FALL 直到落地
+          if (!flying.current && elapsed >= duration * repeats) { next(); selected = clips[clip] || clips.IDLE; duration = selected.durations.reduce((a, b) => a + b, 0) }
           let phaseTime = elapsed % duration, index = 0
           while (index < selected.frames.length - 1 && phaseTime >= selected.durations[index]) { phaseTime -= selected.durations[index]; index++ }
-          const source = `${PREFIX}/frames/${selected.frames[index]}.png`
-          if (source !== shown && image.current) { image.current.src = source; shown = source }
-          if (image.current) image.current.dataset.animation = clip
           if (!drag.current && clip.startsWith('WALK')) {
             const pos = position.current
             pos.x += direction * 28 * dt / 1000 * SPEED
             if (pos.x <= 0 || pos.x >= innerWidth - 200) { direction *= -1; choose(direction > 0 ? 'WALK_r' : 'WALK_l') }
           }
+          // 甩抛物理：拖拽松手后的抛物线飞行、视口边缘反弹、落地弹跳（Q 弹）。
+          // 必须在选帧之前跑：松手第一帧就要显示 FALL，而不是下一帧。
+          if (flying.current) {
+            if (clip !== 'FALL') choose('FALL')
+            const pos = position.current
+            const outcome = stepPhysics(pos.x, pos.y, flying.current.vx, flying.current.vy,
+              dt / 1000 * SPEED, 0, Math.max(0, innerWidth - 200), 120, innerHeight)
+            pos.x = outcome.x; pos.y = outcome.y
+            flying.current.vx = outcome.vx; flying.current.vy = outcome.vy
+            if (outcome.event === 'bounce') {
+              flying.current.bounces++
+              squash()
+            } else if (outcome.event === 'land' || flying.current.bounces > PHYS.MAX_BOUNCES) {
+              flying.current = null
+              choose('LAND')
+            }
+          }
+          // 渲染帧：一切状态（含物理改写的 clip）就绪后再上屏
+          selected = clips[clip] || clips.IDLE
+          if (selected !== previousSelected) { previousSelected = selected; index = 0; phaseTime = 0 }
+          const source = `${PREFIX}/frames/${selected.frames[index]}.png`
+          if (source !== shown && image.current) { image.current.src = source; shown = source }
+          if (image.current) image.current.dataset.animation = clip
           const pos = position.current
           pos.x = Math.max(0, Math.min(Math.max(0, innerWidth - 200), pos.x))
           pos.y = Math.max(Math.min(120, Math.max(0, innerHeight - 200)), Math.min(Math.max(0, innerHeight - 200), pos.y))
@@ -161,13 +244,14 @@ window.__ModuleLoader__.load({
           raf = requestAnimationFrame(frame)
         }
         raf = requestAnimationFrame(frame)
-        return () => cancelAnimationFrame(raf)
+        return () => { cancelAnimationFrame(raf); clearTimeout(squashTimer) }
       }, [embedded, manifest])
       const phases = { working: text('工作中', 'Working'), waiting: text('等你确认', 'Needs your input'), success: text('任务完成', 'Task complete'), failed: text('遇到问题', 'Needs attention') }
       const status = phases[host.phase]
       const startDrag = event => {
         if (event.button !== 0) return
-        drag.current = { x: event.clientX - position.current.x, y: event.clientY - position.current.y, moved: false }
+        drag.current = { x: event.clientX - position.current.x, y: event.clientY - position.current.y, moved: false,
+          samples: [{ t: performance.now(), x: event.clientX, y: event.clientY }] }
         event.currentTarget.setPointerCapture(event.pointerId); setMenu(false)
       }
       const moveDrag = event => {
@@ -175,18 +259,29 @@ window.__ModuleLoader__.load({
         const x = event.clientX - drag.current.x, y = event.clientY - drag.current.y
         if (Math.abs(x - position.current.x) + Math.abs(y - position.current.y) > 3) drag.current.moved = true
         position.current = { x, y }
+        drag.current.samples.push({ t: performance.now(), x: event.clientX, y: event.clientY })
+        if (drag.current.samples.length > 6) drag.current.samples.shift()
       }
       const endDrag = event => {
         if (!drag.current) return
-        if (!drag.current.moved) action.current = 'BOUNCE'
+        const moved = drag.current.moved, samples = drag.current.samples
         drag.current = null
-        if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
+        if (event.currentTarget?.hasPointerCapture?.(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
+        if (!moved) { action.current = 'BOUNCE'; return }
+        // 甩得动就抛出去（与桌面端同一套阈值），温柔放下则原地停住
+        const velocity = estimateVelocity(samples, performance.now())
+        if (velocity && Math.hypot(velocity.vx, velocity.vy) >= PHYS.THROW_MIN) {
+          flying.current = { vx: velocity.vx, vy: velocity.vy, bounces: 0 }
+        }
       }
-      const entries = Object.keys(labels).filter(name => manifest?.clips[name]).map(name => h('button', {
-        key: name, style: { ...button, boxShadow: 'none', textAlign: 'left', padding: '5px 9px' },
-        onClick: () => { action.current = name; setMenu(false) },
-      }, labels[name]))
       return h('div', { style: { position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 1000, fontFamily: 'system-ui, sans-serif' } },
+        h('style', null, `
+.comi-menu-item{display:block;width:100%;text-align:left;padding:6px 10px;border:none;background:transparent;color:#514261;font-size:12px;border-radius:8px;cursor:pointer;font-family:inherit}
+.comi-menu-item:hover{background:#f3edf9}
+.comi-menu-primary{font-weight:600;color:#7954a2}
+.comi-menu-section{font-size:11px;color:#9a8fae;padding:5px 10px 2px}
+.comi-pet-img{transform-origin:50% 96%;transition:transform .16s cubic-bezier(.2,.7,.4,1.4)}
+`),
         h('button', { type: 'button', disabled: !manifest, style: { ...button, position: 'absolute', right: 16, top: 76, pointerEvents: 'auto', opacity: manifest ? 1 : .6 },
           title: error || text('切换 Comi 显示位置', 'Switch Comi’s display mode'),
           onClick: () => selectMode(embedded ? 'desktop' : 'embedded') },
@@ -197,16 +292,25 @@ window.__ModuleLoader__.load({
           h('strong', { style: { display: 'block', color: '#7954a2', marginBottom: host.label || host.tool ? 5 : 0 } }, `DSH · ${status}`),
           host.label ? h('div', null, host.label) : null,
           host.tool ? h('div', { style: { marginTop: 3, opacity: .8 } }, `${text('当前工具', 'Tool')} · ${host.tool}`) : null) : null,
-          h('img', { ref: image, src: `${PREFIX}/frames/idle_0.png`, draggable: false, alt: 'Comi',
+          h('img', { ref: image, className: 'comi-pet-img', src: `${PREFIX}/frames/idle_0.png`, draggable: false, alt: 'Comi',
             style: { display: 'block', width: 200, height: 200, userSelect: 'none', touchAction: 'none', cursor: 'grab' },
             onPointerDown: startDrag, onPointerMove: moveDrag, onPointerUp: endDrag, onPointerCancel: endDrag,
             onContextMenu: event => { event.preventDefault(); setMenu(value => !value) } }),
-          menu ? h('div', { style: { position: 'absolute', bottom: 180, right: 0, width: 180, maxHeight: '50vh', overflowY: 'auto', padding: 8,
-            display: 'grid', gap: 4, background: '#fff', border: '1px solid #ddd5ea', borderRadius: 14, boxShadow: '0 6px 25px #24122a30' } },
-          h('button', { style: button, onClick: () => selectMode('desktop') }, text('移到独立桌面 ↗', 'Move to desktop ↗')), ...entries) : null) : null)
+          menu ? h('div', { style: { position: 'absolute', bottom: 180, right: 0, width: 192, maxHeight: '55vh', overflowY: 'auto', padding: '8px 6px',
+            background: '#fff', border: '1px solid #ddd5ea', borderRadius: 14, boxShadow: '0 6px 25px #24122a30' } },
+          h('button', { className: 'comi-menu-item comi-menu-primary', onClick: () => selectMode('desktop') }, text('移到独立桌面 ↗', 'Move to desktop ↗')),
+          ...menuGroups.map(group => {
+            const items = group.items.filter(name => manifest?.clips[name])
+            if (!items.length) return null
+            return h('div', { key: group.title },
+              h('div', { className: 'comi-menu-section' }, group.title),
+              ...items.map(name => h('button', { key: name, className: 'comi-menu-item',
+                onClick: () => { action.current = name; setMenu(false) } }, labels[name])))
+          }).filter(Boolean)) : null) : null)
     }
     return {
       name: 'comi-pet', inject: ['slots'],
+      __physics: { estimateVelocity, stepPhysics, PHYS },
       apply(ctx) {
         ctx.slots.inject('shell.overlay', function* () {
           yield ctx.slots.register({ name: 'shell.overlay', id: 'comi-pet', order: 1000 }, () => h(Overlay))

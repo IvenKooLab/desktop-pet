@@ -99,7 +99,8 @@ export function createRouteHandler({ eventsDir, root = ROOT, sessions = new Map(
   const displayPath = resolve(dirname(eventsDir), 'display.json')
   const manifestPath = resolve(root, 'frames3d/animation.json')
   const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'))
-  const frames = new Set(Object.values(manifest.clips).flatMap(clip => clip.frames))
+  // 桌面端运行时合成的 FALL/LAND 帧也在服务白名单里（与 client.js 的合成剪辑一致）
+  const frames = new Set([...Object.values(manifest.clips).flatMap(clip => clip.frames), 'fall_0', 'land_0'])
   return async function handler(req, res) {
     if (!isTrustedApiRequest(req, trustedHosts())) return json(res, 403, { ok: false, error: 'forbidden' })
     const path = new URL(req.url ?? '/', 'http://dsh.internal').pathname

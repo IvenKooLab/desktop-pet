@@ -1,5 +1,20 @@
 # 更新日志
 
+## [2.0.2] - 2026-10-28
+
+紧急修复：v2.0.0 改名导致老用户宿主配置指向不存在的脚本，钩子集体失效。
+
+### 修复
+
+- 恢复旧路径脚本作为纯委托垫片（git pull 后立即恢复工作，无需改配置）：`adapters/zcode/iven_hook.py` → `comi_hook.py`、`adapters/codex/iven_codex.py` → `comi_codex.py`、`adapters/opencode/iven_opencode.py` → `comi_opencode.py`、`tools/iven_cli.py` → `comi_cli.py`。argv/stdin/退出码原样透传，映射逻辑只有一份（新脚本），不会语义分叉。
+- 新增 tests/test_legacy_shims.py：旧路径 iven_hook.py 收到真实 ZCode Hook stdin 后收件箱必须出现正确的统一事件；其余垫片做静态委托校验。
+- DSH 界面内（Web 端）右键菜单按类分组（日常互动/工作状态/生活小动作），与桌面端一致；拖拽松手支持甩抛物理（与 throw_physics.py 同一套常量：抛物线、视口边缘反弹、落地 Q 弹、温柔放下原地停住）；补齐 Web 端运行时合成的 FALL/LAND 剪辑与帧服务白名单。
+
+### 升级
+
+- **ZCode/Codex/OpenCode 钩子用户**：`git pull` 后即恢复，配置无需改动（旧路径垫片长期保留）；也可以把配置里的 `iven_hook.py` 改成 `comi_hook.py`。
+- DSH 桌面应用需重启一次并刷新浏览器页面，才能拿到新的 Web 菜单与甩抛物理。
+
 ## [2.0.1] - 2026-10-27
 
 修复 v2.0.0 中"DSH 界面内"显示切换在 DSH 桌面应用上完全失效的问题。

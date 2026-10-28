@@ -66,6 +66,10 @@ try {
   ok(result.status === 200 && result.headers['content-type'] === 'image/png' && Buffer.isBuffer(result.data), 'approved transparent PNG served')
   result = await call('GET', '/comi-pet/frames/package.json.png')
   ok(result.status === 404, 'non-manifest file refused')
+  result = await call('GET', '/comi-pet/frames/fall_0.png')
+  ok(result.status === 200, 'runtime-synthesized fall frame is served for web fling physics')
+  result = await call('GET', '/comi-pet/frames/land_0.png')
+  ok(result.status === 200, 'runtime-synthesized land frame is served for web landing')
   result = await call('GET', '/comi-pet/frames/%2e%2e%2fpackage.json.png')
   ok(result.status === 404, 'encoded traversal refused')
   reduceSession(sessions, 's1', { kind: 'turn.started' }, undefined, now)
@@ -104,7 +108,7 @@ try {
   const simulate = initialHost => {
     let callback, time = 0, hook = 0, refIndex = 0, module, mounted
     const refs = [], effects = []
-    const fakeImage = { src: '', dataset: {} }, fakeCard = { style: {} }
+    const fakeImage = { src: '', dataset: {}, style: {}, className: '' }, fakeCard = { style: {} }
     const host = { session_id: 'test-session', phase_since: now, label: '', tool: '', ...initialHost }
     class ClockDate extends Date { static now() { return now + time } }
     const react = {
@@ -126,6 +130,7 @@ try {
       window: { __ModuleLoader__: { load(info) { module = info } } },
       innerWidth: 1000, innerHeight: 800, Date: ClockDate,
       performance: { now: () => time }, requestAnimationFrame: fn => { callback = fn; return 1 }, cancelAnimationFrame: () => { callback = null },
+      setTimeout: () => 1, clearTimeout: () => {},
     }
     vm.runInNewContext(clientCode, context)
     const componentPlugin = module.factory(() => react)
@@ -160,5 +165,50 @@ try {
   let falselyLow = false
   for (let tick = 0; tick < 10_000; tick++) if (autoplay.step() === 'TOKEN_LOW') { falselyLow = true; break }
   ok(!falselyLow, 'autoplay never fabricates a low-token account state')
+
+  // 甩抛物理：纯函数（与 tests/test_throw_physics.py 同一套常量与语义）
+  const physics = plugin.__physics
+  ok(physics && physics.PHYS.G === 1200 && physics.PHYS.THROW_MIN === 280, 'client exports the shared physics constants')
+  // 样本时间轴用毫秒（与 performance.now() 一致）：t=10000 距 now 150ms 已出 120ms 窗口
+  let velocity = physics.estimateVelocity([{ t: 10000, x: 0, y: 0 }, { t: 10100, x: 500, y: 0 }, { t: 10150, x: 550, y: 0 }], 10150)
+  ok(velocity && Math.abs(velocity.vx - 1000) < 0.01, 'stale samples outside the window are ignored')
+  ok(physics.estimateVelocity([{ t: 10000, x: 0, y: 0 }, { t: 10005, x: 30, y: 0 }], 10005) === null, 'short span has no velocity')
+  ok(physics.estimateVelocity([{ t: 10000, x: 0, y: 0 }], 10000) === null, 'single sample has no velocity')
+  let flight = physics.stepPhysics(500, 500, 0, 1500, 0.25, 0, 1000, 0, 800)
+  ok(flight.event === 'bounce' && flight.y === 600 && Math.abs(flight.vy + 990) < 1e-9, 'hard impact bounces with energy loss')
+  flight = physics.stepPhysics(500, 600, 0, 180, 0.05, 0, 1000, 0, 800)
+  ok(flight.event === 'land' && flight.vx === 0 && flight.vy === 0, 'soft contact settles in place')
+  flight = physics.stepPhysics(1990, 500, 3000, 0, 0.05, 0, 1800, 0, 800)
+  ok(flight.x === 1800 && flight.vx < 0, 'viewport edge reflects the throw')
+
+  // 甩抛集成：真实组件里拖拽-松手-飞行-落地（与桌面端手感同源）
+  const findPet = node => {
+    if (!node || typeof node !== 'object') return null
+    if (node.props?.onPointerDown) return node
+    for (const child of node.props?.children || []) { const found = findPet(child); if (found) return found }
+    return null
+  }
+  const fling = simulate({ phase: 'idle' })
+  fling.step()
+  const pet = findPet(fling.tree)
+  ok(!!pet, 'pet image with pointer handlers rendered')
+  const grabTarget = { setPointerCapture() {}, hasPointerCapture() { return false }, releasePointerCapture() {} }
+  pet.props.onPointerDown({ button: 0, clientX: 300, clientY: 400, pointerId: 1, currentTarget: grabTarget })
+  for (const [advance, x, y] of [[20, 400, 420], [20, 520, 440], [20, 640, 460]]) {
+    fling.step(advance)
+    pet.props.onPointerMove({ clientX: x, clientY: y })
+  }
+  pet.props.onPointerUp({ pointerId: 1, currentTarget: grabTarget })
+  fling.step()
+  ok(fling.fakeImage.dataset.animation === 'FALL', 'released fling switches to the fall frame')
+  let sawFlight = false, sawLand = false
+  for (let tick = 0; tick < 400; tick++) {
+    const clip = fling.step(50)
+    if (clip === 'FALL') sawFlight = true
+    if (clip === 'LAND') { sawLand = true; break }
+  }
+  ok(sawFlight && sawLand, 'flight plays FALL through the bounces and ends in LAND')
+  const settled = fling.refs[7].current
+  ok(Math.abs(settled.y - 600) < 1, `pet settles on the viewport floor (y=${settled.y})`)
   console.log(`PASS: DSH overlay (${checks} checks)`)
 } finally { rmSync(temp, { recursive: true, force: true }) }
