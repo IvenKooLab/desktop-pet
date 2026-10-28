@@ -276,10 +276,10 @@ window.__ModuleLoader__.load({
       }
       return h('div', { style: { position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 1000, fontFamily: 'system-ui, sans-serif' } },
         h('style', null, `
-.comi-menu-item{display:block;width:100%;text-align:left;padding:6px 10px;border:none;background:transparent;color:#514261;font-size:12px;border-radius:8px;cursor:pointer;font-family:inherit}
-.comi-menu-item:hover{background:#f3edf9}
-.comi-menu-primary{font-weight:600;color:#7954a2}
-.comi-menu-section{font-size:11px;color:#9a8fae;padding:5px 10px 2px}
+.comi-menu-item{display:block;width:100%;text-align:left;padding:3px 14px;border:none;background:transparent;color:#1d1d1f;font-size:13px;line-height:20px;border-radius:0;cursor:default;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif}
+.comi-menu-item:hover{background:#2f6bd8;color:#fff}
+.comi-menu-section{padding:5px 14px 2px;font-size:11px;line-height:14px;color:#8a8a8e;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif}
+.comi-menu-sep{height:1px;margin:5px 12px;background:#e3e3e3;border:none}
 .comi-pet-img{transform-origin:50% 96%;transition:transform .16s cubic-bezier(.2,.7,.4,1.4)}
 `),
         h('button', { type: 'button', disabled: !manifest, style: { ...button, position: 'absolute', right: 16, top: 76, pointerEvents: 'auto', opacity: manifest ? 1 : .6 },
@@ -301,17 +301,19 @@ window.__ModuleLoader__.load({
               if (!img.src.endsWith('idle_0.png')) img.src = `${PREFIX}/frames/idle_0.png`
             },
             onContextMenu: event => { event.preventDefault(); setMenu(value => !value) } }),
-          menu ? h('div', { style: { position: 'absolute', bottom: 180, right: 0, width: 192, maxHeight: '55vh', overflowY: 'auto', padding: '8px 6px',
-            background: '#fff', border: '1px solid #ddd5ea', borderRadius: 14, boxShadow: '0 6px 25px #24122a30' } },
-          h('button', { className: 'comi-menu-item comi-menu-primary', onClick: () => selectMode('desktop') }, text('移到独立桌面 ↗', 'Move to desktop ↗')),
-          ...menuGroups.map(group => {
+          menu ? h('div', { style: { position: 'absolute', bottom: 180, right: 0, width: 200, maxHeight: '55vh', overflowY: 'auto', padding: '5px 0',
+            background: '#fff', border: '1px solid #d9d9de', borderRadius: 12, boxShadow: '0 10px 34px #0000002e' } },
+          h('button', { className: 'comi-menu-item', onClick: () => selectMode('desktop') }, text('移到独立桌面 ↗', 'Move to desktop ↗')),
+          ...menuGroups.flatMap((group, index) => {
             const items = group.items.filter(name => manifest?.clips[name])
-            if (!items.length) return null
-            return h('div', { key: group.title },
-              h('div', { className: 'comi-menu-section' }, group.title),
+            if (!items.length) return []
+            return [
+              h('div', { className: 'comi-menu-sep', key: `sep-${group.title}` }),
+              h('div', { className: 'comi-menu-section', key: `head-${group.title}` }, group.title),
               ...items.map(name => h('button', { key: name, className: 'comi-menu-item',
-                onClick: () => { action.current = name; setMenu(false) } }, labels[name])))
-          }).filter(Boolean)) : null) : null)
+                onClick: () => { action.current = name; setMenu(false) } }, labels[name])),
+            ]
+          })) : null) : null)
     }
     return {
       name: 'comi-pet', inject: ['slots'],
