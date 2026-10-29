@@ -12,6 +12,8 @@ Runs independently — no Codex, account or model API required.
 
 [Download the latest release](https://github.com/IvenKooLab/desktop-pet/releases/latest) · [Changelog](CHANGELOG.md)
 
+**v2.1.1** fixes DSH embedded action controls and custom data-directory consistency, and adds a first-run interaction hint. [Release notes and upgrade steps](docs/releases/v2.1.1.md)
+
 ## A glimpse of her day
 
 | Blink & look around | Wave, bounce & clapperboard | Wait, work & review |
@@ -62,7 +64,7 @@ python pet.py
 - **Desktop:** the native macOS / Windows pet runs independently of any coding agent.
 - **Inside DSH:** install the [DSH adapter](adapters/dsh/README.md), then use the Comi entry in DSH to bring the pet into its interface, with dragging, action selection and status bubbles. The desktop app’s Display mode menu can also request the switch.
 
-Both views coordinate to avoid showing two copies. The pet hides only after the DSH web page claims the display; if nothing claims it within about 6 seconds, the desktop pet stays and a hint appears, and if the DSH page closes or disconnects later, desktop display returns within about 30 seconds. Reload DSH when first enabling the frontend plugin. Embedded mode currently targets DSH only; other agents continue to drive the independent desktop pet through their adapters.
+Both views coordinate to avoid showing two copies. The pet hides only after the DSH web page claims the display; if nothing claims it within about 6 seconds, the desktop pet stays and a hint appears, and if the DSH page closes or disconnects later, desktop display returns when the lease expires (about 60 seconds). Reload DSH when first enabling the frontend plugin. Embedded mode currently targets DSH only; other agents continue to drive the independent desktop pet through their adapters.
 
 ## Company while you work
 
@@ -141,7 +143,7 @@ No third-party Python packages are needed at runtime. See the [maintenance guide
 
 ## First launch
 
-She drops from the sky, lands, waves, and shows one hint: **click to hop, drag to move, flick to throw, right-click for the menu**. It appears once; see the interaction table above if you want it again.
+On first launch, she shows a hint when visible and no harness notice is taking priority: **click to hop, drag to move, flick to throw, right-click for the menu**. It also appears when starting pinned in place, and waits while she is hidden or busy. It appears once; see the interaction table above if you want it again.
 
 ## Contributing
 
