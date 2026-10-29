@@ -1,5 +1,30 @@
 # 适配器总览：能力矩阵与验收状态
 
+## 30 秒接上你最常用的助手
+
+先把本仓库 clone 到本地（下面把路径记作 `<仓库>`，即 `git clone` 出来的目录）：
+
+| 你在用 | 最短路径 |
+| :--- | :--- |
+| **ZCode** | 打开 `~/.zcode/cli/config.json`，把 [zcode/user-config.example.json](zcode/user-config.example.json) 的 `hooks` 合并进去，把 `__COMI_REPO__` 换成本仓库绝对路径 → 新开一个 ZCode 会话 |
+| **DSH** | `dsh plugin --profile <你的profile> add <仓库>/adapters/dsh/comi-bridge`（`dsh web` 用 `web`，桌面应用用 `desktop`）→ 重启 DSH |
+| **Claude Code** | 把 [claude-code/settings.example.json](claude-code/settings.example.json) 的 `hooks` 合并进 `~/.claude/settings.json`，替换 `__COMI_REPO__` |
+| **Cursor** | 合并 [cursor/hooks.example.json](cursor/hooks.example.json) 到 Cursor 的 hooks 配置，替换 `__COMI_REPO__` |
+| **OpenCode** | 把 [opencode/comi_opencode.py](opencode/comi_opencode.py) 作为 SSE 监听进程挂上，见 [opencode/README.md](opencode/README.md) |
+| **Codex** | 见 [codex/README.md](codex/README.md)——**目前只能跟随它自己新建的会话，不能跟随你正在用的 Codex 桌面会话** |
+
+接好后验证（不需要真的跑任务）：
+
+```bash
+echo '{"session_id":"t1","hook_event_name":"PreToolUse","tool_name":"Bash"}' \
+  | python3 <仓库>/adapters/zcode/comi_hook.py
+ls ~/.comi-pet/events/     # 出现一个事件 JSON 即说明通路正常，桌宠会消费它
+```
+
+接不上时桌宠显示「未收到事件」是**正确**行为——它只报告真实收到的东西，不会凭进程存在就假装在工作。
+
+## 能力矩阵与验收状态
+
 全部适配器共用同一套 bridge（协议 v1、收件箱 `~/.comi-pet/events`、桌宠端
 状态归约），见 [docs/BRIDGE.md](../docs/BRIDGE.md)。统一能力声明：
 `read_state` / `read_summary` / `send_prompt`——未核实或不支持就如实为 ❌，

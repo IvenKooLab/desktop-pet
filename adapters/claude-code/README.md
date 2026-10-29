@@ -11,7 +11,7 @@
 - 项目级 `.claude/settings.json` 或 `.claude/settings.local.json`
 - 插件的 `hooks/hooks.json`
 
-替换 `__IVER_REPO__` 为本仓库绝对路径。Claude Code 的 `command` 是**单字符串**
+替换 `__COMI_REPO__` 为本仓库绝对路径。Claude Code 的 `command` 是**单字符串**
 形式（经 shell 执行），与 ZCode 的 `command + args` 数组结构不同，别互抄。
 
 ## 验证

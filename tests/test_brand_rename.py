@@ -49,6 +49,15 @@ class BrandTests(unittest.TestCase):
         self.assertIn("comi-bridge", patch)
         self.assertNotIn("iven-bridge", patch)
 
+    def test_adapter_placeholders_use_the_new_name(self):
+        """示例配置里的占位符必须叫 __COMI_REPO__（改名前的 __IVER_REPO__ 会误导用户）。"""
+        offenders = []
+        for path in (ROOT / 'adapters').rglob('*'):
+            if path.is_file() and path.suffix in {'.md', '.json', '.yml'}:
+                if '__IVER_REPO__' in path.read_text(encoding='utf-8', errors='ignore'):
+                    offenders.append(str(path.relative_to(ROOT)))
+        self.assertEqual(offenders, [], f"仍有旧占位符：{offenders}")
+
     def test_version_file_matches_release_notes(self):
         version = (ROOT / "VERSION").read_text().strip()
         self.assertTrue((ROOT / f"docs/releases/v{version}.md").is_file(),

@@ -1,32 +1,32 @@
 {
-  "_comment": "Claude Code 用户级/项目级 settings 示例：把 hooks 字段合并进 ~/.claude/settings.json（或项目 .claude/settings.json），保留已有其他 Hook，别整文件覆盖。command 是【单字符串】形式（与 ZCode 的 command+args 数组不同）。将 __IVER_REPO__ 替换为本仓库绝对路径。开启摘要：宿主环境设 COMI_BRIDGE_SUMMARY=1。",
+  "_comment": "Claude Code 用户级/项目级 settings 示例：把 hooks 字段合并进 ~/.claude/settings.json（或项目 .claude/settings.json），保留已有其他 Hook，别整文件覆盖。command 是【单字符串】形式（与 ZCode 的 command+args 数组不同）。将 __COMI_REPO__ 替换为本仓库绝对路径。开启摘要：宿主环境设 COMI_BRIDGE_SUMMARY=1。",
   "hooks": {
     "SessionStart": [
-      { "hooks": [ { "type": "command", "command": "python3 '__IVER_REPO__/adapters/claude-code/claude_hook.py'" } ] }
+      { "hooks": [ { "type": "command", "command": "python3 '__COMI_REPO__/adapters/claude-code/claude_hook.py'" } ] }
     ],
     "UserPromptSubmit": [
-      { "hooks": [ { "type": "command", "command": "python3 '__IVER_REPO__/adapters/claude-code/claude_hook.py'" } ] }
+      { "hooks": [ { "type": "command", "command": "python3 '__COMI_REPO__/adapters/claude-code/claude_hook.py'" } ] }
     ],
     "PreToolUse": [
-      { "hooks": [ { "type": "command", "command": "python3 '__IVER_REPO__/adapters/claude-code/claude_hook.py'" } ] }
+      { "hooks": [ { "type": "command", "command": "python3 '__COMI_REPO__/adapters/claude-code/claude_hook.py'" } ] }
     ],
     "PermissionRequest": [
-      { "hooks": [ { "type": "command", "command": "python3 '__IVER_REPO__/adapters/claude-code/claude_hook.py'" } ] }
+      { "hooks": [ { "type": "command", "command": "python3 '__COMI_REPO__/adapters/claude-code/claude_hook.py'" } ] }
     ],
     "Notification": [
-      { "hooks": [ { "type": "command", "command": "python3 '__IVER_REPO__/adapters/claude-code/claude_hook.py'" } ] }
+      { "hooks": [ { "type": "command", "command": "python3 '__COMI_REPO__/adapters/claude-code/claude_hook.py'" } ] }
     ],
     "PostToolUse": [
-      { "hooks": [ { "type": "command", "command": "python3 '__IVER_REPO__/adapters/claude-code/claude_hook.py'" } ] }
+      { "hooks": [ { "type": "command", "command": "python3 '__COMI_REPO__/adapters/claude-code/claude_hook.py'" } ] }
     ],
     "PostToolUseFailure": [
-      { "hooks": [ { "type": "command", "command": "python3 '__IVER_REPO__/adapters/claude-code/claude_hook.py'" } ] }
+      { "hooks": [ { "type": "command", "command": "python3 '__COMI_REPO__/adapters/claude-code/claude_hook.py'" } ] }
     ],
     "Stop": [
-      { "hooks": [ { "type": "command", "command": "python3 '__IVER_REPO__/adapters/claude-code/claude_hook.py'" } ] }
+      { "hooks": [ { "type": "command", "command": "python3 '__COMI_REPO__/adapters/claude-code/claude_hook.py'" } ] }
     ],
     "SessionEnd": [
-      { "hooks": [ { "type": "command", "command": "python3 '__IVER_REPO__/adapters/claude-code/claude_hook.py'" } ] }
+      { "hooks": [ { "type": "command", "command": "python3 '__COMI_REPO__/adapters/claude-code/claude_hook.py'" } ] }
     ]
   }
 }

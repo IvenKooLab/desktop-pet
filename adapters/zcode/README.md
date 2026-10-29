@@ -9,13 +9,13 @@
 
 1. 打开 `~/.zcode/cli/config.json`，把 `user-config.example.json` 里的
    `hooks` 内容合并进去（保留已有其他 hooks，别整文件覆盖）；
-2. 把两处 `__IVER_REPO__` 替换成本仓库的绝对路径；
+2. 把两处 `__COMI_REPO__` 替换成本仓库的绝对路径；
 3. 新开一个 ZCode session（配置在 session 启动时快照，老窗口不保证热更新）。
 
 ### B. 插件形式
 
 把 `zcode-plugin/` 作为插件安装（hooks/hooks.json 会被标准目录自动发现，
-不要同时在 plugin.json 里重复声明），同样替换 `__IVER_REPO__` 后新开 session。
+不要同时在 plugin.json 里重复声明），同样替换 `__COMI_REPO__` 后新开 session。
 
 ## 验证
 
