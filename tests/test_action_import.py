@@ -13,7 +13,7 @@ except ImportError:
     Image = None
 
 
-@unittest.skipIf(Image is None, "Pillow is a build-time dependency")
+@unittest.skipIf(Image is None, "Pillow is a build-time dependency: pip install -r requirements-dev.txt")
 class ActionImportTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):

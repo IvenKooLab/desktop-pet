@@ -140,7 +140,23 @@ tools\build_exe.bat
 zsh tools/build_macos.sh
 ```
 
-运行时无需第三方 Python 包。素材导出、GIF 生成和验证方法见[维护说明](docs/COMI_V2_MIGRATION.md)。
+运行时无需第三方 Python 包。开发/构建期依赖（素材导出与质检）单独放在 `requirements-dev.txt`：
+
+```bash
+python3 -m venv .venv && . .venv/bin/activate
+pip install -r requirements-dev.txt
+python3 -m unittest discover -s tests     # 装完后 7 项构建期测试不再跳过
+```
+
+素材导出、GIF 生成和验证方法见[维护说明](docs/COMI_V2_MIGRATION.md)。
+
+## 第一次启动
+
+她会从天上掉下来，落地后挥个手，然后弹一句提示：**单击跳一下、拖我走、甩出去会飞、右键有菜单**。这条提示只出现一次；之后想再看，右键 → 帮助相关菜单项，或直接看[互动表](#怎么互动)。
+
+## 参与贡献
+
+欢迎提 issue 和 PR——**改代码前请先看 [CONTRIBUTING.md](CONTRIBUTING.md)** 里的自测清单和三条硬约束（角色不改、运行时零依赖、不做网络上传）。想给 Comi 加新动作，见[素材配方](docs/ASSET_RECIPE.md)。
 
 ## 致谢
 

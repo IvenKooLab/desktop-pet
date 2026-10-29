@@ -139,6 +139,14 @@ zsh tools/build_macos.sh
 
 No third-party Python packages are needed at runtime. See the [maintenance guide](docs/COMI_V2_MIGRATION.md) for asset export, preview generation and validation.
 
+## First launch
+
+She drops from the sky, lands, waves, and shows one hint: **click to hop, drag to move, flick to throw, right-click for the menu**. It appears once; see the interaction table above if you want it again.
+
+## Contributing
+
+Issues and pull requests are welcome — **read [CONTRIBUTING.md](CONTRIBUTING.md) first**: it lists the tests to run and the three hard rules (the character stays as approved, the runtime stays dependency-free, nothing is uploaded). To add a brand-new animation, see the [asset recipe](docs/ASSET_RECIPE.md).
+
 ## Credits
 
 Thanks to [dsh-pet](https://github.com/PC2005-cloud/dsh-pet) for animation-chain and everyday-action inspiration.

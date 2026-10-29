@@ -1,0 +1,56 @@
+name: Bug 报告 / Bug report
+description: 桌宠没按预期工作 / The pet does not behave as expected
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        请尽量填完整，缺信息的 issue 很难定位。
+  - type: dropdown
+    id: mode
+    attributes:
+      label: 出问题的模式
+      options:
+        - 独立桌面（macOS）
+        - 独立桌面（Windows）
+        - DSH 界面内
+        - 适配器 / 钩子（ZCode、Codex、Claude Code、Cursor、OpenCode）
+        - 从源码构建
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: 版本
+      description: "`cat VERSION` 或安装包文件名 / VERSION or the package filename"
+      placeholder: "2.1.0"
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: 系统
+      placeholder: "macOS 14.5 (Apple Silicon) / Windows 11 23H2"
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤
+      placeholder: |
+        1. 右键 → 陪伴 → 显示模式 → DSH 界面内
+        2. 把 DSH 窗口最小化
+        3. …
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期望 vs 实际
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: 日志 / 截图（可选）
+      description: "独立版可附 `crash.log`；适配器相关可附 `ls ~/.iven-pet/events` 的结果"

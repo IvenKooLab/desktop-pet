@@ -1,0 +1,10 @@
+# 开发/构建依赖（运行时不需要任何第三方包——桌宠本体是纯标准库）
+#
+#   python3 -m venv .venv && . .venv/bin/activate
+#   pip install -r requirements-dev.txt
+#
+# 装完后其余测试（build-time 标记的 7 项）不再跳过：
+#   python3 -m unittest discover -s tests
+Pillow>=10        # tools/export_comi_v2.py、import_action.py、qa_frames.py 等构建期工具
+numpy>=1.24       # tools/qa_frames.py 的帧质量自检
+scipy>=1.10       # 同上（连通域分析）

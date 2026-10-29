@@ -1,0 +1,28 @@
+name: 功能建议 / Feature request
+description: 希望 Comi 会做的新事情 / Something you would like Comi to do
+labels: [enhancement]
+body:
+  - type: textarea
+    id: scenario
+    attributes:
+      label: 使用场景
+      description: 什么时候、什么情况下你会用到它？
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: 你设想的样子
+    validations:
+      required: true
+  - type: dropdown
+    id: assets
+    attributes:
+      label: 是否需要新素材
+      description: 角色造型是已批准的，全新动作需要新像素
+      options:
+        - 不需要（复用现有帧编排即可）
+        - 需要新动作素材（我按 docs/ASSET_RECIPE.md 自己生成）
+        - 不确定
+    validations:
+      required: true

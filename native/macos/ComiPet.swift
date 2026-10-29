@@ -196,7 +196,10 @@ enum ThrowPhysics {
 // MARK: - 数据根目录（与 comi_home.py 同语义：旧 ~/.iven-pet 存在即优先沿用）
 enum ComiHome {
     static func root() -> URL {
-        let home = FileManager.default.homeDirectoryForCurrentUser
+        // HOME 环境变量优先于系统账号目录：测试与多实例隔离都依赖它
+        let environment = ProcessInfo.processInfo.environment
+        let home = environment["HOME"].map { URL(fileURLWithPath: $0) }
+            ?? FileManager.default.homeDirectoryForCurrentUser
         if let override = ProcessInfo.processInfo.environment["COMI_HOME"], !override.isEmpty {
             return URL(fileURLWithPath: override)
         }
@@ -598,6 +601,7 @@ final class PetController: NSObject, NSApplicationDelegate {
     var throwVY: CGFloat = 0
     var throwBounces = 0
     private var config: [String: Any] = [:]
+    private var welcomePending = false      // 首次启动的玩法提示尚未展示
     private var updateVersion: String?      // 发现的新版本（nil = 未知/无更新）
     private var updateChecked = false
     private var clips: [String: Clip]
@@ -1045,6 +1049,7 @@ final class PetController: NSObject, NSApplicationDelegate {
         panel.orderFrontRegardless()
         // 位置记忆：恢复上次离开时的位置（Cocoa 坐标，cs=cocoa）
         config = PetConfig.load()
+        welcomePending = !(config["welcomed"] as? Bool ?? false)
         if let pos = PetConfig.position(config) {
             let visible = (NSScreen.screens.first {
                 $0.visibleFrame.insetBy(dx: -200, dy: -200).contains(NSPoint(x: pos.x+100, y: pos.y+100))
@@ -1120,6 +1125,17 @@ final class PetController: NSObject, NSApplicationDelegate {
         deadline = seconds > 0 ? clipStart + seconds / playbackSpeed : 0
         shown = ""
         view?.show(images[clip.frames[0]]!)
+        if name == "LAND" && welcomePending {
+            welcomePending = false
+            config["welcomed"] = true
+            PetConfig.save(config)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { [weak self] in
+                guard let self, !displayHidden else { return }
+                showBubble(bridgeZh ? "单击跳一下，拖我走，甩出去会飞；右键有菜单"
+                                    : "Click to hop, drag to move, flick to throw — right-click for the menu",
+                           seconds: 7, title: bridgeZh ? "你好，我是 Comi" : "Hi, I'm Comi", tone: "info")
+            }
+        }
     }
     // ---------- 本机控制接口（control_api.py 协议的 Swift 执行端） ----------
     private var apiFrame = 0

@@ -51,6 +51,18 @@ class PetConfigTests(unittest.TestCase):
         self.assertTrue(cfg["remember_position"])
         self.assertIsNone(cfg["position"])              # 未知坐标系丢弃
 
+    def test_welcome_flag_defaults_false_and_round_trips(self):
+        """首次启动的玩法提示只弹一次：welcomed 默认 false，写入后保持 true。"""
+        path = self.tmp / "config.json"
+        self.assertFalse(pet_config.load(path)["welcomed"])
+        cfg = pet_config.load(path)
+        cfg["welcomed"] = True
+        self.assertTrue(pet_config.save(cfg, path))
+        self.assertTrue(pet_config.load(path)["welcomed"])
+        # 非法值回落默认，不会把"已提示"误判成已展示
+        path.write_text('{"welcomed": "yes"}', encoding="utf-8")
+        self.assertFalse(pet_config.load(path)["welcomed"])
+
     def test_valid_position_clamps_and_rejects(self):
         pos = pet_config.valid_position(
             {"x": 1850, "y": 400, "cs": "topleft"}, 1920, 1080, 200, "topleft")

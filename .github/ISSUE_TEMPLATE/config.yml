@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: 下载最新版本 / Latest release
+    url: https://github.com/IvenKooLab/desktop-pet/releases/latest
+    about: 先确认是不是已经修好了
+  - name: 贡献指南 / Contributing
+    url: https://github.com/IvenKooLab/desktop-pet/blob/main/CONTRIBUTING.md
+    about: 改代码之前先看一眼自测清单
