@@ -11,19 +11,15 @@
  */
 import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, unlinkSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { homedir } from 'node:os'
+import { dataRoot } from './data-home.js'
 import {
   MOODS, MAX_TEXT, cleanText, buildMessages, buildUserText,
   extractMood, collectText, systemPrompt,
 } from './chat.js'
 
 export function resolveChatDir(explicit) {
-  // 与 comi_home.py 同规则：旧 ~/.iven-pet 存在则沿用，避免升级后数据分叉
-  const root = existsSync(join(homedir(), '.iven-pet'))
-    ? join(homedir(), '.iven-pet')
-    : join(homedir(), '.comi-pet')
   return explicit || process.env.COMI_CHAT_DIR || process.env.IVEN_CHAT_DIR
-    || join(root, 'chat')
+    || join(dataRoot(), 'chat')
 }
 
 function atomicWrite(path, payload) {

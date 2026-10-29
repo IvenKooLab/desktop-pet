@@ -47,7 +47,7 @@ def display_claimed(events_directory, now_ms=None):
 
 
 def write_display_mode(events_directory, mode, now_ms=None, lease_ms=60000):
-    """Request DSH takeover. 默认 30 秒；桌宠端请求时用短确认窗口（约 6 秒），
+    """Request DSH takeover. 默认 60 秒；桌宠端请求时用短确认窗口（约 6 秒），
     只有网页客户端 claim 并心跳续租（写 client_id + 完整租期）后桌宠才隐藏。"""
     if mode not in ("desktop", "embedded"):
         raise ValueError("Unknown pet display mode")

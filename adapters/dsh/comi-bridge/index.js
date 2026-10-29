@@ -12,7 +12,7 @@
  */
 import { existsSync, mkdirSync, renameSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { homedir } from 'node:os'
+import { dataRoot } from './data-home.js'
 import { createWebIntegration } from './web.js'
 import { createChatIntegration, resolveChatDir } from './chat-host.js'
 
@@ -120,13 +120,6 @@ function writeInbox(dir, kind, extra) {
   renameSync(tmp, final)
 }
 
-/** 数据根目录：与 comi_home.py 同规则——旧 ~/.iven-pet 存在则沿用，避免升级后数据分叉。 */
-function dataRoot() {
-  const home = homedir()
-  const current = join(home, '.comi-pet')
-  const legacy = join(home, '.iven-pet')
-  return existsSync(legacy) ? legacy : current
-}
 
 export function apply(ctx, config) {
   const cfg = { ...DEFAULT_CONFIG, ...(config ?? {}) }

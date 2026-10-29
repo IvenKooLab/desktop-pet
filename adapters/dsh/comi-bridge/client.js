@@ -142,7 +142,7 @@ window.__ModuleLoader__.load({
               try { const claimed = await request('heartbeat', { client_id: clientId }); if (!disposed) setDisplay(claimed.display) }
               catch { /* another DSH tab won the claim */ }
             }
-          } catch { if (!disposed) setError(text('DSH 连接已断开；桌面模式将在 30 秒内恢复', 'DSH disconnected; desktop mode returns within 30 seconds')) }
+          } catch { if (!disposed) setError(text('DSH 连接已断开；桌面模式将在租约到期后恢复（约 60 秒）', 'DSH disconnected; desktop mode returns when the lease expires (about 60 seconds)')) }
         }
         poll()
         const pollTimer = setInterval(poll, 1500)
@@ -168,7 +168,7 @@ window.__ModuleLoader__.load({
         if (!clips.LAND) clips.LAND = { frames: ['land_0'], durations: [350] }
         let raf, previous = performance.now(), clip = 'IDLE', elapsed = 0, repeats = 1, shown = '', lastAction = ''
         let previousPhase = 'idle', previousHostKey = '', terminalPlayed = false, direction = Math.random() > .5 ? 1 : -1
-        let previousSelected = null
+        let previousSelected = null, sleeping = false, manualPlaying = false
         let squashTimer = 0
         const randomInt = (range, fallback) => {
           const pair = Array.isArray(range) && range.length === 2 ? range : fallback
@@ -200,6 +200,7 @@ window.__ModuleLoader__.load({
             return choose('RELIEVED')
           }
           if (phase === 'failed') return choose('FAILED')
+          if (!autoplayRef.current) return choose('IDLE')
           // TOKEN_LOW is a manual performance, never an inferred account state.
           const playable = name => name !== 'IDLE' && name !== 'TOKEN_LOW' && name !== 'SLEEP' && name !== 'WAKE'
             && !['MOVE_DESKTOP', 'DISPLAY_MODE', 'DESKTOP', 'EMBEDDED', 'AUTOPLAY', 'ACTIONS', 'COMPANION',
@@ -223,11 +224,18 @@ window.__ModuleLoader__.load({
             terminalPlayed = false
             // A 7-second result bubble may expire before this 9-second theme;
             // let its current timeline finish unless another task interrupts.
-            if (!finishingRelief) next()
+            if (!finishingRelief && !sleeping && !manualPlaying && !drag.current && !flying.current) next()
           }
-          if (phase === 'waiting' && clip === 'WAITING' && Date.now() - (stateRef.current.phase_since || Date.now()) >= 30_000) choose('IMPATIENT')
-          if (action.current) { choose(action.current); action.current = null }
+          if (!sleeping && !manualPlaying && !drag.current && !flying.current && phase === 'waiting' && clip === 'WAITING' && Date.now() - (stateRef.current.phase_since || Date.now()) >= 30_000) choose('IMPATIENT')
+          if (action.current) {
+            const requested = action.current
+            action.current = null
+            sleeping = requested === 'SLEEP'
+            manualPlaying = !sleeping && requested !== 'IDLE'
+            choose(requested)
+          }
           if (drag.current) {
+            sleeping = false; manualPlaying = false
             if (flying.current) flying.current = null        // 抓住即停飞
             if (clip !== 'GRAB') choose('GRAB')
           } else if (clip === 'GRAB') choose('IDLE')
@@ -235,7 +243,14 @@ window.__ModuleLoader__.load({
           let selected = clips[clip] || clips.IDLE
           let duration = selected.durations.reduce((a, b) => a + b, 0)
           // 飞行中不做自动轮播：保持 FALL 直到落地
-          if (!flying.current && autoplayRef.current && elapsed >= duration * repeats) { next(); selected = clips[clip] || clips.IDLE; duration = selected.durations.reduce((a, b) => a + b, 0) }
+          if (!flying.current && !drag.current && !sleeping && elapsed >= duration * repeats) {
+            if (manualPlaying) {
+              manualPlaying = false
+              choose('IDLE')
+            } else next()
+            selected = clips[clip] || clips.IDLE
+            duration = selected.durations.reduce((a, b) => a + b, 0)
+          }
           let phaseTime = elapsed % duration, index = 0
           while (index < selected.frames.length - 1 && phaseTime >= selected.durations[index]) { phaseTime -= selected.durations[index]; index++ }
           if (!drag.current && clip.startsWith('WALK')) {

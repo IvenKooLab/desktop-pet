@@ -8,6 +8,8 @@ import { fileURLToPath } from 'node:url'
 import { createRouteHandler, readDisplay, writeDisplay, reduceSession, currentSession, LEASE_MS } from './comi-bridge/web.js'
 import { isTrustedApiRequest } from './comi-bridge/trust-fence.js'
 import vm from 'node:vm'
+import { dataRoot } from './comi-bridge/data-home.js'
+import { resolveChatDir } from './comi-bridge/chat-host.js'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const temp = mkdtempSync(join(tmpdir(), 'comi-overlay-'))
@@ -94,6 +96,26 @@ try {
   ok(currentSession(sessions, now + 9).phase === 'success', 'explicit goal completion celebrates')
   ok(currentSession(sessions, now + 8009).phase === 'idle', 'terminal result expires instead of looping forever')
 
+  // Custom roots must be identical for events, chat and the native/Python consumers.
+  const envKeys = ['COMI_HOME', 'IVEN_HOME', 'COMI_CHAT_DIR', 'IVEN_CHAT_DIR']
+  const savedEnv = Object.fromEntries(envKeys.map(key => [key, process.env[key]]))
+  try {
+    for (const key of envKeys) delete process.env[key]
+    process.env.IVEN_HOME = join(temp, 'old-custom-root')
+    ok(dataRoot() === process.env.IVEN_HOME, 'legacy root override remains supported')
+    ok(resolveChatDir() === join(process.env.IVEN_HOME, 'chat'), 'chat follows the custom root')
+    process.env.COMI_HOME = join(temp, 'new-custom-root')
+    ok(dataRoot() === process.env.COMI_HOME, 'new root override takes precedence')
+    ok(resolveChatDir() === join(process.env.COMI_HOME, 'chat'), 'chat stays with events after root override')
+    process.env.COMI_CHAT_DIR = join(temp, 'explicit-chat')
+    ok(resolveChatDir() === process.env.COMI_CHAT_DIR, 'specific chat override still wins')
+  } finally {
+    for (const key of envKeys) {
+      if (savedEnv[key] === undefined) delete process.env[key]
+      else process.env[key] = savedEnv[key]
+    }
+  }
+
   // Verify the real DSH loader contract without a DOM or duplicating its internals.
   let moduleInfo, registration
   const clientCode = readFileSync(new URL('./comi-bridge/client.js', import.meta.url), 'utf8')
@@ -173,6 +195,23 @@ try {
   let falselyLow = false
   for (let tick = 0; tick < 10_000; tick++) if (autoplay.step() === 'TOKEN_LOW') { falselyLow = true; break }
   ok(!falselyLow, 'autoplay never fabricates a low-token account state')
+
+  const asleep = simulate({ phase: 'idle' })
+  asleep.step(); asleep.refs[8].current = 'SLEEP'; asleep.step()
+  ok(asleep.advance(40_000) === 'SLEEP', 'manual sleep persists beyond its animation cycle')
+  asleep.host.phase = 'working'; asleep.host.phase_since = now + 40_100
+  ok(asleep.step() === 'SLEEP', 'host changes do not wake an explicitly sleeping pet')
+  asleep.refs[8].current = 'IDLE'
+  ok(asleep.step() !== 'SLEEP', 'explicit wake releases sleep')
+  const paused = simulate({ phase: 'idle' })
+  paused.refs[10].current = false // autoplayRef: pausing does not loop a manual action forever
+  paused.step(); paused.refs[8].current = 'BOUNCE'; paused.step()
+  ok(paused.advance(30_000) === 'IDLE', 'manual action finishes while autoplay is paused')
+  const held = simulate({ phase: 'idle' })
+  held.step(); held.refs[6].current = { x: 0, y: 0, samples: [] }
+  let grabOnly = true
+  for (let tick = 0; tick < 500; tick++) if (held.step() !== 'GRAB') grabOnly = false
+  ok(grabOnly, 'long drag cannot briefly enter a random walk or action')
 
   // 甩抛物理：纯函数（与 tests/test_throw_physics.py 同一套常量与语义）
   const physics = plugin.__physics

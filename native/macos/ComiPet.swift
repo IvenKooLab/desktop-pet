@@ -195,21 +195,23 @@ enum ThrowPhysics {
 
 // MARK: - 数据根目录（与 comi_home.py 同语义：旧 ~/.iven-pet 存在即优先沿用）
 enum ComiHome {
-    static func root() -> URL {
+    static func root(environment: [String: String] = ProcessInfo.processInfo.environment,
+                     accountHome: URL = FileManager.default.homeDirectoryForCurrentUser) -> URL {
         // HOME 环境变量优先于系统账号目录：测试与多实例隔离都依赖它
-        let environment = ProcessInfo.processInfo.environment
         let home = environment["HOME"].map { URL(fileURLWithPath: $0) }
-            ?? FileManager.default.homeDirectoryForCurrentUser
-        if let override = ProcessInfo.processInfo.environment["COMI_HOME"], !override.isEmpty {
+            ?? accountHome
+        if let override = env("COMI_HOME", environment: environment) {
+            if override == "~" { return home }
+            if override.hasPrefix("~/") { return home.appendingPathComponent(String(override.dropFirst(2))) }
             return URL(fileURLWithPath: override)
         }
         // 旧目录一旦存在就优先沿用：老用户数据不迁走，也不会被误建的新目录抢走
         let legacy = home.appendingPathComponent(".iven-pet")
-        if FileManager.default.fileExists(atPath: legacy.path) { return legacy }
+        var isDirectory: ObjCBool = false
+        if FileManager.default.fileExists(atPath: legacy.path, isDirectory: &isDirectory), isDirectory.boolValue { return legacy }
         return home.appendingPathComponent(".comi-pet")
     }
-    static func env(_ name: String) -> String? {
-        let environment = ProcessInfo.processInfo.environment
+    static func env(_ name: String, environment: [String: String] = ProcessInfo.processInfo.environment) -> String? {
         if let value = environment[name], !value.isEmpty { return value }
         if name.hasPrefix("COMI_") {
             let legacy = "IVEN_" + name.dropFirst("COMI_".count)
@@ -1059,6 +1061,7 @@ final class PetController: NSObject, NSApplicationDelegate {
         }
         // A pinned pet must start idle; FALL has no deadline and suppresses host UI.
         play(pinned ? "IDLE" : "FALL",mode:pinned ? "IDLE" : "FALL",seconds:pinned ? 4 : 0)
+        scheduleWelcome()
         previous = ProcessInfo.processInfo.systemUptime
         timer = Timer(timeInterval:1.0/60.0,target:self,selector:#selector(tick),userInfo:nil,repeats:true)
         RunLoop.main.add(timer!, forMode:.common)
@@ -1125,18 +1128,25 @@ final class PetController: NSObject, NSApplicationDelegate {
         deadline = seconds > 0 ? clipStart + seconds / playbackSpeed : 0
         shown = ""
         view?.show(images[clip.frames[0]]!)
-        if name == "LAND" && welcomePending {
+    }
+    private func scheduleWelcome() {
+        guard welcomePending else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.2) { [weak self] in
+            guard let self, welcomePending else { return }
+            if displayHidden || bubbleIsHost || (bridgeEnabled && bridge.mode != nil)
+                || ["FALL", "THROW", "DRAG", "SLEEP"].contains(mode) || clipName == "LAND" {
+                scheduleWelcome()
+                return
+            }
+            showBubble(bridgeZh ? "单击跳一下，拖我走，甩出去会飞；右键有菜单"
+                                : "Click to hop, drag to move, flick to throw — right-click for the menu",
+                       seconds: 7, title: bridgeZh ? "你好，我是 Comi" : "Hi, I'm Comi", tone: "info")
             welcomePending = false
             config["welcomed"] = true
             PetConfig.save(config)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { [weak self] in
-                guard let self, !displayHidden else { return }
-                showBubble(bridgeZh ? "单击跳一下，拖我走，甩出去会飞；右键有菜单"
-                                    : "Click to hop, drag to move, flick to throw — right-click for the menu",
-                           seconds: 7, title: bridgeZh ? "你好，我是 Comi" : "Hi, I'm Comi", tone: "info")
-            }
         }
     }
+
     // ---------- 本机控制接口（control_api.py 协议的 Swift 执行端） ----------
     private var apiFrame = 0
     private var apiDir: URL { bridge.dir.deletingLastPathComponent().appendingPathComponent("api") }
@@ -1620,6 +1630,11 @@ final class PetController: NSObject, NSApplicationDelegate {
 }
 
 if CommandLine.arguments.contains("--self-test") {
+    let homeFixture = URL(fileURLWithPath: "/tmp/comi-home-" + UUID().uuidString)
+    precondition(ComiHome.root(environment: ["HOME":homeFixture.path, "IVEN_HOME":homeFixture.appendingPathComponent("old").path]).lastPathComponent == "old")
+    precondition(ComiHome.root(environment: ["HOME":homeFixture.path, "IVEN_HOME":"/old", "COMI_HOME":"~/new"]).path == homeFixture.appendingPathComponent("new").path)
+    precondition(ComiHome.root(environment: ["HOME":homeFixture.path]).path == homeFixture.appendingPathComponent(".comi-pet").path)
+
     precondition(hostTransitionClip(phase:"working",current:"IMPATIENT",impatient:false) == "WORK")
     precondition(hostTransitionClip(phase:"working",current:"WAITING",impatient:false) == "WORK")
     precondition(hostTransitionClip(phase:"working",current:"THINKING",impatient:false) == nil)

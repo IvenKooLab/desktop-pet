@@ -499,6 +499,7 @@ class Pet:
         self._idle_fx = 0                        # 待机微动作剩余 tick
         self._idle_fx_frame = None
         self.root.after(RENDER_MS, self._loop)
+        self._maybe_welcome()
         self.root.after(4000, self._auto_update_check)   # 启动 4s 后探测一次
 
     # ---------- 更新检查 ----------
@@ -999,15 +1000,28 @@ class Pet:
             pass                                  # 桥接异常不影响桌宠本体
 
     def _maybe_welcome(self):
-        """首次启动弹一次玩法提示（记入 config，之后不再打扰）。"""
-        if self.config.get("welcomed"):
+        """Show once when visible and idle; never overwrite a live harness notice."""
+        if self.config.get("welcomed") or getattr(self, "_welcome_scheduled", False):
             return
-        self.config["welcomed"] = True
-        pet_config.save(self.config)
-        self.root.after(2200, lambda: self.say(
-            self._menu_text("单击跳一下，拖我走，甩出去会飞；右键有菜单",
-                            "Click to hop, drag to move, flick to throw — right-click for the menu"),
-            7000, title=self._menu_text("你好，我是 Comi", "Hi, I'm Comi"), tone="info"))
+        self._welcome_scheduled = True
+
+        def show():
+            if self.config.get("welcomed"):
+                self._welcome_scheduled = False
+                return
+            if (getattr(self, "_embedded_display", False) or getattr(self, "_host_action", False)
+                    or (getattr(self, "host", None) and self._bridge_on and self.host.mode)
+                    or self.state in ("FALL", "THROW", "LAND", "GRAB", "SLEEP")):
+                self.root.after(2200, show)
+                return
+            self.say(self._menu_text("单击跳一下，拖我走，甩出去会飞；右键有菜单",
+                                    "Click to hop, drag to move, flick to throw — right-click for the menu"),
+                     7000, title=self._menu_text("你好，我是 Comi", "Hi, I'm Comi"), tone="info")
+            self.config["welcomed"] = True
+            pet_config.save(self.config)
+            self._welcome_scheduled = False
+
+        self.root.after(2200, show)
 
     def _maybe_notify(self, n):
         """任务事件系统通知：默认 auto——桌宠隐藏/内嵌时才弹，绝不打扰常驻桌面。
@@ -1488,7 +1502,6 @@ class Pet:
                     else:
                         self._set_state("IDLE", random.randint(60, 120))
                         self.say(_T["greet"], 1800)
-                    self._maybe_welcome()
                 else:
                     self._set_state("IDLE", random.randint(60, 120))
                     if random.random() < 0.5:
