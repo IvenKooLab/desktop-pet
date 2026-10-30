@@ -26,6 +26,14 @@ A stretch, a sleepy nod, then a few turns of a Rubik's cube. All three join auto
 
 ![Stretching, dozing and playing with a Rubik's cube](docs/previews/little-breaks.gif)
 
+### Halloween
+
+Collect candy in a pumpkin bucket, peek out from a ghost sheet, bow in a vampire cape, sweep with a witch hat, and play with a black cat and yarn. Five plush sprite performances, about 8–9 seconds each at the shared 75% playback speed.
+
+![Five Halloween performances](docs/previews/halloween.gif)
+
+Right-click → **Actions → Holidays** to play one, or let autoplay choose. macOS, Windows and the DSH overlay share the same timelines. After updating the DSH plugin, restart DSH and refresh its page.
+
 ## Quick start
 
 **Download a packaged build (recommended):** grab the zip for your platform from the [releases page](https://github.com/IvenKooLab/desktop-pet/releases/latest) and unpack —

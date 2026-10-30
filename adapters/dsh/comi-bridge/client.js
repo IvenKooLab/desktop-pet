@@ -18,6 +18,9 @@ window.__ModuleLoader__.load({
       TOKEN_LOW: ['额度不足（表演）', 'Low tokens (performance)'], RELIEVED: ['松口气', 'A sigh of relief'],
       YAWN: ['困倦眨眼', 'Sleepy blink'], STOMP: ['委屈表情', 'Feeling down'],
       CELEBRATE: ['挥手庆祝', 'Celebrate'], SEARCH: ['左右观察', 'Search around'],
+      TRICK_OR_TREAT: ['不给糖就捣蛋', 'Trick or treat'], GHOST_SHEET: ['白布幽灵', 'Ghost sheet'],
+      VAMPIRE_CAPE: ['吸血鬼披风亮相', 'Vampire cape'], WITCH_SPELL: ['小女巫施法', 'Witch spell'],
+      BLACK_CAT: ['黑猫', 'Black cat'],
       SLEEP: ['睡觉', 'Sleep'], WAKE: ['唤醒', 'Wake up'],
       MOVE_DESKTOP: ['移到独立桌面 ↗', 'Move to desktop ↗'],
       DISPLAY_MODE: ['显示模式', 'Display mode'], DESKTOP: ['独立桌面', 'Desktop'],
@@ -25,6 +28,7 @@ window.__ModuleLoader__.load({
       ACTIONS: ['动作', 'Actions'], COMPANION: ['陪伴', 'Companion'],
       EVERYDAY: ['日常互动', 'Everyday'], WORK_THEMES: ['工作状态', 'Work themes'],
       LITTLE_BREAKS: ['生活小动作', 'Little breaks'],
+      HOLIDAYS: ['节日', 'Holidays'],
       LANGUAGE: ['语言 / Language', 'Language / 语言'], FOLLOW_SYSTEM: ['跟随系统', 'System default'],
       ZH: ['简体中文', '简体中文'], EN: ['English', 'English'],
       ABOUT: ['关于与更新', 'About & updates'], CURRENT_VERSION: ['当前版本', 'Version'],
@@ -36,6 +40,7 @@ window.__ModuleLoader__.load({
       { key: 'WORK_THEMES', items: ['THINKING', 'WORK', 'REVIEW', 'WAITING', 'IMPATIENT', 'TOKEN_LOW', 'RELIEVED', 'FAILED'] },
       { key: 'LITTLE_BREAKS', items: ['STRETCH', 'DOZE', 'RUBIK', 'YAWN', 'STOMP', 'CELEBRATE', 'SEARCH'] },
     ]
+    const halloweenActions = ['TRICK_OR_TREAT', 'GHOST_SHEET', 'VAMPIRE_CAPE', 'WITCH_SPELL', 'BLACK_CAT']
     const clientId = (() => {
       try {
         let value = sessionStorage.getItem('comi-pet-client')
@@ -204,7 +209,7 @@ window.__ModuleLoader__.load({
           // TOKEN_LOW is a manual performance, never an inferred account state.
           const playable = name => name !== 'IDLE' && name !== 'TOKEN_LOW' && name !== 'SLEEP' && name !== 'WAKE'
             && !['MOVE_DESKTOP', 'DISPLAY_MODE', 'DESKTOP', 'EMBEDDED', 'AUTOPLAY', 'ACTIONS', 'COMPANION',
-                 'EVERYDAY', 'WORK_THEMES', 'LITTLE_BREAKS', 'LANGUAGE', 'FOLLOW_SYSTEM', 'ZH', 'EN',
+                 'EVERYDAY', 'WORK_THEMES', 'LITTLE_BREAKS', 'HOLIDAYS', 'LANGUAGE', 'FOLLOW_SYSTEM', 'ZH', 'EN',
                  'ABOUT', 'CURRENT_VERSION', 'GITHUB'].includes(name) && clips[name]
           const choices = ['IDLE', 'IDLE', 'IDLE', 'WALK', ...Object.keys(LABEL_PAIRS).filter(name => playable(name) && name !== lastAction)]
           let name = choices[Math.floor(Math.random() * choices.length)]
@@ -373,6 +378,12 @@ window.__ModuleLoader__.load({
                   sub: group.items.filter(name => manifest?.clips[name]).map(name => ({
                     key: name, label: label(name), onClick: () => { action.current = name; setMenu(false) } })),
                 })),
+                ...(halloweenActions.some(name => manifest?.clips[name]) ? [{
+                  key: 'HOLIDAYS', hasSub: true, label: label('HOLIDAYS'),
+                  sub: halloweenActions.filter(name => manifest?.clips[name]).map(name => ({
+                    key: name, label: label(name), onClick: () => { action.current = name; setMenu(false) },
+                  })),
+                }] : []),
                 { key: 'sep-sleep', sep: true },
                 { key: 'SLEEP', label: label('SLEEP'), onClick: () => { action.current = 'SLEEP'; setMenu(false) } },
                 { key: 'WAKE', label: label('WAKE'), onClick: () => { action.current = 'IDLE'; setMenu(false) } },

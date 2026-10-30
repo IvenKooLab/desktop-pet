@@ -1,0 +1,37 @@
+{
+  "date": "2026-10-30",
+  "backend": "macOS native AppKit",
+  "actions": [
+    {
+      "action": "TRICK_OR_TREAT",
+      "duration_seconds": 8.88,
+      "native_play_ok": true,
+      "native_snapshot_state": "TRICK_OR_TREAT"
+    },
+    {
+      "action": "GHOST_SHEET",
+      "duration_seconds": 8.88,
+      "native_play_ok": true,
+      "native_snapshot_state": "GHOST_SHEET"
+    },
+    {
+      "action": "VAMPIRE_CAPE",
+      "duration_seconds": 8.88,
+      "native_play_ok": true,
+      "native_snapshot_state": "VAMPIRE_CAPE"
+    },
+    {
+      "action": "WITCH_SPELL",
+      "duration_seconds": 8.88,
+      "native_play_ok": true,
+      "native_snapshot_state": "WITCH_SPELL"
+    },
+    {
+      "action": "BLACK_CAT",
+      "duration_seconds": 8.04,
+      "native_play_ok": true,
+      "native_snapshot_state": "BLACK_CAT"
+    }
+  ],
+  "limits": "Native control acceptance and active clip snapshots checked; not a Windows GUI check."
+}

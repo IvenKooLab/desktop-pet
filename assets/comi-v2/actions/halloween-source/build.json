@@ -1,0 +1,915 @@
+{
+  "version": 1,
+  "actions": [
+    {
+      "name": "TRICK_OR_TREAT",
+      "source": "trick.png",
+      "source_sha256": "18426c91aaf0f48340da3da73d6093c3f870c12971d5b134325ad55fc46e4e91",
+      "scale": 0.49,
+      "cells": [
+        {
+          "box": [
+            0,
+            0,
+            315,
+            323
+          ],
+          "anchor_x": 156.75,
+          "ground_y": 304,
+          "duration_ms": 900
+        },
+        {
+          "box": [
+            315,
+            0,
+            630,
+            323
+          ],
+          "anchor_x": 155.25,
+          "ground_y": 304,
+          "duration_ms": 270
+        },
+        {
+          "box": [
+            630,
+            0,
+            944,
+            323
+          ],
+          "anchor_x": 153.75,
+          "ground_y": 304,
+          "duration_ms": 270
+        },
+        {
+          "box": [
+            944,
+            0,
+            1254,
+            323
+          ],
+          "anchor_x": 153.25,
+          "ground_y": 304,
+          "duration_ms": 270
+        },
+        {
+          "box": [
+            0,
+            323,
+            316,
+            635
+          ],
+          "anchor_x": 156.75,
+          "ground_y": 292,
+          "duration_ms": 270
+        },
+        {
+          "box": [
+            316,
+            323,
+            636,
+            635
+          ],
+          "anchor_x": 154.25,
+          "ground_y": 292,
+          "duration_ms": 270
+        },
+        {
+          "box": [
+            636,
+            323,
+            940,
+            635
+          ],
+          "anchor_x": 147.75,
+          "ground_y": 292,
+          "duration_ms": 270
+        },
+        {
+          "box": [
+            940,
+            323,
+            1254,
+            635
+          ],
+          "anchor_x": 157.25,
+          "ground_y": 292,
+          "duration_ms": 270
+        },
+        {
+          "box": [
+            0,
+            635,
+            314,
+            942
+          ],
+          "anchor_x": 156.75,
+          "ground_y": 289,
+          "duration_ms": 630
+        },
+        {
+          "box": [
+            314,
+            635,
+            630,
+            942
+          ],
+          "anchor_x": 156.25,
+          "ground_y": 289,
+          "duration_ms": 630
+        },
+        {
+          "box": [
+            630,
+            635,
+            940,
+            942
+          ],
+          "anchor_x": 153.75,
+          "ground_y": 289,
+          "duration_ms": 630
+        },
+        {
+          "box": [
+            940,
+            635,
+            1254,
+            942
+          ],
+          "anchor_x": 157.25,
+          "ground_y": 289,
+          "duration_ms": 270
+        },
+        {
+          "box": [
+            0,
+            942,
+            318,
+            1254
+          ],
+          "anchor_x": 156.75,
+          "ground_y": 283,
+          "duration_ms": 270
+        },
+        {
+          "box": [
+            318,
+            942,
+            634,
+            1254
+          ],
+          "anchor_x": 152.25,
+          "ground_y": 283,
+          "duration_ms": 270
+        },
+        {
+          "box": [
+            634,
+            942,
+            950,
+            1254
+          ],
+          "anchor_x": 149.75,
+          "ground_y": 283,
+          "duration_ms": 270
+        },
+        {
+          "box": [
+            0,
+            0,
+            315,
+            323
+          ],
+          "anchor_x": 156.75,
+          "ground_y": 304,
+          "duration_ms": 900
+        }
+      ]
+    },
+    {
+      "name": "GHOST_SHEET",
+      "source": "ghost_sheet.png",
+      "source_sha256": "0054fe309411a0db1e4b39975fa13d1dfadeafa064568e04b023239e91b562f4",
+      "scale": 0.49,
+      "cells": [
+        {
+          "box": [
+            0,
+            0,
+            314,
+            325
+          ],
+          "anchor_x": 156.75,
+          "ground_y": 304,
+          "duration_ms": 900
+        },
+        {
+          "box": [
+            314,
+            0,
+            627,
+            325
+          ],
+          "anchor_x": 156.25,
+          "ground_y": 304,
+          "duration_ms": 270
+        },
+        {
+          "box": [
+            627,
+            0,
+            940,
+            325
+          ],
+          "anchor_x": 156.75,
+          "ground_y": 304,
+          "duration_ms": 270
+        },
+        {
+          "box": [
+            940,
+            0,
+            1254,
+            325
+          ],
+          "anchor_x": 157.25,
+          "ground_y": 304,
+          "duration_ms": 270
+        },
+        {
+          "box": [
+            0,
+            325,
+            314,
+            632
+          ],
+          "anchor_x": 156.75,
+          "ground_y": 295,
+          "duration_ms": 270
+        },
+        {
+          "box": [
+            314,
+            325,
+            627,
+            632
+          ],
+          "anchor_x": 156.25,
+          "ground_y": 295,
+          "duration_ms": 270
+        },
+        {
+          "box": [
+            627,
+            325,
+            940,
+            632
+          ],
+          "anchor_x": 156.75,
+          "ground_y": 295,
+          "duration_ms": 270
+        },
+        {
+          "box": [
+            940,
+            325,
+            1254,
+            632
+          ],
+          "anchor_x": 157.25,
+          "ground_y": 295,
+          "duration_ms": 270
+        },
+        {
+          "box": [
+            0,
+            632,
+            316,
+            943
+          ],
+          "anchor_x": 156.75,
+          "ground_y": 300,
+          "duration_ms": 630
+        },
+        {
+          "box": [
+            316,
+            632,
+            628,
+            943
+          ],
+          "anchor_x": 154.25,
+          "ground_y": 300,
+          "duration_ms": 630
+        },
+        {
+          "box": [
+            628,
+            632,
+            948,
+            943
+          ],
+          "anchor_x": 155.75,
+          "ground_y": 300,
+          "duration_ms": 630
+        },
+        {
+          "box": [
+            948,
+            632,
+            1254,
+            943
+          ],
+          "anchor_x": 149.25,
+          "ground_y": 300,
+          "duration_ms": 270
+        },
+        {
+          "box": [
+            0,
+            943,
+            316,
+            1254
+          ],
+          "anchor_x": 156.75,
+          "ground_y": 277,
+          "duration_ms": 270
+        },
+        {
+          "box": [
+            316,
+            943,
+            627,
+            1254
+          ],
+          "anchor_x": 154.25,
+          "ground_y": 277,
+          "duration_ms": 270
+        },
+        {
+          "box": [
+            627,
+            943,
+            940,
+            1254
+          ],
+          "anchor_x": 156.75,
+          "ground_y": 277,
+          "duration_ms": 270
+        },
+        {
+          "box": [
+            0,
+            0,
+            314,
+            325
+          ],
+          "anchor_x": 156.75,
+          "ground_y": 304,
+          "duration_ms": 900
+        }
+      ]
+    },
+    {
+      "name": "VAMPIRE_CAPE",
+      "source": "vampire_cape.png",
+      "source_sha256": "e9eed94721efe8fd452938010b06ab43a08ab6a33ce934301f16a1f8d18a1507",
+      "scale": 0.49,
+      "cells": [
+        {
+          "box": [
+            0,
+            0,
+            314,
+            326
+          ],
+          "anchor_x": 156.75,
+          "ground_y": 308,
+          "duration_ms": 900
+        },
+        {
+          "box": [
+            314,
+            0,
+            627,
+            326
+          ],
+          "anchor_x": 156.25,
+          "ground_y": 308,
+          "duration_ms": 270
+        },
+        {
+          "box": [
+            627,
+            0,
+            940,
+            326
+          ],
+          "anchor_x": 156.75,
+          "ground_y": 308,
+          "duration_ms": 270
+        },
+        {
+          "box": [
+            940,
+            0,
+            1254,
+            326
+          ],
+          "anchor_x": 157.25,
+          "ground_y": 308,
+          "duration_ms": 270
+        },
+        {
+          "box": [
+            0,
+            326,
+            314,
+            636
+          ],
+          "anchor_x": 156.75,
+          "ground_y": 294,
+          "duration_ms": 270
+        },
+        {
+          "box": [
+            314,
+            326,
+            627,
+            636
+          ],
+          "anchor_x": 156.25,
+          "ground_y": 294,
+          "duration_ms": 270
+        },
+        {
+          "box": [
+            627,
+            326,
+            940,
+            636
+          ],
+          "anchor_x": 156.75,
+          "ground_y": 294,
+          "duration_ms": 270
+        },
+        {
+          "box": [
+            940,
+            326,
+            1254,
+            636
+          ],
+          "anchor_x": 157.25,
+          "ground_y": 294,
+          "duration_ms": 270
+        },
+        {
+          "box": [
+            0,
+            636,
+            325,
+            940
+          ],
+          "anchor_x": 156.75,
+          "ground_y": 291,
+          "duration_ms": 630
+        },
+        {
+          "box": [
+            325,
+            636,
+            629,
+            940
+          ],
+          "anchor_x": 145.25,
+          "ground_y": 291,
+          "duration_ms": 630
+        },
+        {
+          "box": [
+            629,
+            636,
+            940,
+            940
+          ],
+          "anchor_x": 154.75,
+          "ground_y": 291,
+          "duration_ms": 630
+        },
+        {
+          "box": [
+            940,
+            636,
+            1254,
+            940
+          ],
+          "anchor_x": 157.25,
+          "ground_y": 291,
+          "duration_ms": 270
+        },
+        {
+          "box": [
+            0,
+            940,
+            314,
+            1254
+          ],
+          "anchor_x": 156.75,
+          "ground_y": 285,
+          "duration_ms": 270
+        },
+        {
+          "box": [
+            314,
+            940,
+            636,
+            1254
+          ],
+          "anchor_x": 156.25,
+          "ground_y": 285,
+          "duration_ms": 270
+        },
+        {
+          "box": [
+            636,
+            940,
+            945,
+            1254
+          ],
+          "anchor_x": 147.75,
+          "ground_y": 285,
+          "duration_ms": 270
+        },
+        {
+          "box": [
+            0,
+            0,
+            314,
+            326
+          ],
+          "anchor_x": 156.75,
+          "ground_y": 308,
+          "duration_ms": 900
+        }
+      ]
+    },
+    {
+      "name": "WITCH_SPELL",
+      "source": "witch_spell.png",
+      "source_sha256": "2cc643c0e7523c1ec9fd71ad2076e361ea7f52fea2a1f8456bfb0295dc0c5c88",
+      "scale": 0.49,
+      "cells": [
+        {
+          "box": [
+            0,
+            0,
+            314,
+            324
+          ],
+          "anchor_x": 156.75,
+          "ground_y": 307,
+          "duration_ms": 900
+        },
+        {
+          "box": [
+            314,
+            0,
+            627,
+            324
+          ],
+          "anchor_x": 156.25,
+          "ground_y": 307,
+          "duration_ms": 270
+        },
+        {
+          "box": [
+            627,
+            0,
+            940,
+            324
+          ],
+          "anchor_x": 156.75,
+          "ground_y": 307,
+          "duration_ms": 270
+        },
+        {
+          "box": [
+            940,
+            0,
+            1254,
+            324
+          ],
+          "anchor_x": 157.25,
+          "ground_y": 307,
+          "duration_ms": 270
+        },
+        {
+          "box": [
+            0,
+            324,
+            333,
+            633
+          ],
+          "anchor_x": 156.75,
+          "ground_y": 296,
+          "duration_ms": 270
+        },
+        {
+          "box": [
+            333,
+            324,
+            625,
+            633
+          ],
+          "anchor_x": 137.25,
+          "ground_y": 296,
+          "duration_ms": 270
+        },
+        {
+          "box": [
+            625,
+            324,
+            930,
+            633
+          ],
+          "anchor_x": 158.75,
+          "ground_y": 296,
+          "duration_ms": 270
+        },
+        {
+          "box": [
+            930,
+            324,
+            1254,
+            633
+          ],
+          "anchor_x": 167.25,
+          "ground_y": 296,
+          "duration_ms": 270
+        },
+        {
+          "box": [
+            0,
+            633,
+            314,
+            949
+          ],
+          "anchor_x": 156.75,
+          "ground_y": 298,
+          "duration_ms": 630
+        },
+        {
+          "box": [
+            314,
+            633,
+            634,
+            949
+          ],
+          "anchor_x": 156.25,
+          "ground_y": 298,
+          "duration_ms": 630
+        },
+        {
+          "box": [
+            634,
+            633,
+            938,
+            949
+          ],
+          "anchor_x": 149.75,
+          "ground_y": 298,
+          "duration_ms": 630
+        },
+        {
+          "box": [
+            938,
+            633,
+            1254,
+            949
+          ],
+          "anchor_x": 159.25,
+          "ground_y": 298,
+          "duration_ms": 270
+        },
+        {
+          "box": [
+            0,
+            949,
+            314,
+            1254
+          ],
+          "anchor_x": 156.75,
+          "ground_y": 276,
+          "duration_ms": 270
+        },
+        {
+          "box": [
+            314,
+            949,
+            627,
+            1254
+          ],
+          "anchor_x": 156.25,
+          "ground_y": 276,
+          "duration_ms": 270
+        },
+        {
+          "box": [
+            627,
+            949,
+            940,
+            1254
+          ],
+          "anchor_x": 156.75,
+          "ground_y": 276,
+          "duration_ms": 270
+        },
+        {
+          "box": [
+            0,
+            0,
+            314,
+            324
+          ],
+          "anchor_x": 156.75,
+          "ground_y": 307,
+          "duration_ms": 900
+        }
+      ]
+    },
+    {
+      "name": "BLACK_CAT",
+      "source": "black_cat.png",
+      "source_sha256": "126a20b5655ab978a8fe4351840900c6633187663e51f4ad3b08cda53fb6d887",
+      "scale": 0.49,
+      "cells": [
+        {
+          "box": [
+            0,
+            0,
+            316,
+            323
+          ],
+          "anchor_x": 156.75,
+          "ground_y": 304,
+          "duration_ms": 900
+        },
+        {
+          "box": [
+            316,
+            0,
+            631,
+            323
+          ],
+          "anchor_x": 154.25,
+          "ground_y": 304,
+          "duration_ms": 270
+        },
+        {
+          "box": [
+            631,
+            0,
+            944,
+            323
+          ],
+          "anchor_x": 152.75,
+          "ground_y": 304,
+          "duration_ms": 270
+        },
+        {
+          "box": [
+            944,
+            0,
+            1254,
+            323
+          ],
+          "anchor_x": 153.25,
+          "ground_y": 304,
+          "duration_ms": 270
+        },
+        {
+          "box": [
+            0,
+            323,
+            329,
+            632
+          ],
+          "anchor_x": 156.75,
+          "ground_y": 291,
+          "duration_ms": 270
+        },
+        {
+          "box": [
+            329,
+            323,
+            634,
+            632
+          ],
+          "anchor_x": 141.25,
+          "ground_y": 291,
+          "duration_ms": 270
+        },
+        {
+          "box": [
+            634,
+            323,
+            940,
+            632
+          ],
+          "anchor_x": 149.75,
+          "ground_y": 291,
+          "duration_ms": 270
+        },
+        {
+          "box": [
+            940,
+            323,
+            1254,
+            632
+          ],
+          "anchor_x": 157.25,
+          "ground_y": 291,
+          "duration_ms": 270
+        },
+        {
+          "box": [
+            0,
+            632,
+            325,
+            923
+          ],
+          "anchor_x": 156.75,
+          "ground_y": 277,
+          "duration_ms": 630
+        },
+        {
+          "box": [
+            325,
+            632,
+            634,
+            923
+          ],
+          "anchor_x": 145.25,
+          "ground_y": 277,
+          "duration_ms": 630
+        },
+        {
+          "box": [
+            954,
+            632,
+            1254,
+            923
+          ],
+          "anchor_x": 143.25,
+          "ground_y": 277,
+          "duration_ms": 270
+        },
+        {
+          "box": [
+            0,
+            923,
+            320,
+            1254
+          ],
+          "anchor_x": 156.75,
+          "ground_y": 291,
+          "duration_ms": 270
+        },
+        {
+          "box": [
+            320,
+            923,
+            631,
+            1254
+          ],
+          "anchor_x": 150.25,
+          "ground_y": 291,
+          "duration_ms": 270
+        },
+        {
+          "box": [
+            631,
+            923,
+            940,
+            1254
+          ],
+          "anchor_x": 152.75,
+          "ground_y": 291,
+          "duration_ms": 270
+        },
+        {
+          "box": [
+            0,
+            0,
+            316,
+            323
+          ],
+          "anchor_x": 156.75,
+          "ground_y": 304,
+          "duration_ms": 900
+        }
+      ],
+      "expected_frames": 15
+    }
+  ]
+}

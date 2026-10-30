@@ -645,14 +645,19 @@ class Pet:
             ("YAWN", "困倦眨眼", "Sleepy blink"),
             ("STOMP", "委屈表情", "Feeling down"),
             ("CELEBRATE", "挥手庆祝", "Celebrate"),
-            ("SEARCH", "左右观察", "Look around"),
+            ("SEARCH", "左右观察", "Look around")))
+        if life_count:
+            actions.add_cascade(label=self._menu_text("生活小动作", "Little breaks"), menu=life)
+
+        holidays = tk.Menu(actions, tearoff=0)
+        holiday_count = sum(_clip_item(holidays, state, zh, en) for state, zh, en in (
             ("TRICK_OR_TREAT", "不给糖就捣蛋", "Trick or treat"),
             ("GHOST_SHEET", "白布幽灵", "Ghost sheet"),
             ("VAMPIRE_CAPE", "吸血鬼披风亮相", "Vampire cape"),
             ("WITCH_SPELL", "小女巫施法", "Witch spell"),
             ("BLACK_CAT", "黑猫", "Black cat")))
-        if life_count:
-            actions.add_cascade(label=self._menu_text("生活小动作", "Little breaks"), menu=life)
+        if holiday_count:
+            actions.add_cascade(label=self._menu_text("节日", "Holidays"), menu=holidays)
         menu.add_cascade(label=self._menu_text("动作", "Actions"), menu=actions)
 
         # ---------- 陪伴（显示/跟踪/桥接/轮播/通知） ----------

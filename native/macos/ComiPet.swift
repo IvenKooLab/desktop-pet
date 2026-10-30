@@ -711,6 +711,7 @@ final class PetController: NSObject, NSApplicationDelegate {
             "困倦眨眼":"Sleepy blink", "委屈表情":"Feeling down", "挥手庆祝":"Celebrate", "左右观察":"Look around", "不给糖就捣蛋":"Trick or treat", "白布幽灵":"Ghost sheet", "吸血鬼披风亮相":"Vampire cape", "小女巫施法":"Witch spell", "黑猫":"Black cat",
             "弹跳":"Bounce", "开心":"Happy", "打板":"Clapperboard", "观察四周":"Look around",
             "小跳快走":"Quick walk", "害羞":"Shy", "睡觉":"Sleep", "唤醒":"Wake up",
+            "节日":"Holidays",
             "退出独立版":"Quit Comi Pet", "语言 / Language":"Language / 语言", "打开 GitHub 仓库":"Open GitHub repository", "启动时检查更新":"Check for updates on launch", "检查更新…":"Check for updates…", "动作":"Actions", "陪伴":"Companion", "关于与更新":"About & updates", "日常互动":"Everyday", "工作状态":"Work themes", "生活小动作":"Little breaks", "宿主桥接":"Host bridge", "显示模式":"Display mode", "苦思冥想":"Thinking hard", "等待不耐烦":"Getting impatient", "额度不足（表演）":"Low token budget (performance)", "松口气":"Relieved",
             "和 Comi 说话…":"Talk to Comi…", "独立桌面":"Desktop", "DSH 界面内":"Inside DSH",
             "内嵌需 DSH 网页接手；约 6 秒未接手自动回桌面":"Inside DSH needs its web page to take over; falls back to desktop after ~6s",
@@ -1457,7 +1458,7 @@ final class PetController: NSObject, NSApplicationDelegate {
         return item
     }
 
-    /// 动作按类别分组（日常互动 / 工作状态 / 生活小动作），避免顶层菜单过长。
+    /// 动作按类别分组；节日演出直接放在“节日”下。
     private func actionsSubmenu() -> NSMenu {
         let actions = NSMenu()
         let everyday = NSMenu()
@@ -1489,16 +1490,23 @@ final class PetController: NSObject, NSApplicationDelegate {
         let life = NSMenu()
         for (title, action) in [("伸懒腰","STRETCH"),("打瞌睡","DOZE"),("玩魔方","RUBIK"),
                                 ("困倦眨眼","YAWN"),("委屈表情","STOMP"),
-                                ("挥手庆祝","CELEBRATE"),("左右观察","SEARCH"),
-                                ("不给糖就捣蛋","TRICK_OR_TREAT"),
-                                ("白布幽灵","GHOST_SHEET"),
-                                ("吸血鬼披风亮相","VAMPIRE_CAPE"),("小女巫施法","WITCH_SPELL"),("黑猫","BLACK_CAT")] {
+                                ("挥手庆祝","CELEBRATE"),("左右观察","SEARCH")] {
             if clips[action] != nil { life.addItem(clipItem(title, action)) }
         }
         if life.numberOfItems > 0 {
             let lifeItem = NSMenuItem(title: menuText("生活小动作"), action: nil, keyEquivalent: "")
             lifeItem.submenu = life
             actions.addItem(lifeItem)
+        }
+        let holidays = NSMenu()
+        for (title, action) in [("不给糖就捣蛋","TRICK_OR_TREAT"),("白布幽灵","GHOST_SHEET"),
+                                ("吸血鬼披风亮相","VAMPIRE_CAPE"),("小女巫施法","WITCH_SPELL"),("黑猫","BLACK_CAT")] {
+            if clips[action] != nil { holidays.addItem(clipItem(title, action)) }
+        }
+        if holidays.numberOfItems > 0 {
+            let holidaysItem = NSMenuItem(title: menuText("节日"), action: nil, keyEquivalent: "")
+            holidaysItem.submenu = holidays
+            actions.addItem(holidaysItem)
         }
         return actions
     }

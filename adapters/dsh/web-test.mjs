@@ -135,7 +135,7 @@ try {
   // timelines. This catches native/browser behavior drifting independently.
   const realManifest = JSON.parse(readFileSync(join(root, 'frames3d/animation.json'), 'utf8'))
   const realBehaviors = JSON.parse(readFileSync(join(root, 'animation_behaviors.json'), 'utf8'))
-  const simulate = initialHost => {
+  const simulate = (initialHost, { language = 'en', random = Math.random } = {}) => {
     let callback, time = 0, hook = 0, refIndex = 0, module, mounted
     const refs = [], effects = []
     const fakeImage = { src: '', dataset: {}, style: {}, className: '' }, fakeCard = { style: {} }
@@ -156,9 +156,10 @@ try {
       useEffect(effect) { effects.push(effect) },
     }
     const context = {
-      navigator: { language: 'en' }, sessionStorage: { getItem: () => 'browser_test' },
+      navigator: { language }, sessionStorage: { getItem: () => 'browser_test' },
       window: { __ModuleLoader__: { load(info) { module = info } } },
       innerWidth: 1000, innerHeight: 800, Date: ClockDate,
+      Math: Object.assign(Object.create(Math), { random }),
       performance: { now: () => time }, requestAnimationFrame: fn => { callback = fn; return 1 }, cancelAnimationFrame: () => { callback = null },
       setTimeout: () => 1, clearTimeout: () => {},
     }
@@ -195,6 +196,50 @@ try {
   let falselyLow = false
   for (let tick = 0; tick < 10_000; tick++) if (autoplay.step() === 'TOKEN_LOW') { falselyLow = true; break }
   ok(!falselyLow, 'autoplay never fabricates a low-token account state')
+
+  // Exercise the actual menu callbacks and idle scheduler: a registered manifest
+  // clip alone is insufficient if the browser's labels/menu omit its action ID.
+  const halloween = {
+    TRICK_OR_TREAT: ['不给糖就捣蛋', 'Trick or treat'],
+    GHOST_SHEET: ['白布幽灵', 'Ghost sheet'],
+    VAMPIRE_CAPE: ['吸血鬼披风亮相', 'Vampire cape'],
+    WITCH_SPELL: ['小女巫施法', 'Witch spell'],
+    BLACK_CAT: ['黑猫', 'Black cat'],
+  }
+  const findMenuItem = (node, key) => {
+    if (!node || typeof node !== 'object') return null
+    if (node.props?.key === key) return node
+    for (const child of node.props?.children || []) {
+      const found = findMenuItem(child, key)
+      if (found) return found
+    }
+    return null
+  }
+  for (const language of ['zh', 'en']) {
+    const themed = simulate({ phase: 'idle' }, { language })
+    const life = findMenuItem(themed.tree, 'LITTLE_BREAKS')
+    const actions = findMenuItem(themed.tree, 'ACTIONS')
+    const holidays = findMenuItem(actions, 'HOLIDAYS')
+    const itemText = item => item?.props?.children.filter(child => typeof child === 'string').join('')
+    ok(itemText(holidays) === (language === 'zh' ? '节日' : 'Holidays'), `${language}: holidays is nested under actions`)
+    ok(!findMenuItem(holidays, 'HALLOWEEN'), `${language}: holidays has no extra Halloween submenu`)
+    for (const [name, labels] of Object.entries(halloween)) {
+      const item = findMenuItem(holidays, name)
+      ok(itemText(item) === labels[language === 'zh' ? 0 : 1], `${language}: ${name} is labeled directly inside holidays`)
+      ok(!findMenuItem(life, name), `${language}: ${name} is absent from little breaks`)
+      item.props.onClick()
+      ok(themed.step() === name, `${language}: ${name} menu click plays the registered clip`)
+    }
+  }
+  let seed = 1
+  const random = () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 4294967296 }
+  const seasonalAutoplay = simulate({ phase: 'idle' }, { random })
+  const seenSeasonal = new Set()
+  for (let tick = 0; tick < 100_000 && seenSeasonal.size < 5; tick++) {
+    const clip = seasonalAutoplay.step()
+    if (Object.hasOwn(halloween, clip)) seenSeasonal.add(clip)
+  }
+  ok(seenSeasonal.size === 5, 'idle autoplay can select all five Halloween clips from the real browser action list')
 
   const asleep = simulate({ phase: 'idle' })
   asleep.step(); asleep.refs[8].current = 'SLEEP'; asleep.step()

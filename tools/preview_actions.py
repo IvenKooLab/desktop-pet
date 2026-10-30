@@ -34,7 +34,7 @@ def create_page(spec_paths, output):
                 native.alpha_composite(sprite,(round(100-(spec['centers'][index]-x0)*f),
                                                round(193-(spec['baselines'][row]-y0)*f)))
                 frames.append(data_url(native))
-            labels = {'PILOT_YAWN':'哈欠样片', 'PILOT_STOMP':'跺脚样片', 'PILOT_THINK':'持板思考样片', 'PILOT_THINK_SCENE':'桌前思考样片'}
+            labels = {'TRICK_OR_TREAT':'不给糖就捣蛋', 'GHOST_SHEET':'白布幽灵', 'VAMPIRE_CAPE':'吸血鬼披风', 'WITCH_SPELL':'小女巫施法', 'BLACK_CAT':'黑猫', 'PILOT_YAWN':'哈欠样片', 'PILOT_STOMP':'跺脚样片', 'PILOT_THINK':'持板思考样片', 'PILOT_THINK_SCENE':'桌前思考样片'}
             cards.append({'name':action['name'],'label':labels.get(action['name'], action['name']),'frames':frames,'durations':action['durations'],
                           'findings':qa.get('findings',[]),'approved':spec.get('review',{}).get('approved',False)})
     payload = json.dumps(cards,ensure_ascii=False).replace('</','<\\/')
@@ -43,7 +43,7 @@ def create_page(spec_paths, output):
 <style>
 body{font:16px system-ui;background:#f3f3f6;color:#272334;margin:18px}button{font:inherit;padding:8px 14px;margin:5px;border:1px solid #999;border-radius:8px;cursor:pointer}
 main{display:flex;gap:20px;flex-wrap:wrap}.card{background:white;padding:18px;border-radius:14px;width:290px;box-sizing:border-box}h2{font-size:20px;overflow-wrap:anywhere}.stage{background:var(--stage,#fafafa);border:1px solid #aaa;width:200px;height:200px;position:relative}canvas,.reference{width:200px;height:200px}.ground{position:absolute;top:193px;width:200px;border-top:1px dashed #888;pointer-events:none}.warn{color:#a33838}details{max-height:220px;overflow:auto;font-size:13px}input{width:260px}p{max-width:1000px;line-height:1.6}
-</style><h1>Comi 新动作：候选验收</h1><p>同一 200px 画幅、固定标定与 75% 播放速度。当前是 8 个关键姿势的试制，并非已验收的连续动画。检查衣服/材质、首尾、脚底线、裁切和道具数量。脚底线是固定地面，跳跃不强行贴地。</p>
+</style><h1>Comi 新动作：候选验收</h1><p>同一 200px 画幅、固定标定与 75% 播放速度。按输入姿势帧与真实时间轴播放；这不是视频插帧。检查衣服/材质、首尾、脚底线、裁切和道具数量。脚底线是固定地面，跳跃不强行贴地。</p>
 <button id="bg">切换深浅背景</button><button id="all">播放/暂停全部</button><main><section class="card"><h2>批准的原版参考</h2><div class="stage"><img class="reference" src="REFERENCE"><div class="ground"></div></div></section></main>
 <script>
 const cards=PAYLOAD;let dark=false;document.querySelector('#bg').onclick=()=>{dark=!dark;document.body.style.setProperty('--stage',dark?'#20232d':'#fafafa')};

@@ -30,6 +30,14 @@
 
 ![伸懒腰、打瞌睡和玩魔方](docs/previews/little-breaks.gif)
 
+### 万圣节
+
+拿南瓜桶收糖、盖上幽灵布探头、披风鞠躬、戴帽挥扫帚、逗黑猫玩毛线。五组绒质动作各约 8–9 秒，保留 75% 播放速度。
+
+![五组万圣节动作](docs/previews/halloween.gif)
+
+右键 → **动作 → 节日**，可分别点播；也会加入自动轮播。Mac、Windows、DSH 界面内使用同一套时间轴。DSH 用户更新插件后需重启 DSH 并刷新页面。
+
 ## 快速开始
 
 **下载打包版（推荐）**：从[发布页](https://github.com/IvenKooLab/desktop-pet/releases/latest)下载对应平台的 zip，解压即用——
