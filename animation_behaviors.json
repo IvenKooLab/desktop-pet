@@ -22,6 +22,11 @@
     "YAWN": {"cycles": [1, 1]},
     "STOMP": {"cycles": [1, 1]},
     "CELEBRATE": {"cycles": [1, 1]},
-    "SEARCH": {"cycles": [1, 1]}
+    "SEARCH": {"cycles": [1, 1]},
+    "TRICK_OR_TREAT": {"cycles": [1, 1]},
+    "GHOST_SHEET": {"cycles": [1, 1]},
+    "VAMPIRE_CAPE": {"cycles": [1, 1]},
+    "WITCH_SPELL": {"cycles": [1, 1]},
+    "BLACK_CAT": {"cycles": [1, 1]}
   }
 }

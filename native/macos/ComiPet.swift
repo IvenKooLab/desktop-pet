@@ -31,6 +31,9 @@ struct BehaviorPolicy {
         // 2026-10-23 生活小动作（与 animation_behaviors.py DEFAULT_ACTIONS 同步）
         actions["YAWN"] = 1...1; actions["STOMP"] = 1...1
         actions["CELEBRATE"] = 1...1; actions["SEARCH"] = 1...1
+        actions["TRICK_OR_TREAT"] = 1...1
+        actions["GHOST_SHEET"] = 1...1
+        actions["VAMPIRE_CAPE"] = 1...1; actions["WITCH_SPELL"] = 1...1; actions["BLACK_CAT"] = 1...1
         struct Cycles: Decodable { let cycles: [Int] }
         struct Raw: Decodable {
             let version: Int
@@ -417,7 +420,7 @@ struct ActionDeck {
     private var remaining: [String] = []
     private var last = ""
     mutating func next(available: Set<String>, pinned: Bool) -> String {
-        let candidates = ["GREET", "BOUNCE", "CHEER", "SPIN", "WAITING", "WORK", "REVIEW", "FAILED", "HAPPY", "SHY", "STRETCH", "DOZE", "RUBIK", "THINKING", "IMPATIENT", "RELIEVED", "YAWN", "STOMP", "CELEBRATE", "SEARCH"]
+        let candidates = ["GREET", "BOUNCE", "CHEER", "SPIN", "WAITING", "WORK", "REVIEW", "FAILED", "HAPPY", "SHY", "STRETCH", "DOZE", "RUBIK", "THINKING", "IMPATIENT", "RELIEVED", "YAWN", "STOMP", "CELEBRATE", "SEARCH", "TRICK_OR_TREAT", "GHOST_SHEET", "VAMPIRE_CAPE", "WITCH_SPELL", "BLACK_CAT"]
             .filter { available.contains($0) } + (pinned ? [] : ["WALK_r", "WALK_l"].filter { available.contains($0) })
         remaining = remaining.filter { candidates.contains($0) }
         if remaining.isEmpty { remaining = candidates.shuffled() }
@@ -705,7 +708,7 @@ final class PetController: NSObject, NSApplicationDelegate {
             "总是通知":"Always notify", "关闭":"Off",
             "伸懒腰":"Stretch", "打瞌睡":"Doze", "玩魔方":"Rubik’s cube", "等待":"Wait",
             "工作":"Work", "检查":"Review", "失落":"Sad", "挥手打招呼":"Wave hello",
-            "困倦眨眼":"Sleepy blink", "委屈表情":"Feeling down", "挥手庆祝":"Celebrate", "左右观察":"Look around",
+            "困倦眨眼":"Sleepy blink", "委屈表情":"Feeling down", "挥手庆祝":"Celebrate", "左右观察":"Look around", "不给糖就捣蛋":"Trick or treat", "白布幽灵":"Ghost sheet", "吸血鬼披风亮相":"Vampire cape", "小女巫施法":"Witch spell", "黑猫":"Black cat",
             "弹跳":"Bounce", "开心":"Happy", "打板":"Clapperboard", "观察四周":"Look around",
             "小跳快走":"Quick walk", "害羞":"Shy", "睡觉":"Sleep", "唤醒":"Wake up",
             "退出独立版":"Quit Comi Pet", "语言 / Language":"Language / 语言", "打开 GitHub 仓库":"Open GitHub repository", "启动时检查更新":"Check for updates on launch", "检查更新…":"Check for updates…", "动作":"Actions", "陪伴":"Companion", "关于与更新":"About & updates", "日常互动":"Everyday", "工作状态":"Work themes", "生活小动作":"Little breaks", "宿主桥接":"Host bridge", "显示模式":"Display mode", "苦思冥想":"Thinking hard", "等待不耐烦":"Getting impatient", "额度不足（表演）":"Low token budget (performance)", "松口气":"Relieved",
@@ -1486,7 +1489,10 @@ final class PetController: NSObject, NSApplicationDelegate {
         let life = NSMenu()
         for (title, action) in [("伸懒腰","STRETCH"),("打瞌睡","DOZE"),("玩魔方","RUBIK"),
                                 ("困倦眨眼","YAWN"),("委屈表情","STOMP"),
-                                ("挥手庆祝","CELEBRATE"),("左右观察","SEARCH")] {
+                                ("挥手庆祝","CELEBRATE"),("左右观察","SEARCH"),
+                                ("不给糖就捣蛋","TRICK_OR_TREAT"),
+                                ("白布幽灵","GHOST_SHEET"),
+                                ("吸血鬼披风亮相","VAMPIRE_CAPE"),("小女巫施法","WITCH_SPELL"),("黑猫","BLACK_CAT")] {
             if clips[action] != nil { life.addItem(clipItem(title, action)) }
         }
         if life.numberOfItems > 0 {
@@ -1674,7 +1680,7 @@ if CommandLine.arguments.contains("--self-test") {
     let tiny = Clip(frames:["a"],durations:[1000])
     precondition((4...6).contains(behavior.seconds("GREET",clip:tiny)))
     precondition(behavior.seconds("THINKING",clip:tiny) == 1)
-    for name in ["YAWN", "STOMP", "CELEBRATE", "SEARCH"] {
+    for name in ["YAWN", "STOMP", "CELEBRATE", "SEARCH", "TRICK_OR_TREAT", "GHOST_SHEET", "VAMPIRE_CAPE", "WITCH_SPELL", "BLACK_CAT"] {
         precondition(behavior.seconds(name,clip:tiny) == 1)
     }
     let display = NSRect(x:-800,y:32,width:1440,height:868)

@@ -1,0 +1,470 @@
+{
+  "version": 1,
+  "approved": false,
+  "status": "needs_visual_review",
+  "automatic_checks_pass": false,
+  "findings": [
+    "frame_0001.png: clothing palette drift >25 RGB units",
+    "frame_0006.png: headphones palette drift >25 RGB units",
+    "frame_0006.png: clothing palette drift >25 RGB units",
+    "frame_0011.png: clothing palette drift >25 RGB units",
+    "frame_0016.png: subject touches source boundary; inspect clipping/grid bleed",
+    "frame_0016.png: headphones palette drift >25 RGB units",
+    "frame_0016.png: clothing palette drift >25 RGB units",
+    "frame_0021.png: subject touches source boundary; inspect clipping/grid bleed",
+    "frame_0021.png: head scale drift >6%",
+    "frame_0021.png: headphones palette drift >25 RGB units",
+    "frame_0021.png: clothing palette drift >25 RGB units",
+    "frame_0026.png: subject touches source boundary; inspect clipping/grid bleed",
+    "frame_0026.png: head scale drift >6%",
+    "frame_0026.png: headphones palette drift >25 RGB units",
+    "frame_0026.png: clothing palette drift >25 RGB units",
+    "frame_0031.png: subject touches source boundary; inspect clipping/grid bleed",
+    "frame_0031.png: body scale drift >8%; inspect articulation",
+    "frame_0031.png: head scale drift >6%",
+    "frame_0031.png: headphones palette drift >25 RGB units",
+    "frame_0031.png: clothing palette drift >25 RGB units",
+    "frame_0036.png: subject touches source boundary; inspect clipping/grid bleed",
+    "frame_0036.png: head scale drift >6%",
+    "frame_0036.png: headphones palette drift >25 RGB units",
+    "frame_0036.png: clothing palette drift >25 RGB units",
+    "frame_0041.png: subject touches source boundary; inspect clipping/grid bleed",
+    "frame_0041.png: body scale drift >8%; inspect articulation",
+    "frame_0041.png: head scale drift >6%",
+    "frame_0041.png: headphones palette drift >25 RGB units",
+    "frame_0041.png: clothing palette drift >25 RGB units",
+    "frame_0046.png: subject touches source boundary; inspect clipping/grid bleed",
+    "frame_0046.png: hair palette drift >25 RGB units",
+    "frame_0046.png: headphones palette drift >25 RGB units",
+    "frame_0046.png: clothing palette drift >25 RGB units",
+    "frame_0051.png: subject touches source boundary; inspect clipping/grid bleed",
+    "frame_0051.png: hair palette drift >25 RGB units",
+    "frame_0051.png: headphones palette drift >25 RGB units",
+    "frame_0051.png: clothing palette drift >25 RGB units",
+    "frame_0056.png: subject touches source boundary; inspect clipping/grid bleed",
+    "frame_0056.png: hair palette drift >25 RGB units",
+    "frame_0056.png: headphones palette drift >25 RGB units",
+    "frame_0056.png: clothing palette drift >25 RGB units",
+    "frame_0061.png: subject touches source boundary; inspect clipping/grid bleed",
+    "frame_0061.png: hair palette drift >25 RGB units",
+    "frame_0061.png: headphones palette drift >25 RGB units",
+    "frame_0061.png: clothing palette drift >25 RGB units",
+    "frame_0066.png: subject touches source boundary; inspect clipping/grid bleed",
+    "frame_0066.png: body scale drift >8%; inspect articulation",
+    "frame_0066.png: head scale drift >6%",
+    "frame_0066.png: hair palette drift >25 RGB units",
+    "frame_0066.png: headphones palette drift >25 RGB units",
+    "frame_0066.png: clothing palette drift >25 RGB units",
+    "frame_0066.png: prop palette drift >25 RGB units",
+    "frame_0071.png: subject touches source boundary; inspect clipping/grid bleed",
+    "frame_0071.png: hair palette drift >25 RGB units",
+    "frame_0071.png: headphones palette drift >25 RGB units",
+    "frame_0071.png: clothing palette drift >25 RGB units",
+    "frame_0071.png: prop palette drift >25 RGB units",
+    "frame_0076.png: subject touches source boundary; inspect clipping/grid bleed",
+    "frame_0076.png: body scale drift >8%; inspect articulation",
+    "frame_0076.png: head scale drift >6%",
+    "frame_0076.png: headphones palette drift >25 RGB units",
+    "frame_0076.png: clothing palette drift >25 RGB units",
+    "frame_0076.png: prop palette drift >25 RGB units",
+    "frame_0081.png: subject touches source boundary; inspect clipping/grid bleed",
+    "frame_0081.png: body scale drift >8%; inspect articulation",
+    "frame_0081.png: head scale drift >6%",
+    "frame_0081.png: headphones palette drift >25 RGB units",
+    "frame_0081.png: clothing palette drift >25 RGB units",
+    "frame_0086.png: subject touches source boundary; inspect clipping/grid bleed",
+    "frame_0086.png: body scale drift >8%; inspect articulation",
+    "frame_0086.png: head scale drift >6%",
+    "frame_0086.png: headphones palette drift >25 RGB units",
+    "frame_0086.png: clothing palette drift >25 RGB units",
+    "frame_0091.png: subject touches source boundary; inspect clipping/grid bleed",
+    "frame_0091.png: body scale drift >8%; inspect articulation",
+    "frame_0091.png: head scale drift >6%",
+    "frame_0091.png: headphones palette drift >25 RGB units",
+    "frame_0091.png: clothing palette drift >25 RGB units",
+    "frame_0091.png: prop palette drift >25 RGB units",
+    "frame_0096.png: subject touches source boundary; inspect clipping/grid bleed",
+    "frame_0096.png: body scale drift >8%; inspect articulation",
+    "frame_0096.png: head scale drift >6%",
+    "frame_0096.png: headphones palette drift >25 RGB units",
+    "frame_0096.png: clothing palette drift >25 RGB units",
+    "frame_0096.png: prop palette drift >25 RGB units",
+    "frame_0101.png: subject touches source boundary; inspect clipping/grid bleed",
+    "frame_0101.png: body scale drift >8%; inspect articulation",
+    "frame_0101.png: head scale drift >6%",
+    "frame_0101.png: headphones palette drift >25 RGB units",
+    "frame_0101.png: clothing palette drift >25 RGB units",
+    "frame_0101.png: prop palette drift >25 RGB units",
+    "frame_0106.png: subject touches source boundary; inspect clipping/grid bleed",
+    "frame_0106.png: body scale drift >8%; inspect articulation",
+    "frame_0106.png: head scale drift >6%",
+    "frame_0106.png: headphones palette drift >25 RGB units",
+    "frame_0106.png: clothing palette drift >25 RGB units",
+    "frame_0111.png: subject touches source boundary; inspect clipping/grid bleed",
+    "frame_0111.png: body scale drift >8%; inspect articulation",
+    "frame_0111.png: head scale drift >6%",
+    "frame_0111.png: headphones palette drift >25 RGB units",
+    "frame_0111.png: clothing palette drift >25 RGB units",
+    "frame_0116.png: subject touches source boundary; inspect clipping/grid bleed",
+    "frame_0116.png: body scale drift >8%; inspect articulation",
+    "frame_0116.png: head scale drift >6%",
+    "frame_0116.png: headphones palette drift >25 RGB units",
+    "frame_0116.png: clothing palette drift >25 RGB units",
+    "frame_0120.png: subject touches source boundary; inspect clipping/grid bleed",
+    "frame_0120.png: body scale drift >8%; inspect articulation",
+    "frame_0120.png: head scale drift >6%",
+    "frame_0120.png: headphones palette drift >25 RGB units",
+    "frame_0120.png: clothing palette drift >25 RGB units",
+    "start/end seam differs >3.5%; inspect neutral-pose return",
+    "transition 2->3: large image delta; inspect pop/prop stability",
+    "transition 3->4: large image delta; inspect pop/prop stability",
+    "transition 7->8: large image delta; inspect pop/prop stability",
+    "transition 8->9: large image delta; inspect pop/prop stability",
+    "transition 12->13: large image delta; inspect pop/prop stability",
+    "transition 13->14: large image delta; inspect pop/prop stability",
+    "transition 14->15: large image delta; inspect pop/prop stability",
+    "transition 15->16: large image delta; inspect pop/prop stability",
+    "transition 17->18: large image delta; inspect pop/prop stability",
+    "transition 20->21: large image delta; inspect pop/prop stability",
+    "frame_0066.png: calibrated pose clips runtime 200px canvas"
+  ],
+  "frames": [
+    {
+      "file": "frame_0001.png",
+      "head_ratio": 1.0,
+      "foot_offset": 8,
+      "body_ratio": 1.0,
+      "part_rgb_delta": {
+        "hair": 9.85,
+        "headphones": 20.64,
+        "clothing": 67.3,
+        "prop": 0.0
+      }
+    },
+    {
+      "file": "frame_0006.png",
+      "head_ratio": 1.0,
+      "foot_offset": 8,
+      "body_ratio": 1.0,
+      "part_rgb_delta": {
+        "hair": 9.85,
+        "headphones": 30.15,
+        "clothing": 67.86,
+        "prop": 1.41
+      }
+    },
+    {
+      "file": "frame_0011.png",
+      "head_ratio": 1.0,
+      "foot_offset": 8,
+      "body_ratio": 1.0,
+      "part_rgb_delta": {
+        "hair": 9.27,
+        "headphones": 22.38,
+        "clothing": 66.98,
+        "prop": 3.0
+      }
+    },
+    {
+      "file": "frame_0016.png",
+      "head_ratio": 0.9774,
+      "foot_offset": 7,
+      "body_ratio": 0.9758,
+      "part_rgb_delta": {
+        "hair": 10.05,
+        "headphones": 37.03,
+        "clothing": 100.04,
+        "prop": 3.61
+      }
+    },
+    {
+      "file": "frame_0021.png",
+      "head_ratio": 1.0719,
+      "foot_offset": 7,
+      "body_ratio": 1.0695,
+      "part_rgb_delta": {
+        "hair": 11.22,
+        "headphones": 34.15,
+        "clothing": 73.42,
+        "prop": 4.58
+      }
+    },
+    {
+      "file": "frame_0026.png",
+      "head_ratio": 1.078,
+      "foot_offset": 7,
+      "body_ratio": 1.0755,
+      "part_rgb_delta": {
+        "hair": 13.38,
+        "headphones": 35.06,
+        "clothing": 55.77,
+        "prop": 4.58
+      }
+    },
+    {
+      "file": "frame_0031.png",
+      "head_ratio": 1.0842,
+      "foot_offset": 7,
+      "body_ratio": 1.0846,
+      "part_rgb_delta": {
+        "hair": 15.07,
+        "headphones": 38.13,
+        "clothing": 56.03,
+        "prop": 3.16
+      }
+    },
+    {
+      "file": "frame_0036.png",
+      "head_ratio": 1.0637,
+      "foot_offset": 7,
+      "body_ratio": 1.0634,
+      "part_rgb_delta": {
+        "hair": 11.66,
+        "headphones": 135.55,
+        "clothing": 54.09,
+        "prop": 4.12
+      }
+    },
+    {
+      "file": "frame_0041.png",
+      "head_ratio": 0.7926,
+      "foot_offset": 24,
+      "body_ratio": 0.7915,
+      "part_rgb_delta": {
+        "hair": 6.4,
+        "headphones": 145.01,
+        "clothing": 237.51,
+        "prop": 11.87
+      }
+    },
+    {
+      "file": "frame_0046.png",
+      "head_ratio": 1.0267,
+      "foot_offset": 11,
+      "body_ratio": 1.0272,
+      "part_rgb_delta": {
+        "hair": 284.66,
+        "headphones": 183.8,
+        "clothing": 83.82,
+        "prop": 12.85
+      }
+    },
+    {
+      "file": "frame_0051.png",
+      "head_ratio": 1.0267,
+      "foot_offset": 11,
+      "body_ratio": 1.0272,
+      "part_rgb_delta": {
+        "hair": 286.39,
+        "headphones": 185.37,
+        "clothing": 85.07,
+        "prop": 6.71
+      }
+    },
+    {
+      "file": "frame_0056.png",
+      "head_ratio": 1.0267,
+      "foot_offset": 11,
+      "body_ratio": 1.0272,
+      "part_rgb_delta": {
+        "hair": 283.49,
+        "headphones": 182.41,
+        "clothing": 82.89,
+        "prop": 8.83
+      }
+    },
+    {
+      "file": "frame_0061.png",
+      "head_ratio": 1.0267,
+      "foot_offset": 11,
+      "body_ratio": 1.0272,
+      "part_rgb_delta": {
+        "hair": 286.37,
+        "headphones": 184.36,
+        "clothing": 84.76,
+        "prop": 16.31
+      }
+    },
+    {
+      "file": "frame_0066.png",
+      "head_ratio": 0.8953,
+      "foot_offset": 4,
+      "body_ratio": 0.8943,
+      "part_rgb_delta": {
+        "hair": 31.06,
+        "headphones": 76.64,
+        "clothing": 136.85,
+        "prop": 72.99
+      }
+    },
+    {
+      "file": "frame_0071.png",
+      "head_ratio": 1.0267,
+      "foot_offset": 10,
+      "body_ratio": 1.0272,
+      "part_rgb_delta": {
+        "hair": 289.26,
+        "headphones": 187.43,
+        "clothing": 87.92,
+        "prop": 72.06
+      }
+    },
+    {
+      "file": "frame_0076.png",
+      "head_ratio": 0.7331,
+      "foot_offset": 8,
+      "body_ratio": 0.7311,
+      "part_rgb_delta": {
+        "hair": 24.66,
+        "headphones": 76.17,
+        "clothing": 80.75,
+        "prop": 60.12
+      }
+    },
+    {
+      "file": "frame_0081.png",
+      "head_ratio": 0.77,
+      "foot_offset": 9,
+      "body_ratio": 0.7704,
+      "part_rgb_delta": {
+        "hair": 13.49,
+        "headphones": 190.8,
+        "clothing": 90.85,
+        "prop": 9.95
+      }
+    },
+    {
+      "file": "frame_0086.png",
+      "head_ratio": 0.8152,
+      "foot_offset": 9,
+      "body_ratio": 0.8157,
+      "part_rgb_delta": {
+        "hair": 14.7,
+        "headphones": 191.44,
+        "clothing": 90.87,
+        "prop": 10.1
+      }
+    },
+    {
+      "file": "frame_0091.png",
+      "head_ratio": 0.694,
+      "foot_offset": 9,
+      "body_ratio": 0.6949,
+      "part_rgb_delta": {
+        "hair": 22.49,
+        "headphones": 193.77,
+        "clothing": 93.13,
+        "prop": 76.35
+      }
+    },
+    {
+      "file": "frame_0096.png",
+      "head_ratio": 0.7084,
+      "foot_offset": 9,
+      "body_ratio": 0.7069,
+      "part_rgb_delta": {
+        "hair": 24.19,
+        "headphones": 185.74,
+        "clothing": 85.7,
+        "prop": 75.77
+      }
+    },
+    {
+      "file": "frame_0101.png",
+      "head_ratio": 0.7269,
+      "foot_offset": 9,
+      "body_ratio": 0.7251,
+      "part_rgb_delta": {
+        "hair": 24.92,
+        "headphones": 78.34,
+        "clothing": 85.7,
+        "prop": 76.66
+      }
+    },
+    {
+      "file": "frame_0106.png",
+      "head_ratio": 0.7639,
+      "foot_offset": 9,
+      "body_ratio": 0.7644,
+      "part_rgb_delta": {
+        "hair": 10.68,
+        "headphones": 53.84,
+        "clothing": 87.6,
+        "prop": 10.05
+      }
+    },
+    {
+      "file": "frame_0111.png",
+      "head_ratio": 0.7988,
+      "foot_offset": 9,
+      "body_ratio": 0.7976,
+      "part_rgb_delta": {
+        "hair": 24.92,
+        "headphones": 65.03,
+        "clothing": 85.71,
+        "prop": 10.05
+      }
+    },
+    {
+      "file": "frame_0116.png",
+      "head_ratio": 0.8008,
+      "foot_offset": 9,
+      "body_ratio": 0.8006,
+      "part_rgb_delta": {
+        "hair": 11.92,
+        "headphones": 62.04,
+        "clothing": 87.93,
+        "prop": 8.66
+      }
+    },
+    {
+      "file": "frame_0120.png",
+      "head_ratio": 0.7803,
+      "foot_offset": 9,
+      "body_ratio": 0.7795,
+      "part_rgb_delta": {
+        "hair": 15.13,
+        "headphones": 58.15,
+        "clothing": 88.26,
+        "prop": 3.0
+      }
+    }
+  ],
+  "transition_deltas": [
+    0.00115,
+    0.00241,
+    0.11978,
+    0.09152,
+    0.03598,
+    0.04754,
+    0.05078,
+    0.19742,
+    0.22686,
+    0.01184,
+    0.00869,
+    0.01615,
+    0.23343,
+    0.23145,
+    0.1414,
+    0.15882,
+    0.05349,
+    0.16206,
+    0.03502,
+    0.03962,
+    0.1507,
+    0.04763,
+    0.01716,
+    0.05046
+  ],
+  "seam_delta": 0.13473,
+  "prop_reference": "candidate neutral; new prop design needs visual review",
+  "limitations": "Region and landmark annotations must be verified. Image deltas cannot prove anatomy, motion or prop correctness.",
+  "source_sha256": "3c9f23f7d67051dccb43bbd1ec4318d4d43fe03f2b68146d4226f7d1ab812dc2",
+  "reference_sha256": "1c0599b0bc4a5e4225e47e7a47840925cbfdb8536c11fb49a4bd9e8fd9090e40",
+  "calibration": {
+    "scale": 0.16632443531827515,
+    "anchor_x": 336,
+    "ground_y": 1227,
+    "method": "shared-head-width-and-fixed-ground"
+  }
+}

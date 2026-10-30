@@ -27,7 +27,7 @@ class AnimationTests(unittest.TestCase):
         pet.behaviors = load_behaviors(ROOT)
         pet.autoplay, pet._action_deck, pet._last_auto_action = True, [], None
         cycle = []
-        expected = {"GREET", "BOUNCE", "HAPPY", "SHY", "CHEER", "SPIN", "WAITING", "WORK", "REVIEW", "FAILED", "STRETCH", "DOZE", "RUBIK", "THINKING", "IMPATIENT", "RELIEVED", "WALK", "YAWN", "STOMP", "CELEBRATE", "SEARCH"}
+        expected = {"GREET", "BOUNCE", "HAPPY", "SHY", "CHEER", "SPIN", "WAITING", "WORK", "REVIEW", "FAILED", "STRETCH", "DOZE", "RUBIK", "THINKING", "IMPATIENT", "RELIEVED", "WALK", "YAWN", "STOMP", "CELEBRATE", "SEARCH", "TRICK_OR_TREAT", "GHOST_SHEET", "VAMPIRE_CAPE", "WITCH_SPELL", "BLACK_CAT"}
         for _ in range(len(expected)):
             pet._next_auto_action()
             cycle.append(pet.state)

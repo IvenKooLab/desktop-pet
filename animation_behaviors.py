@@ -9,7 +9,7 @@ DEFAULT_ACTIONS = {
     "REVIEW": (4, 6), "FAILED": (4, 6), "STRETCH": (4, 6),
     "DOZE": (4, 6), "RUBIK": (4, 6),
     "THINKING": (1, 1), "IMPATIENT": (1, 1), "RELIEVED": (1, 1),
-    "YAWN": (1, 1), "STOMP": (1, 1), "CELEBRATE": (1, 1), "SEARCH": (1, 1),
+    "YAWN": (1, 1), "STOMP": (1, 1), "CELEBRATE": (1, 1), "SEARCH": (1, 1), "TRICK_OR_TREAT": (1, 1), "GHOST_SHEET": (1, 1), "VAMPIRE_CAPE": (1, 1), "WITCH_SPELL": (1, 1), "BLACK_CAT": (1, 1),
 }
 
 
