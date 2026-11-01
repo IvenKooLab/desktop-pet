@@ -88,9 +88,12 @@ class CompatibilityTests(unittest.TestCase):
         """旧 ~/.iven-pet 一旦存在就优先沿用——即使新目录也被建出来，数据不分叉。"""
         home = Path(tempfile.mkdtemp())
         saved_home = os.environ.get("HOME")
+        # Windows 的 Path.home() 读 USERPROFILE（ntpath.expanduser 不看 HOME）
+        saved_profile = os.environ.get("USERPROFILE")
         saved_override = os.environ.pop("COMI_HOME", None)
         try:
             os.environ["HOME"] = str(home)
+            os.environ["USERPROFILE"] = str(home)
             (home / ".comi-pet").mkdir()                 # 新目录先存在也不抢
             self.assertEqual(comi_home.data_dir(), home / ".comi-pet")
             (home / ".iven-pet").mkdir()
@@ -98,6 +101,10 @@ class CompatibilityTests(unittest.TestCase):
         finally:
             if saved_home is not None:
                 os.environ["HOME"] = saved_home
+            if saved_profile is not None:
+                os.environ["USERPROFILE"] = saved_profile
+            else:
+                os.environ.pop("USERPROFILE", None)
             if saved_override is not None:
                 os.environ["COMI_HOME"] = saved_override
 
