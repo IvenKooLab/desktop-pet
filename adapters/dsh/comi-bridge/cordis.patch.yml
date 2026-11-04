@@ -4,13 +4,21 @@
 # （写入 profile 的 package.json dependencies + bundles 列表，本文件由
 #   dsh.bundle.patch 自动参与合成。）
 #
-# 需要覆盖默认配置时，在 profile 根 cordis.patch.yml 里加（或用环境变量）：
+# 常规配置直接在 DSH webui 的插件配置页改（本插件导出了 Config schema，
+# 全部字段带中文说明）。需要用补丁覆盖时，在 profile 根 cordis.patch.yml
+# 里加（或用环境变量 COMI_BRIDGE_DIR / COMI_CHAT_DIR / COMI_BRIDGE_SUMMARY）：
 #
 #   - id: comi-bridge
 #     name: 'comi-bridge'
 #     config:
 #       eventsDir: ''          # 默认 ~/.comi-pet/events
 #       summary: false         # 或 touch ~/.comi-pet/summary 统一开启
+#       chat: true             # 桌宠对话（宿主 LLM 生成回复）
+#       chatDir: ''            # 默认 ~/.comi-pet/chat
+#       chatMemoryRounds: 8    # 对话记忆轮数（1~50）
+#       chatTimeoutMs: 60000   # 单次生成超时（5000~300000）
+#       chatProvider: ''       # 留空跟随当前会话的 agent 默认
+#       chatModel: ''          # 留空跟随当前会话的 agent 默认
 - insert:
     - id: comi-bridge
       name: 'comi-bridge'

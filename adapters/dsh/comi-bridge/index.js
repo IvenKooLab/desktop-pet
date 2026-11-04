@@ -37,6 +37,36 @@ export const DEFAULT_CONFIG = {
   chatModel: '',
 }
 
+// DSH webui 配置页按插件的 schemastery Config schema 渲染表单（官方插件
+// 同款约定）。符号链接安装时宿主依赖不一定可解析，这里 try/catch 优雅
+// 降级：解析得到 @deepseek-ai/schemastery 就导出可编辑表单，解析不到则
+// Config 保持 undefined，插件按原样工作（cordis.patch.yml 仍可配置）。
+let z = null
+try { z = (await import('@deepseek-ai/schemastery')).default } catch { /* 无宿主依赖 → 纯 DEFAULT_CONFIG */ }
+
+/** 插件配置 schema：webui 配置页据此渲染，字段说明即表单描述。 */
+export let Config
+if (z) {
+  Config = z.object({
+    eventsDir: z.string().default('')
+      .description('收件箱目录；留空 = COMI_BRIDGE_DIR 环境变量或 ~/.comi-pet/events'),
+    summary: z.boolean().default(false)
+      .description('摘要：开启后状态附带 todo 提炼的任务标签'),
+    chat: z.boolean().default(true)
+      .description('对话：允许桌宠「和 Comi 说话」经宿主 LLM 生成回复'),
+    chatDir: z.string().default('')
+      .description('对话目录；留空 = COMI_CHAT_DIR 环境变量或 ~/.comi-pet/chat'),
+    chatMemoryRounds: z.number().min(1).max(50).step(1).default(8)
+      .description('对话记忆保留轮数（一问一答为一轮）'),
+    chatTimeoutMs: z.number().min(5000).max(300000).step(1000).default(60000)
+      .description('单次生成超时（毫秒）'),
+    chatProvider: z.string().default('')
+      .description('可选固定 provider 路由；留空跟随当前会话的 agent 默认模型'),
+    chatModel: z.string().default('')
+      .description('可选固定模型名；留空跟随当前会话的 agent 默认模型'),
+  })
+}
+
 export function sessionIdOf(session) {
   return String(session?.header?.id ?? session?.id ?? 'unknown')
 }
