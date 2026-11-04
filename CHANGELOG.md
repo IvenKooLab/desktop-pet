@@ -12,6 +12,7 @@
 
 - 修复万圣节人物突然放大与道具被运行画布裁切的问题；整段使用相同缩放，首尾共用同一中性站姿。黑猫中生成出重复毛线球的一帧已剔除。
 - 原版非节日 PNG/GIF 共 258 个文件保持不变。新动作按离散姿势播放，不用交叉淡化冒充缺失动作；逐帧变化警告仍保留在验收记录中。
+- Windows 兼容：Codex 适配器 `--server-cmd` 在 Windows 上因 POSIX 模式 `shlex.split` 吃掉路径反斜杠而无法启动，现仅在非 Windows 走 POSIX 拆分；`Path.home()` 在 Windows 读 `USERPROFILE`，相关测试的 HOME 补丁补齐 USERPROFILE。3 个仅 macOS 能过的用例在 Windows 全绿（150 passed）。
 
 ## [2.1.1] - 2026-10-29
 
