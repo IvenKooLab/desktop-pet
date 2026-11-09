@@ -70,6 +70,8 @@ jobs:
         if: runner.os == 'macOS'
         env:
           COMI_PET_ARCH: universal
+          # 无头 runner 没有 WindowServer，--self-test 会在启动 AppKit 时 SIGTRAP
+          COMI_PET_SELFTEST: "0"
         run: |
           zsh tools/build_macos.sh
           python tools/package_release.py macos-universal
@@ -81,6 +83,8 @@ jobs:
 
   publish:
     needs: package
+    # 只有打 tag 才发布；手动 dispatch 只做构建校验，避免在 --verify-tag 处报红
+    if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     permissions:
       contents: write

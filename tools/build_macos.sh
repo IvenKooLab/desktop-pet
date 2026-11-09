@@ -55,5 +55,11 @@ pet_version="$(<VERSION)"
 [[ "$pet_version" == <->.<->.<-> ]] || { print -u2 "Invalid VERSION"; exit 1; }
 /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $pet_version" "$pet_app/Contents/Info.plist"
 codesign --force --sign - "$pet_app"
-"$pet_app/Contents/MacOS/ComiPet" --self-test
+# self-test 会创建 AppKit 对象并校验窗口布局，必须有窗口服务器（WindowServer）。
+# CI 的无头 runner 上执行会直接 SIGTRAP（exit 133），因此允许用 COMI_PET_SELFTEST=0 跳过。
+if [[ "${COMI_PET_SELFTEST:-1}" == "1" ]]; then
+  "$pet_app/Contents/MacOS/ComiPet" --self-test
+else
+  print "Skipping self-test (COMI_PET_SELFTEST=0; headless CI has no WindowServer)."
+fi
 print "Built $pet_app (standalone AppKit, no Python or Codex required)."
