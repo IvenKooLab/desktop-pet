@@ -75,8 +75,6 @@ jobs:
         if: runner.os == 'macOS'
         env:
           COMI_PET_ARCH: universal
-          # 无头 runner 没有 WindowServer，--self-test 会在启动 AppKit 时 SIGTRAP
-          COMI_PET_SELFTEST: "0"
         run: |
           zsh tools/build_macos.sh
           python tools/package_release.py macos-universal
