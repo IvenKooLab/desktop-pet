@@ -51,7 +51,7 @@ jobs:
         include:
           - os: windows-latest
             platform: windows-x64
-          - os: macos-14
+          - os: macos-15
             platform: macos-universal
     runs-on: ${{ matrix.os }}
     steps:
