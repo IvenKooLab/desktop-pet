@@ -29,6 +29,11 @@ jobs:
         shell: bash
         run: |
           version="$(cat VERSION)"
+          # 手动 dispatch = 只做构建校验（publish 有 tag 守卫，不会发布）
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
+            echo "Build-only dispatch for VERSION $version; tag/publish checks skipped."
+            exit 0
+          fi
           if [[ "$GITHUB_REF_TYPE" != tag || "$GITHUB_REF_NAME" != "v$version" ]]; then
             echo 'Run this workflow on the release tag matching VERSION.' >&2
             exit 1
