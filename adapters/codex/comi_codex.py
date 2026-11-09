@@ -64,7 +64,9 @@ class CodexBridge:
             print("[comi-codex]", *msg, file=sys.stderr)
 
     def start(self):
-        argv = shlex.split(self.server_cmd)
+        # Windows 路径含反斜杠，POSIX 模式会把 \ 当转义符吃掉
+        # （D:\tools\python.exe → D:tools...）；仅非 Windows 用 POSIX 拆分
+        argv = shlex.split(self.server_cmd, posix=(sys.platform != "win32"))
         self.proc = subprocess.Popen(
             argv, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
             stderr=subprocess.DEVNULL, text=True, bufsize=1)

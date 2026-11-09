@@ -18,7 +18,9 @@ REPO = Path(__file__).resolve().parents[1]
 class LegacyShimCase(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
-        self.env = dict(os.environ, HOME=self.tmp.name)
+        # Windows 的 Path.home() 读 USERPROFILE（ntpath.expanduser 不看 HOME）
+        self.env = dict(os.environ, HOME=self.tmp.name,
+                        USERPROFILE=self.tmp.name)
 
     def tearDown(self):
         self.tmp.cleanup()

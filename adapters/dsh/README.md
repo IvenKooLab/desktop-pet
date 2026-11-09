@@ -55,10 +55,38 @@ DSH 页面收到请求后认领显示权（写入 client_id 并续满租期）�
 
 ## 配置
 
+插件导出了 schemastery `Config` schema：**DSH webui 的插件配置页可直接编辑全部
+配置项**（带中文说明与默认值），保存后即写入 profile，无需手改 cordis.patch.yml。
+符号链接安装且宿主依赖不可解析时，schema 自动降级（页面退化为空），此时按下表
+手改 cordis.patch.yml，功能不受影响。
+
 | 键 | 默认 | 说明 |
 | --- | --- | --- |
 | `eventsDir` | `COMI_BRIDGE_DIR` 环境变量或 `~/.comi-pet/events` | 收件箱目录 |
 | `summary` | `false` | 开启后附带 todo 提炼的任务标签（截断 80 字） |
+| `chat` | `true` | 对话：允许桌宠「和 Comi 说话」经宿主 LLM 生成回复 |
+| `chatDir` | `COMI_CHAT_DIR` 环境变量或 `~/.comi-pet/chat` | 对话目录 |
+| `chatMemoryRounds` | `8` | 对话记忆保留轮数（一问一答为一轮），1~50 |
+| `chatTimeoutMs` | `60000` | 单次生成超时（毫秒），5000~300000 |
+| `chatProvider` | 空（跟随当前会话） | 可选固定 provider 路由 |
+| `chatModel` | 空（跟随当前会话） | 可选固定模型名 |
+
+cordis.patch.yml 全量示例（一般只覆盖需要改的键）：
+
+```yaml
+- insert:
+    - id: comi-bridge
+      name: 'comi-bridge'
+      config:
+        eventsDir: ''
+        summary: false
+        chat: true
+        chatDir: ''
+        chatMemoryRounds: 8
+        chatTimeoutMs: 60000
+        chatProvider: ''
+        chatModel: ''
+```
 
 ## 卸载
 
