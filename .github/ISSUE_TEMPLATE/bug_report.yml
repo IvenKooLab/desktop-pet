@@ -23,7 +23,7 @@ body:
     attributes:
       label: 版本
       description: "`cat VERSION` 或安装包文件名 / VERSION or the package filename"
-      placeholder: "2.1.0"
+      placeholder: "2.2.0"
     validations:
       required: true
   - type: input
@@ -53,4 +53,4 @@ body:
     id: logs
     attributes:
       label: 日志 / 截图（可选）
-      description: "独立版可附 `crash.log`；适配器相关可附 `ls ~/.iven-pet/events` 的结果"
+      description: "独立版可附 `crash.log`；适配器相关可附 `ls ~/.comi-pet/events` 的结果（旧目录 `~/.iven-pet/events` 仍兼容）"
