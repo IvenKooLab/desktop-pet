@@ -12,7 +12,7 @@ Runs independently — no Codex, account or model API required.
 
 [Download the latest release](https://github.com/IvenKooLab/desktop-pet/releases/latest) · [Changelog](CHANGELOG.md)
 
-**v2.1.1** fixes DSH embedded action controls and custom data-directory consistency, and adds a first-run interaction hint. [Release notes and upgrade steps](docs/releases/v2.1.1.md)
+**v2.2.0** adds five Halloween performances and the Actions → Holidays menu, an editable DSH plugin config page, and Windows / release-pipeline fixes. [Release notes and upgrade steps](docs/releases/v2.2.0.md)
 
 ## A glimpse of her day
 

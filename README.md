@@ -16,7 +16,7 @@
 
 [下载最新版本](https://github.com/IvenKooLab/desktop-pet/releases/latest) · [更新日志](CHANGELOG.md)
 
-**v2.1.1**：修复 DSH 内嵌动作控制与自定义数据目录同步，新增首次玩法提示。[版本说明与升级步骤](docs/releases/v2.1.1.md)
+**v2.2.0**：新增五组万圣节动作与「动作 → 节日」菜单，DSH 插件支持可视化配置，并修复 Windows 适配与发布流水线。[版本说明与升级步骤](docs/releases/v2.2.0.md)
 
 ## 看看她的日常
 
