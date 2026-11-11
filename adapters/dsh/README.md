@@ -26,6 +26,28 @@ ln -s <本仓库绝对路径>/adapters/dsh/comi-bridge \
 
 方式 B：`dsh plugin --profile <name> add <本目录绝对路径>`。
 
+Electron 桌面应用使用的 `desktop` profile 由应用独占管理，`dsh plugin --profile desktop ...`
+会被 CLI 拒绝。若该 profile 升级后丢失插件，按方式 A 手工补齐三处后重启桌面应用：
+
+```bash
+profile="$HOME/.dsh/profiles/desktop"        # Electron 管理的 profile
+plugin="<本仓库绝对路径>/adapters/dsh/comi-bridge"
+
+# 1. package.json: dependencies 加 comi-bridge，dsh.profile.bundles 加 "comi-bridge"
+# 2. 符号链接（保留仓库目录结构，插件要读 frames3d/）
+mkdir -p "$profile/node_modules"
+ln -s "$plugin" "$profile/node_modules/comi-bridge"
+# 3. cordis.patch.yml 追加：
+#    - insert:
+#        - id: comi-bridge
+#          name: 'comi-bridge'
+```
+
+改前备份 `package.json` 与 `cordis.patch.yml`；不要用 force 覆盖 Electron 自己的 profile 配置。
+重启 DSH 后打开同一 Web URL，验证 `GET /comi-pet/api/state` 返回 200。若仍是 404，
+说明宿主没有加载插件，独立桌宠的「DSH 界面内」会等不到网页认领租约，约 6 秒后提示
+「未连上 DSH」并自动回桌面；这不是桌宠应用的 bug，先检查 profile 三处安装。
+
 一次性试验也可以 `dsh --profile <name> --patch <补丁文件>`：把
 `comi-bridge/cordis.patch.yml` 复制到别处、`name` 改成相对补丁文件的
 `./comi-bridge/` 路径（相对路径按补丁文件位置锚定）。

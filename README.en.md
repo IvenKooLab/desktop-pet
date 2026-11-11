@@ -101,7 +101,9 @@ A badge identifies the source currently followed. In automatic mode, `+1` indica
 | [OpenCode](adapters/opencode/README.md) | Server event stream | State adapter and mock server tests provided; validation in the actual client is still needed |
 | [Codex](adapters/codex/README.md) | Separate App Server client | **Cannot currently follow your active Codex desktop session.** Verification covers a separate client’s handshake, thread listing and simulated events; this is not a ready-to-use desktop integration |
 
-Install each adapter separately using the links above. See the [capability matrix](adapters/README.md) for details. Comi is separate from the built-in pets in ChatGPT / Codex and runs without either app.
+Install each adapter separately using the links above. See the [capability matrix](adapters/README.md) for details.
+
+**About built-in pets:** The author also uses a custom pet with the Comi character design in the Codex desktop app. It runs separately from this standalone desktop application and is not included in its downloads. Its existence does not mean that the standalone Codex adapter can follow your active desktop session; the limitation above still applies.
 
 ### Local communication and optional text
 
